@@ -1,0 +1,96 @@
+# Security & privacy — LLD
+
+## 1. Database encryption
+
+```dart
+Future<Uint8List> dbKey() async {
+  const alias = 'llb_db_key';
+  var key = await keystore.read(alias);
+  if (key == null) {
+    key = randomBytes(32);
+    await keystore.write(alias, key,
+        userAuthenticationRequired: false);   // app lock is separate, and optional
+  }
+  return key;
+}
+// drift: NativeDatabase(file, setup: (db) => db.execute("PRAGMA key = \"x'$hex'\""))
+```
+
+**`userAuthenticationRequired: false` is deliberate.** Tying the DB key to biometrics would
+make the app unopenable after a fingerprint reset, and the background sync worker could not
+run at 00:02 with the screen locked.
+
+## 2. App lock
+
+| | |
+|---|---|
+| Default | **Off** |
+| Options | Device PIN, or biometric with PIN fallback |
+| Applies | On cold start and on resume after 5 minutes in the background |
+| Does not apply | To the sync worker, the snapshot job, or the version gate |
+| Failure | No lockout counter. This is a shopkeeping app, not a bank; the real protection is the device lock |
+
+## 3. Google Sign-In
+
+```dart
+final scopes = ['https://www.googleapis.com/auth/drive.file'];
+```
+- Silent sign-in on launch; interactive only on first run or after a revoke.
+- Tokens are held by Play Services, not by the app.
+- On failure: **carry on offline.** Set `syncState = unauthenticated`, banner after 24h.
+  Never a blocking dialog — an auth hiccup must not stop someone taking an order.
+
+## 4. Data classification
+
+| Class | Fields | Handling |
+|---|---|---|
+| Personal | customer name, phone, address text | Encrypted at rest, in the private folder |
+| **Sensitive** | `pin_lat`, `pin_lng`, `pin_url` | As above, plus: never logged, never in an error report, deleted with the order |
+| Business | orders, prices, stock | As personal |
+| Operational | device ids, cursors, HLCs | Not personal; safe to show in Sync & backup |
+
+## 5. Deletion request
+
+```
+tombstone(customer)                       // deleted_at set, op replicated
+  → tombstone every order for that customer
+  → null out address_text, pin_*, notes on those orders   // an explicit erase op
+  → delete attachment files from Drive media/
+  → keep invoices with the name replaced by "Deleted customer"   // financial record
+```
+Invoices survive with the name scrubbed: the money has to stay auditable, the identity does not.
+
+## 6. Retention
+
+```dart
+// monthly, on the snapshot device only
+final cutoff = now.minus(years: 3);
+for (final c in customersWithNoOrderSince(cutoff)) {
+  await anonymise(c);   // name → "Customer 0148", phone → null, notes → null
+}
+```
+Anonymise rather than delete, so historical totals stay correct.
+
+## 7. Logging rules
+
+- **Never logged:** phone numbers, addresses, pins, customer names, message bodies.
+- **Logged:** op ids, entity ids, device ids, HLCs, counts, error types.
+- Crash reports are local only — there is no reporting service, because there is no server.
+
+## 8. Edge cases
+
+| Case | Handling |
+|---|---|
+| Biometric enrolment changes | App lock falls back to PIN. The DB key is unaffected — see §1 |
+| Account removed from the phone | Sync stops, local data intact, banner shown |
+| `drive.file` scope revoked mid-session | Next call fails → `unauthenticated` → banner |
+| Restore onto a phone with an existing key | The snapshot is decrypted; a fresh key is generated for the new DB |
+| Two apps, same account, different phones | Expected. That is the whole design |
+
+## 9. What to test
+
+- Kill the app during first-run key generation; confirm no half-initialised database.
+- Revoke Drive access; confirm the app still opens, still takes orders, and warns after 24h.
+- Confirm no personal field appears in any log line, by grepping a full session's logs.
+- Deletion request: confirm the customer and orders tombstone, media is removed, and the
+  invoice remains with the name scrubbed.

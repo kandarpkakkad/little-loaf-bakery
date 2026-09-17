@@ -1,0 +1,63 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ── secrets: never commit ──────────────────────────────────────────────────
+# Signing key and its password. Losing these means the app can never be
+# updated; leaking them means someone else can sign as this app.
+key.properties
+*.jks
+*.keystore
+backup/
+
+# OAuth client_secret_*.json downloaded from Google Cloud. The app itself needs
+# none of them — Android clients carry no secret, and the web client is used
+# only as an audience — so these are here by accident rather than by design.
+secrets/
+client_secret_*.json
+
+# Machine-specific SDK paths, not shareable.
+local.properties
+.DS_Store

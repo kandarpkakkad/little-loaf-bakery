@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The cream from the logo itself, so the badge sits on its own ground
+         and the adaptive icon reads as one disc rather than a sticker. -->
+    <color name="ic_launcher_background">#F8F0D8</color>
+</resources>
