@@ -1,0 +1,63 @@
+name: Debug build
+
+# Every push to main, and on demand. This is the build you install to try
+# something out — no signing key involved, so it never needs the secrets and a
+# failure here can never affect a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: debug-${{ github.ref }}
+  cancel-in-progress: true      # only the newest push is worth building
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.10'
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # arm64 only. A universal debug APK is ~170 MB and the other ABIs are not
+      # what anyone installs to try a change.
+      - name: Build
+        run: flutter build apk --debug --target-platform android-arm64
+
+      - name: Name it after the commit
+        id: stage
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-debug.apk \
+             "dist/little-loaf-debug-${GITHUB_SHA::7}.apk"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: little-loaf-debug-${{ steps.stage.outputs.sha }}
+          path: dist/*.apk
+          # Debug APKs are large and only interesting while the change is fresh.
+          retention-days: 14
+          compression-level: 0    # an APK is already a zip
