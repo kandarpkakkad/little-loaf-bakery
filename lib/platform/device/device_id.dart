@@ -21,4 +21,15 @@ class DeviceIdStore {
     await _storage.write(key: _key, value: id);
     return id;
   }
+
+  /// Mints a fresh id, discarding the old one. Called after a restore.
+  ///
+  /// It has to be new. The old install's sequence counter was local state and
+  /// is not in the snapshot, so a restored device that kept the id would
+  /// restart its series at 1 and reissue numbers the old one already used.
+  Future<String> rotate() async {
+    final id = Uuid7.generate();
+    await _storage.write(key: _key, value: id);
+    return id;
+  }
 }

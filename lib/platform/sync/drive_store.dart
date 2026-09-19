@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -12,6 +13,9 @@ import 'remote_store.dart';
 ///         <device-id>/
 ///           ops.jsonl
 ///           device.json
+///       snapshot/
+///         owner.json
+///         <yyyy-mm-dd>.db
 ///
 /// The folder is **created by the app**, which is what `drive.file` requires:
 /// that scope grants access only to files this app made, so a folder the user
@@ -28,6 +32,8 @@ class DriveStore implements RemoteStore {
 
   static const rootFolderName = 'Little Loaf Bakery';
   static const _journalFolder = 'journal';
+  static const _snapshotFolder = 'snapshot';
+  static const _ownerFile = 'owner.json';
   static const _opsFile = 'ops.jsonl';
   static const _metaFile = 'device.json';
   static const _folderMime = 'application/vnd.google-apps.folder';
@@ -43,6 +49,9 @@ class DriveStore implements RemoteStore {
 
   Future<String> _deviceFolderId(String deviceId) async =>
       _folder(deviceId, parent: await _journalId());
+
+  Future<String> _snapshotId() async =>
+      _folder(_snapshotFolder, parent: await _rootId());
 
   /// Finds a folder by name under [parent], creating it if absent.
   ///
@@ -139,6 +148,113 @@ class DriveStore implements RemoteStore {
 
     if (existing == null) {
       final folder = await _deviceFolderId(deviceId);
+      await _api.files.create(
+        drive.File()
+          ..name = name
+          ..parents = [folder],
+        uploadMedia: media,
+      );
+    } else {
+      await _api.files.update(drive.File(), existing, uploadMedia: media);
+    }
+  }
+
+  // ── snapshots ──────────────────────────────────────────────────────────
+
+  @override
+  Future<String?> readSnapshotMeta() async {
+    final id = await _inSnapshots(_ownerFile);
+    return id == null ? null : _download(id);
+  }
+
+  @override
+  Future<void> writeSnapshotMeta(String json) async {
+    final bytes = utf8.encode(json);
+    await _put(
+      await _snapshotId(),
+      _ownerFile,
+      drive.Media(Stream.value(bytes), bytes.length,
+          contentType: 'application/json'),
+    );
+  }
+
+  @override
+  Future<List<String>> listSnapshots() async {
+    final folder = await _snapshotId();
+    final found = await _api.files.list(
+      q: "'$folder' in parents and trashed = false",
+      $fields: 'files(id,name)',
+      pageSize: 100,
+    );
+    return [
+      for (final f in found.files ?? const <drive.File>[])
+        if (f.name != _ownerFile) f.name!,
+    ];
+  }
+
+  @override
+  Future<void> uploadSnapshot(String name, File file) async {
+    final length = await file.length();
+    await _put(
+      await _snapshotId(),
+      name,
+      drive.Media(file.openRead(), length,
+          contentType: 'application/x-sqlite3'),
+    );
+  }
+
+  @override
+  Future<bool> downloadSnapshot(String name, File into) async {
+    final id = await _inSnapshots(name);
+    if (id == null) return false;
+    final media = await _api.files.get(
+      id,
+      downloadOptions: drive.DownloadOptions.fullMedia,
+    ) as drive.Media;
+
+    // Streamed to disk rather than collected: a snapshot is the whole
+    // database, and the phone restoring it is usually the cheap one.
+    final sink = into.openWrite();
+    await sink.addStream(media.stream);
+    await sink.flush();
+    await sink.close();
+    return true;
+  }
+
+  @override
+  Future<void> deleteSnapshot(String name) async {
+    final id = await _inSnapshots(name);
+    if (id != null) await _api.files.delete(id);
+  }
+
+  Future<String?> _inSnapshots(String name) async {
+    final folder = await _snapshotId();
+    final found = await _api.files.list(
+      q: "name = '${_escape(name)}' and '$folder' in parents and trashed = false",
+      $fields: 'files(id)',
+      pageSize: 1,
+    );
+    return found.files?.isNotEmpty == true ? found.files!.first.id : null;
+  }
+
+  Future<String> _download(String id) async {
+    final media = await _api.files.get(
+      id,
+      downloadOptions: drive.DownloadOptions.fullMedia,
+    ) as drive.Media;
+    return utf8.decodeStream(media.stream);
+  }
+
+  /// Create-or-replace by name within one folder.
+  Future<void> _put(String folder, String name, drive.Media media) async {
+    final found = await _api.files.list(
+      q: "name = '${_escape(name)}' and '$folder' in parents and trashed = false",
+      $fields: 'files(id)',
+      pageSize: 1,
+    );
+    final existing =
+        found.files?.isNotEmpty == true ? found.files!.first.id : null;
+    if (existing == null) {
       await _api.files.create(
         drive.File()
           ..name = name

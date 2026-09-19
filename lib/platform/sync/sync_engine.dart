@@ -4,7 +4,9 @@ import 'package:drift/drift.dart';
 
 import '../../common/hlc.dart';
 import '../storage/database.dart';
+import '../backup/snapshot.dart';
 import 'apply.dart';
+import 'merge.dart';
 import 'mutations.dart';
 import 'op.dart';
 import 'remote_store.dart';
@@ -14,6 +16,7 @@ import 'remote_store.dart';
 class SyncReport {
   const SyncReport({
     this.uploaded = 0,
+    this.compacted = 0,
     this.applied = 0,
     this.peersRead = 0,
     this.peersSeen = 0,
@@ -23,6 +26,11 @@ class SyncReport {
   });
 
   final int uploaded;
+
+  /// Ops dropped from this device's journal because they are safely inside a
+  /// snapshot and every live peer has read past them.
+  final int compacted;
+
   final int applied;
   final int peersRead;
 
@@ -54,6 +62,7 @@ class SyncReport {
   @override
   String toString() => ok
       ? 'synced: $uploaded up, $applied applied, $peersRead/$peersSeen peers'
+          '${compacted == 0 ? '' : ', $compacted compacted'}'
           '${peerErrors.isEmpty ? '' : ', ${peerErrors.length} unreadable'}'
       : 'sync failed: $error';
 }
@@ -80,6 +89,10 @@ class SyncEngine {
 
   bool _running = false;
 
+  /// The last watermark this device compacted to. -1 until a snapshot exists.
+  int _compactedThrough = -1;
+  bool _compactedThisRun = false;
+
   /// The reader version a peer must be at to read what we write. Bumped only
   /// when the journal format changes in a way an older build would misread —
   /// adding fields does not count, because unknown fields are ignored.
@@ -89,10 +102,20 @@ class SyncEngine {
     if (_running) return const SyncReport();
     _running = true;
     try {
+      _compactedThisRun = false;
+      final compacted = await _compact();
       final uploaded = await _upload();
       final pull = await _pullAll();
+
+      // After the pull, not before: this file is how peers learn how far we
+      // have read, and publishing it first would always be one run stale. It
+      // is also how they learn we are alive, so it goes out on every run —
+      // including the runs where we wrote nothing at all.
+      await _publishMeta();
+
       return SyncReport(
         uploaded: uploaded,
+        compacted: compacted,
         applied: pull.applied,
         peersRead: pull.peers,
         peersSeen: pull.seen,
@@ -106,6 +129,60 @@ class SyncEngine {
     }
   }
 
+  // ────────────────────────────── compaction ─────────────────────────────
+
+  /// Drops ops from the front of our own journal.
+  ///
+  /// Two conditions, and either one alone loses data: the op must already be
+  /// inside the latest snapshot, **and** every live peer must have read past
+  /// it. Without the first, a peer restoring from snapshot would never see it;
+  /// without the second, a peer that has not synced yet would never see it.
+  /// docs/01-platform/sync/lld.md §6
+  Future<int> _compact() async {
+    final owner = SnapshotOwner.parse(await store.readSnapshotMeta());
+    if (owner == null) return 0; // no snapshot: the journal is the only copy
+
+    final through = compactThroughSeq(
+      livePeerCursors: await _peerCursorsOnUs(),
+      snapshotThroughSeq: owner.throughSeq[deviceId] ?? -1,
+    );
+    if (through < 0) return 0;
+    _compactedThrough = through;
+
+    // Gone from the outbox, so the next upload rebuilds a shorter journal.
+    // They are not lost: the snapshot holds them, and every live peer already
+    // read them.
+    final dropped = await (db.delete(db.outbox)
+          ..where((t) => t.seq.isSmallerOrEqualValue(through)))
+        .go();
+    _compactedThisRun = dropped > 0;
+    return dropped;
+  }
+
+  /// How far each **live** peer has read *our* journal, from the `device.json`
+  /// they publish. A peer not seen for 30 days stops counting — otherwise one
+  /// lost phone makes every journal grow forever.
+  Future<List<int>> _peerCursorsOnUs() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final out = <int>[];
+    for (final peer in await store.listDevices()) {
+      if (peer == deviceId) continue;
+      final text = await store.readDeviceMeta(peer);
+      if (text == null) {
+        // A folder with no device.json is a peer we know nothing about.
+        // Treating it as caught up would compact away ops it has not read.
+        out.add(0);
+        continue;
+      }
+      final meta = jsonDecode(text) as Map<String, Object?>;
+      final seen = (meta['last_seen_at'] as num?)?.toInt() ?? 0;
+      if (!isLivePeer(lastSeenAtMs: seen, nowMs: now)) continue;
+      final cursors = meta['cursors'] as Map? ?? const {};
+      out.add((cursors[deviceId] as num?)?.toInt() ?? 0);
+    }
+    return out;
+  }
+
   // ─────────────────────────────── upload ────────────────────────────────
 
   /// Writes the whole journal, not just the new ops, because Drive cannot
@@ -117,16 +194,25 @@ class SyncEngine {
     final pending = all.where((o) => o.uploadedAt == null).toList();
 
     // Nothing new, and the journal already exists — the file on Drive is
-    // already correct, so re-uploading it would only burn quota.
-    if (pending.isEmpty && await store.readJournal(deviceId) != null) return 0;
+    // already correct, so re-uploading it would only burn quota. Unless we
+    // just compacted: then the file is correct but longer than it needs to
+    // be, and shrinking it is the entire point of having compacted.
+    if (pending.isEmpty &&
+        !_compactedThisRun &&
+        await store.readJournal(deviceId) != null) {
+      return 0;
+    }
+
+    // Everything before this has left the outbox. Readers need to know, so a
+    // peer arriving at a compacted journal can tell "not there any more,
+    // it is in the snapshot" from "never written".
+    final floor = all.isEmpty ? _compactedThrough : all.first.seq - 1;
 
     final body = encodeJournal(
       JournalHeader(
         deviceId: deviceId,
         minReaderVersion: kMinReaderVersion,
-        // Nothing is compacted yet: the journal is still the only copy of
-        // every op, so dropping any of it would lose data.
-        compactedThroughSeq: -1,
+        compactedThroughSeq: floor,
       ),
       all.map(_toOp),
     );
@@ -141,7 +227,6 @@ class SyncEngine {
           .write(OutboxCompanion(uploadedAt: Value(now)));
     }
 
-    await _publishMeta();
     return pending.length;
   }
 
@@ -157,7 +242,8 @@ class SyncEngine {
         schemaV: row.schemaV,
       );
 
-  /// Our cursors, so peers know what we have read and can compact behind us.
+  /// Our cursors and a heartbeat, so peers know what we have read and can
+  /// compact behind us — and know we are still here, so they do not.
   Future<void> _publishMeta() async {
     final cursors = await db.select(db.peerCursors).get();
     await store.writeDeviceMeta(

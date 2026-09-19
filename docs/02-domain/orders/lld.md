@@ -128,9 +128,10 @@ rewritten whenever a line is added, edited, delivered or cancelled. The column
 survives because it is NOT NULL and a v9 peer still reads it — not because
 anyone types into it. There is no date picker at order level in either form.
 
-The Orders list sorts on `nextLineDate`. Today and Kitchen must use it too —
-**not built yet**, and until they are, a two-day order shows against the wrong
-day in those two screens.
+The Orders list sorts on `nextLineDate`, and Today and Kitchen read line dates
+directly: Today counts orders with a line due that day, and Kitchen is a board
+of lines rather than of orders. A two-day order therefore appears on both its
+days, in the right place on each.
 
 ### 4.3 Moving several lines at once
 

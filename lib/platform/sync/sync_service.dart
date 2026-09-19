@@ -1,5 +1,10 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../backup/restore.dart';
+import '../backup/snapshot.dart';
 import '../storage/database.dart';
 import 'drive_auth.dart';
 import 'drive_store.dart';
@@ -23,6 +28,8 @@ class SyncStatus {
     this.lastSyncAt,
     this.lastReport,
     this.blocker,
+    this.owner,
+    this.backupKnown = false,
   });
 
   final bool busy;
@@ -31,7 +38,21 @@ class SyncStatus {
   final SyncReport? lastReport;
   final SyncBlocker? blocker;
 
+  /// Who takes the nightly snapshot, and when the last one landed. Null means
+  /// nobody has claimed the job — which is different from not having looked.
+  final SnapshotOwner? owner;
+
+  /// Whether the owner file has been read at all this session.
+  final bool backupKnown;
+
   bool get connected => email != null;
+
+  /// Three days without a snapshot. Worth saying, because journals cannot
+  /// compact while this is true.
+  bool get backupStale =>
+      backupKnown &&
+      (owner == null ||
+          owner!.isStaleAt(DateTime.now().millisecondsSinceEpoch));
 
   SyncStatus copyWith({
     bool? busy,
@@ -39,8 +60,11 @@ class SyncStatus {
     DateTime? lastSyncAt,
     SyncReport? lastReport,
     SyncBlocker? blocker,
+    SnapshotOwner? owner,
+    bool? backupKnown,
     bool clearBlocker = false,
     bool clearEmail = false,
+    bool clearOwner = false,
   }) =>
       SyncStatus(
         busy: busy ?? this.busy,
@@ -48,6 +72,8 @@ class SyncStatus {
         lastSyncAt: lastSyncAt ?? this.lastSyncAt,
         lastReport: lastReport ?? this.lastReport,
         blocker: clearBlocker ? null : (blocker ?? this.blocker),
+        owner: clearOwner ? null : (owner ?? this.owner),
+        backupKnown: backupKnown ?? this.backupKnown,
       );
 }
 
@@ -148,6 +174,67 @@ class SyncService extends ChangeNotifier {
       lastSyncAt: report.ok ? DateTime.now() : null,
       clearBlocker: report.ok,
     ));
+    if (report.ok) unawaited(refreshBackup());
     return report;
+  }
+
+  // ─────────────────────────────── backup ────────────────────────────────
+
+  /// Reads `snapshot/owner.json`. Quiet on failure: not knowing who owns the
+  /// snapshot is not a reason to make the sync screen look broken.
+  Future<void> refreshBackup() async {
+    final store = await _store();
+    if (store == null) return;
+    try {
+      final owner = SnapshotOwner.parse(await store.readSnapshotMeta());
+      _set(_status.copyWith(
+        owner: owner,
+        clearOwner: owner == null,
+        backupKnown: true,
+      ));
+    } catch (_) {
+      // leave the previous answer standing
+    }
+  }
+
+  /// Takes a snapshot now, whatever the hour.
+  ///
+  /// The same job the nightly task runs, which means the same ownership rule:
+  /// on a device that is not the snapshot owner this returns [
+  /// SnapshotOutcome.notOwner] and changes nothing.
+  Future<SnapshotResult> backUpNow() async {
+    final store = await _store();
+    if (store == null) {
+      return const SnapshotResult(SnapshotOutcome.failed,
+          error: 'not authorised');
+    }
+    final result = await SnapshotService(
+      db: db,
+      store: store,
+      deviceId: deviceId,
+      workDir: await getTemporaryDirectory(),
+    ).run();
+    await refreshBackup();
+    return result;
+  }
+
+  Future<List<SnapshotChoice>> restoreChoices() async {
+    final store = await _store();
+    if (store == null) return const [];
+    return RestoreService(store: store).available();
+  }
+
+  /// Downloads and parks a snapshot. It is swapped in at the next launch —
+  /// see [applyPendingRestore].
+  Future<void> stageRestore(String name) async {
+    final store = await _store();
+    if (store == null) throw StateError('Connect Google Drive first.');
+    await RestoreService(store: store).stage(name);
+  }
+
+  Future<DriveStore?> _store() async {
+    if (!_status.connected) return null;
+    final token = await auth.silentToken();
+    return token == null ? null : DriveStore.withToken(token);
   }
 }

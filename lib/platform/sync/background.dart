@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'package:path_provider/path_provider.dart';
+
+import '../backup/snapshot.dart';
 import '../device/device_id.dart';
 import '../storage/connection.dart';
 import 'drive_auth.dart';
@@ -22,6 +25,14 @@ import 'sync_engine.dart';
 /// nobody has picked up since yesterday.
 const _taskName = 'little-loaf-sync';
 const _uniqueName = 'little-loaf-periodic-sync';
+const _snapshotTask = 'little-loaf-snapshot';
+const _snapshotUnique = 'little-loaf-nightly-snapshot';
+
+/// 00:02 Asia/Kolkata. Two minutes past, not midnight, so a date-stamped file
+/// cannot land on the wrong side of the day boundary on a slow clock.
+const _snapshotHourIst = 0;
+const _snapshotMinuteIst = 2;
+const _ist = Duration(hours: 5, minutes: 30);
 
 /// Entry point for the background isolate. Must be top level and must carry the
 /// pragma, or tree-shaking removes it from the release build and the task
@@ -29,6 +40,7 @@ const _uniqueName = 'little-loaf-periodic-sync';
 @pragma('vm:entry-point')
 void syncCallbackDispatcher() {
   Workmanager().executeTask((task, _) async {
+    if (task == _snapshotTask) return runNightlySnapshot();
     if (task != _taskName) return true;
     return runBackgroundSync();
   });
@@ -68,6 +80,37 @@ Future<bool> runBackgroundSync() async {
   }
 }
 
+/// The nightly backup, in the same borrowed-nothing style as the sync task.
+///
+/// Returns true even when this device is not the snapshot owner: that is the
+/// normal answer for every device but one, and telling WorkManager it failed
+/// would earn the task a backoff it never recovers from.
+@pragma('vm:entry-point')
+Future<bool> runNightlySnapshot() async {
+  try {
+    final token = await DriveAuth().silentToken();
+    if (token == null) return true;
+
+    final deviceId = await const DeviceIdStore().readOrCreate();
+    final db = await openAppDatabase();
+    try {
+      final result = await SnapshotService(
+        db: db,
+        store: DriveStore.withToken(token),
+        deviceId: deviceId,
+        workDir: await getTemporaryDirectory(),
+      ).run();
+      if (!result.ok) debugPrint('snapshot failed: ${result.error}');
+      return result.ok;
+    } finally {
+      await db.close();
+    }
+  } catch (e) {
+    debugPrint('nightly snapshot failed: $e');
+    return false;
+  }
+}
+
 /// Called once at startup. Registering the same unique name again replaces the
 /// existing schedule rather than stacking a second one.
 Future<void> registerBackgroundSync() async {
@@ -88,6 +131,37 @@ Future<void> registerBackgroundSync() async {
     backoffPolicy: BackoffPolicy.exponential,
     backoffPolicyDelay: const Duration(minutes: 5),
   );
+
+  await Workmanager().registerPeriodicTask(
+    _snapshotUnique,
+    _snapshotTask,
+    frequency: const Duration(hours: 24),
+    initialDelay: untilNextSnapshot(DateTime.now()),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    constraints: Constraints(
+      networkType: NetworkType.unmetered,
+      requiresBatteryNotLow: true,
+    ),
+    backoffPolicy: BackoffPolicy.exponential,
+    backoffPolicyDelay: const Duration(minutes: 30),
+  );
+}
+
+/// How long until the next 00:02 IST.
+///
+/// Computed in IST rather than in whatever the phone is set to, because the
+/// snapshot file is named for the Indian date and a tablet that travelled
+/// would otherwise start writing tomorrow's name tonight.
+///
+/// The phone being asleep at 00:02 is expected, not an error: Android runs
+/// deferred work when it next surfaces, and `last_snapshot_at` records when
+/// that actually was.
+Duration untilNextSnapshot(DateTime now) {
+  final ist = now.toUtc().add(_ist);
+  var due = DateTime.utc(ist.year, ist.month, ist.day, _snapshotHourIst,
+      _snapshotMinuteIst);
+  if (!due.isAfter(ist)) due = due.add(const Duration(days: 1));
+  return due.difference(ist);
 }
 
 extension on TargetPlatform {

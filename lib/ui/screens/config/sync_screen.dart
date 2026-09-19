@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
+import '../../../platform/backup/restore.dart';
+import '../../../platform/backup/snapshot.dart';
 import '../../../platform/sync/sync_engine.dart';
 import '../../../platform/sync/sync_service.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/primitives.dart';
 
 /// Connect Drive, see what is waiting, sync by hand.
 ///
@@ -46,6 +49,101 @@ class _SyncScreenState extends State<SyncScreen> {
         final r => 'Synced — ${r.uploaded} sent, ${r.applied} received',
       }),
     ));
+  }
+
+  Future<void> _backUpNow() async {
+    final result = await _sync.backUpNow();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(switch (result.outcome) {
+        SnapshotOutcome.uploaded => 'Backed up to Drive.',
+        SnapshotOutcome.notOwner =>
+          'Another device takes the backups, so this one did not.',
+        SnapshotOutcome.failed => 'Backup failed: ${result.error}',
+      }),
+    ));
+  }
+
+  Future<void> _restore() async {
+    final choices = await _sync.restoreChoices();
+    if (!mounted) return;
+
+    if (choices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('There are no backups in Drive yet.')),
+      );
+      return;
+    }
+
+    final picked = await showModalBottomSheet<SnapshotChoice>(
+      context: context,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  Space.lg, Space.lg, Space.lg, Space.sm),
+              child: Text('Restore from a backup',
+                  style: context.text.titleMedium),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final c in choices)
+                    ListTile(
+                      title: Text(_when(c.takenOn.millisecondsSinceEpoch)),
+                      subtitle: c == choices.first
+                          ? const Micro('Most recent')
+                          : null,
+                      onTap: () => Navigator.pop(sheet, c),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Restore this backup?'),
+        content: Text(
+          'Everything on this device is replaced with the backup from '
+          '${_when(picked.takenOn.millisecondsSinceEpoch)}, and anything '
+          'since then that has not reached Drive is lost.\n\n'
+          'The backup is downloaded now and put in place the next time the '
+          'app starts.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(d, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(d, true),
+              child: const Text('Restore')),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+
+    try {
+      await _sync.stageRestore(picked.name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Downloaded. Close and reopen the app to finish.'),
+        duration: Duration(seconds: 6),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Future<void> _disconnect() async {
@@ -117,6 +215,16 @@ class _SyncScreenState extends State<SyncScreen> {
                   ),
                 ],
 
+                if (s.connected) ...[
+                  const SizedBox(height: Space.xl),
+                  _BackupSection(
+                    status: s,
+                    deviceId: context.app.deviceId,
+                    onBackUp: _backUpNow,
+                    onRestore: _restore,
+                  ),
+                ],
+
                 const SizedBox(height: Space.xl),
                 if (s.lastReport != null) _PeerFacts(report: s.lastReport!),
                 StreamBuilder<int>(
@@ -142,6 +250,98 @@ class _SyncScreenState extends State<SyncScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// The other half of the backup: journals hold the recent tail, a snapshot
+/// holds everything before it.
+///
+/// One device takes them and the rest skip, which is why this says *which*
+/// device — if that phone is gone, the fix is to delete `snapshot/owner.json`
+/// in Drive, and nothing on this screen can do it for you.
+class _BackupSection extends StatelessWidget {
+  const _BackupSection({
+    required this.status,
+    required this.deviceId,
+    required this.onBackUp,
+    required this.onRestore,
+  });
+
+  final SyncStatus status;
+  final String deviceId;
+  final VoidCallback onBackUp;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final owner = status.owner;
+    final ours = owner?.deviceId == deviceId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('Backup'),
+        LoafCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Fact(
+                'Last backup',
+                owner?.lastSnapshotAt == null
+                    ? 'never'
+                    : _when(owner!.lastSnapshotAt!),
+              ),
+              _Fact(
+                'Taken by',
+                owner == null
+                    ? 'nobody yet'
+                    : ours
+                        ? 'this device'
+                        : '${owner.deviceId.substring(0, 8)}…',
+              ),
+              if (status.backupStale)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.sm),
+                  child: Text(
+                    owner == null
+                        ? 'No device has taken a backup yet. Tap "Back up now" '
+                            'and this one will take them from then on.'
+                        : 'No backup since '
+                            '${_when(owner.lastSnapshotAt ?? owner.claimedAt)}. '
+                            '${ours ? 'This device' : '${owner.deviceId.substring(0, 8)}…'} '
+                            'is the backup device. If that phone is gone, '
+                            'delete snapshot/owner.json in the Little Loaf '
+                            'Bakery folder in Drive, and the next device to '
+                            'try will take over.',
+                    style: context.text.bodySmall!.copyWith(color: c.warn),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.md),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: status.busy ? null : onBackUp,
+                icon: const Icon(Icons.backup_outlined, size: 18),
+                label: const Text('Back up now'),
+              ),
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: status.busy ? null : onRestore,
+                icon: const Icon(Icons.settings_backup_restore, size: 18),
+                label: const Text('Restore'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -285,4 +485,15 @@ class _PeerFacts extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A backup date carries a year, unlike every other date in the app: these go
+/// back two weeks and the list is read months after it was written.
+String _when(int ms) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  return '${d.day} ${months[d.month - 1]} ${d.year}';
 }

@@ -76,16 +76,17 @@ only, so an op either introduces a row or is a duplicate to ignore.
 
 ## 6. Compaction
 
-> **Not built.** The engine writes `compacted_through_seq: -1` on every upload,
-> meaning nothing has been dropped: the journal is still the only copy of every
-> op. It cannot compact until snapshots exist, because the second guard below
-> has nothing to read. The rules here are implemented and unit-tested in
-> `merge.dart` (`compactThroughSeq`, `isLivePeer`) — only the caller is missing.
->
-> Consequence: journals grow without bound. At bakery volumes that is a long way
-> off, but it is not zero.
+Built — `SyncEngine._compact()`, over the rules in `merge.dart`
+(`compactThroughSeq`, `isLivePeer`). 7 tests, each removing one guard.
 
-Runs after a successful pull, when peer cursors have advanced.
+Runs at the **start** of a run rather than after the pull, so the shorter
+journal goes out in the same upload. The inputs are all from the previous run
+— a snapshot taken in the night, cursors peers published since — so there is
+nothing to gain from compacting after a pull and one upload to be saved.
+
+A peer with a journal folder but no `device.json` counts as having read
+**nothing**. Unknown is not the same as caught up, and the cost of being wrong
+in that direction is an op nobody ever sees.
 
 ```
 liveePeers  = devices where last_seen_at > now - 30d

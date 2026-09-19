@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../backup/restore.dart';
+import '../device/device_id.dart';
 import '../security/db_key.dart';
 import 'database.dart';
 
@@ -15,10 +17,17 @@ import 'database.dart';
 /// transaction. Nothing is bundled and nothing is fetched — the app is usable
 /// offline before Google Sign-In has been touched.
 /// See docs/01-platform/storage/schema.md § First run.
-Future<AppDatabase> openAppDatabase({DbKeyStore? keys}) async {
+Future<AppDatabase> openAppDatabase({DbKeyStore? keys, DeviceIdStore? devices}) async {
   final dir = await getApplicationDocumentsDirectory();
   final file = File(p.join(dir.path, 'little_loaf.db'));
   final key = await (keys ?? const DbKeyStore()).readOrCreate();
+
+  // A snapshot parked by the restore screen is swapped in here, before
+  // anything holds the old file open. Ordinary launches find nothing staged
+  // and this costs one `existsSync`.
+  final restored =
+      await applyPendingRestore(dir: dir, dbFile: file, hexKey: key);
+  if (restored) await (devices ?? const DeviceIdStore()).rotate();
 
   return AppDatabase(
     NativeDatabase.createInBackground(

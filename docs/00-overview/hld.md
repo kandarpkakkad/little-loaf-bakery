@@ -112,7 +112,10 @@ Drive journals (peers)
   app resume so Doze is never the only path.
 - **Only one sync run at a time**, guarded by a local lock. A second trigger is dropped, not
   queued — the next scheduled tick will pick up anything missed.
-- **Snapshot writing** is its own worker, and never overlaps a sync run. **Not built** — see [backup](../01-platform/backup/hld.md).
+- **Snapshot writing** is its own worker on a 24-hour schedule aimed at 00:02 IST, registered
+  beside the sync worker in `sync/background.dart`. The two do not coordinate: a snapshot is
+  `sqlcipher_export`, which is transactional, so a sync writing underneath it simply lands in
+  the next one. See [backup](../01-platform/backup/hld.md).
 
 ## 8. What is deliberately absent
 

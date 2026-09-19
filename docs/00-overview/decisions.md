@@ -151,7 +151,7 @@ so a new file each release would need the address of an APK that does not exist 
 **Bonus:** Drive keeps 30 days of prior versions, which is a free rollback.
 
 ### D25 · A line is scheduled, not the order
-> **Not built.** Design only — see [orders/lld.md](../02-domain/orders/lld.md) §4.
+Built — schema v10, `OrderRepository`, and every screen that reads a date.
 
 **Chose:** delivery date, time, type, address and status move **down to `order_items`**.
 One order can put a cake at the house on Friday and a snack box at the office on Sunday.
@@ -176,7 +176,7 @@ value the next item change silently overwrote, which is a control that looks lik
 does not.
 
 ### D26 · The order's status is computed, never typed
-> **Not built.** Design only.
+Built — `deriveOrderStatus` in `domain/orders/model.dart`.
 
 **Chose:** you move **lines**; the order follows. `in_progress` once any line is in
 production, `delivered` only when every live line is delivered.

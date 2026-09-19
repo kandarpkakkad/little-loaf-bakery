@@ -45,10 +45,9 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | orders — editing and adding items on a live order | built, with what an item *is* locked once a baker starts |
 | menu — seasonality | built — months in Config, shown beside the item in the picker |
 | invoicing — issue, freeze, void | built — one per order, issued when the last item lands, totals frozen at that moment |
+| backup, restore, journal compaction | built — nightly snapshot at 00:02 IST, one owner device, 14 kept. Restore is staged and applied at the next launch |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
 | Today and Kitchen reading line dates | built — Today counts orders with a line due that day; Kitchen is a board of lines |
-| sync — journal compaction | **not built** — rules exist and are tested in `merge.dart`, nothing calls them; journals grow unbounded |
-| backup — snapshots, restore | **not built** — no code at all. Compaction is blocked on this |
 | invoicing — GST columns and a separate invoice screen | **not built** — the bill itself is issued and rendered; GST stays behind `gst_enabled` |
 | security — app lock | **not built** — `settings.app_lock_enabled` exists and nothing reads it |
 | versioning — app.json version gate | **not built**. (`min_reader_version` in the sync journal is a different, working mechanism) |
