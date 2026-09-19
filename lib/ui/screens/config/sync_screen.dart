@@ -5,6 +5,7 @@ import '../../../platform/backup/restore.dart';
 import '../../../platform/backup/snapshot.dart';
 import '../../../platform/sync/sync_engine.dart';
 import '../../../platform/sync/sync_service.dart';
+import '../../../platform/versioning/version.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -235,6 +236,7 @@ class _SyncScreenState extends State<SyncScreen> {
                   ),
                 ),
                 _Fact('This device', context.app.deviceId),
+                _Fact('Version', '$kAppVersion ($kAppBuild)'),
 
                 const SizedBox(height: Space.xl),
                 Text(

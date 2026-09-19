@@ -1,10 +1,24 @@
 # Versioning & distribution — HLD
 
 
-> **Not built.** There is no `app.json`, no version gate and no update
-> prompt. (`min_reader_version` in the sync journal is a separate mechanism
-> that *is* built — it makes one peer skip another's journal, nothing more.)
-> What follows is the design.
+Built — `lib/platform/versioning/`, the block screen and banner in
+`ui/shell/update_gate.dart`, 18 tests.
+
+**The gate reads two sources, not one.** Distribution moved to GitHub
+Releases, so that is where "what is the newest build" is answered — and it
+answers for a device that has never connected Drive. But a GitHub release has
+nowhere to carry `min_supported_version`, so the floor still lives in
+`app.json` beside the journals. The gate merges them: the newer `latest`, and
+the stricter floor either one names. One source being unreachable loses only
+what that source knew.
+
+Versions are **semver strings** rather than integers, because the release tag
+is the version and the tag is `v0.1.1`. `v`, a `+build` suffix and an `-rc`
+suffix all compare equal to the bare version, so a tag and a pubspec line are
+the same thing to the comparator.
+
+`app.json` sits at the **root** of the shared folder, beside `journal/` and
+`snapshot/`: it is a fact about the app, not about one device's ops.
 
 ## Purpose
 Let devices run different versions safely, force an upgrade when they cannot, and get the APK
@@ -39,10 +53,14 @@ hand-edits JSON in Drive.**
 because Drive hiccuped.
 
 ## Distribution
-The APK lives at `releases/little-loaf.apk`, **replaced in place** — never a new file, because
-a Drive download URL contains the file id and that URL is baked into the build (D24). Sharing
-stays off; every device is signed into the account that can read it. Drive keeps 30 days of
-prior versions, which is a free rollback.
+**GitHub Releases**, published by the tag-driven pipeline: pushing `v0.1.2` builds, signs,
+verifies the signature and uploads `little-loaf-v0.1.2-arm64.apk` and the arm32 build. The
+banner and the block screen link to the arm64 asset — arm32 exists for one old tablet and is
+not what an update prompt should hand out.
+
+This supersedes D24's Drive-hosted APK. The reason D24 existed — a Drive download URL contains
+a file id, so a new file each release would need the address of an APK that does not exist yet
+— does not apply to a release page whose URL is `/releases/latest`.
 
 ## Failure modes
 | Failure | Behaviour |

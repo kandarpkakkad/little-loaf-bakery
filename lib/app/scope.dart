@@ -7,6 +7,7 @@ import '../domain/orders/repository.dart';
 import '../domain/reporting/repository.dart';
 import '../domain/stock/repository.dart';
 import '../platform/security/app_lock.dart';
+import '../platform/versioning/app_updates.dart';
 import '../platform/storage/database.dart';
 import '../platform/sync/mutations.dart';
 import '../platform/sync/sync_service.dart';
@@ -30,6 +31,7 @@ class AppServices {
         invoices = InvoiceRepository(db, mutations),
         sync = SyncService(db: db, mutations: mutations, deviceId: deviceId) {
     reports = ReportRepository(db, orders);
+    updates = AppUpdates(sync);
   }
 
   final AppDatabase db;
@@ -51,6 +53,9 @@ class AppServices {
   /// Whether the app asks for the device PIN before it shows anything. Off by
   /// default, and the switch is in Business details.
   final AppLock lock;
+
+  /// Whether this build is too old to carry on. Reads GitHub and `app.json`.
+  late final AppUpdates updates;
 
   Future<Setting> settings() => db.select(db.settings).getSingle();
 }

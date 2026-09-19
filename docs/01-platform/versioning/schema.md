@@ -4,14 +4,20 @@ No tables. One Drive artefact and the build constants.
 
 ## `app.json`
 
+At the **root** of the shared folder, beside `journal/` and `snapshot/` — it is a fact about
+the app, not about one device's ops.
+
 ```jsonc
 {
-  "latest_version":        14,
-  "min_supported_version": 12,
+  "latest_version":        "0.1.2",
+  "min_supported_version": "0.1.0",
   "published_at":          "2026-08-27T09:00:00Z",
-  "apk_url":               "https://drive.google.com/uc?export=download&id=<file-id>"
+  "apk_url":               "https://github.com/…/little-loaf-v0.1.2-arm64.apk"
 }
 ```
+
+Versions are semver **strings**, matching the release tag. `v0.1.2`, `0.1.2` and `0.1.2+7`
+all compare equal.
 
 | Field | Rules |
 |---|---|
@@ -24,21 +30,27 @@ Nobody hand-edits this. The newest app writes it.
 
 ## Build constants
 
+`lib/platform/versioning/version.dart`:
+
 ```dart
-const int kAppVersion       = 14;
-const int kMinSupported     = 12;   // written into app.json
-const int kSchemaVersion    = 7;    // storage
-const int kMinReaderVersion = 12;   // written into our journal header
-const String kApkUrl = 'https://drive.google.com/uc?export=download&id=<file-id>';
+const String kAppVersion   = '0.1.1';   // matches pubspec, and the tag without its v
+const int    kAppBuild     = 2;
+const String kMinSupported = '0.1.0';   // written into app.json
 ```
+
+Constants rather than read from the package at runtime: the gate has to work before anything
+is initialised, and a version that cannot be read is a version that cannot block. A test
+asserts they match `pubspec.yaml`, so they cannot drift — and that `kMinSupported` is not
+newer than `kAppVersion`, which would block every device including the one that wrote it.
+
+Elsewhere: `kSchemaVersion` (storage) and `SyncEngine.kMinReaderVersion` (journal header) are
+separate numbers with separate jobs.
 
 `kMinSupported` and `kMinReaderVersion` are the two numbers that lock devices out. Move them
 only for a genuine incompatibility.
 
-## `releases/little-loaf.apk`
+## The APK
 
-**One file, replaced in place** — *Manage versions → Upload new version*, never a new upload.
-A Drive download URL contains the file id, and that URL is baked into the build, so a new file
-each release would need the address of an APK that does not exist yet (D24).
-
-Drive keeps 30 days of prior versions, which is a free rollback.
+**GitHub Releases**, one per tag, built and signed by `.github/workflows/release.yml`. Every
+release keeps its own assets, so any prior version is still installable — a better rollback
+than the 30 days D24 was buying from Drive.

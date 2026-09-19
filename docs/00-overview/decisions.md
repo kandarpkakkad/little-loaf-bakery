@@ -146,6 +146,12 @@ and lightness. **Every pair clears WCAG AA on every ground it sits on** — the 
 darkened 3% for body text and kept exact on the app bar.
 
 ### D24 · The APK lives in Drive, replaced in place
+> **Superseded.** Distribution is GitHub Releases, built and signed by the tag-driven
+> pipeline. The reason this decision existed — a Drive download URL contains a file id, so a
+> new file each release would need the address of an APK that does not exist yet — does not
+> apply to a release page whose URL is `/releases/latest`. Every release keeps its own
+> assets, which is a better rollback than the 30 days Drive was giving.
+
 **Because:** a Drive download URL contains the file id, and the URL is baked into the build —
 so a new file each release would need the address of an APK that does not exist yet.
 **Bonus:** Drive keeps 30 days of prior versions, which is a free rollback.

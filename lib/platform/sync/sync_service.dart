@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../backup/restore.dart';
+import 'remote_store.dart';
 import '../backup/snapshot.dart';
 import '../storage/database.dart';
 import 'drive_auth.dart';
@@ -231,6 +232,10 @@ class SyncService extends ChangeNotifier {
     if (store == null) throw StateError('Connect Google Drive first.');
     await RestoreService(store: store).stage(name);
   }
+
+  /// The Drive folder, if this device can reach it. Used by the version gate,
+  /// which reads `app.json` from the same place the journals live.
+  Future<RemoteStore?> remoteStore() => _store();
 
   Future<DriveStore?> _store() async {
     if (!_status.connected) return null;

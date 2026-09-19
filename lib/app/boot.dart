@@ -9,6 +9,7 @@ import '../platform/storage/database.dart';
 import '../platform/sync/background.dart';
 import '../platform/sync/mutations.dart';
 import '../ui/shell/lock_gate.dart';
+import '../ui/shell/update_gate.dart';
 import '../ui/shell/shell.dart';
 import '../ui/theme/theme.dart';
 import 'scope.dart';
@@ -79,7 +80,8 @@ class _BootState extends State<Boot> {
             // Through the builder, so the lock covers pushed routes too — it
             // sits above the Navigator but inside the theme.
             builder: snap.hasData
-                ? (context, child) => LockGate(child: child!)
+                ? (context, child) =>
+                    LockGate(child: UpdateGate(child: child!))
                 : null,
             home: snap.hasError
                 ? _BootError(error: snap.error!)

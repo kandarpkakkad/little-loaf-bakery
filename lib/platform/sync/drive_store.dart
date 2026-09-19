@@ -34,6 +34,7 @@ class DriveStore implements RemoteStore {
   static const _journalFolder = 'journal';
   static const _snapshotFolder = 'snapshot';
   static const _ownerFile = 'owner.json';
+  static const _appConfigFile = 'app.json';
   static const _opsFile = 'ops.jsonl';
   static const _metaFile = 'device.json';
   static const _folderMime = 'application/vnd.google-apps.folder';
@@ -227,8 +228,27 @@ class DriveStore implements RemoteStore {
     if (id != null) await _api.files.delete(id);
   }
 
-  Future<String?> _inSnapshots(String name) async {
-    final folder = await _snapshotId();
+  @override
+  Future<String?> readAppConfig() async {
+    final id = await _inFolder(await _rootId(), _appConfigFile);
+    return id == null ? null : _download(id);
+  }
+
+  @override
+  Future<void> writeAppConfig(String json) async {
+    final bytes = utf8.encode(json);
+    await _put(
+      await _rootId(),
+      _appConfigFile,
+      drive.Media(Stream.value(bytes), bytes.length,
+          contentType: 'application/json'),
+    );
+  }
+
+  Future<String?> _inSnapshots(String name) async =>
+      _inFolder(await _snapshotId(), name);
+
+  Future<String?> _inFolder(String folder, String name) async {
     final found = await _api.files.list(
       q: "name = '${_escape(name)}' and '$folder' in parents and trashed = false",
       $fields: 'files(id)',
