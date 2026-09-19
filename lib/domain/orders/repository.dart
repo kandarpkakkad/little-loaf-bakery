@@ -5,6 +5,7 @@ import '../../common/money.dart';
 import '../../platform/storage/database.dart';
 import '../../platform/sync/mutations.dart';
 import '../../platform/sync/op.dart';
+import '../invoicing/repository.dart';
 import 'model.dart';
 
 /// An order with everything the list and the detail screen need, assembled
@@ -625,6 +626,16 @@ class OrderRepository {
       // Delivering or cancelling changes which lines are still outstanding,
       // and so which of them the order is due on.
       await _refreshOrderDate(i.orderId, hlc);
+
+      // The bill covers the order, so it is issued once — when the last live
+      // item has gone, not as each one does.
+      if (to == LineStatus.delivered) {
+        final after = await _linesOf(i.orderId);
+        final live = after.where((l) => l.isLive);
+        if (live.isNotEmpty && live.every((l) => l.status == LineStatus.delivered)) {
+          await _issueInvoice(i.orderId, after);
+        }
+      }
     });
   }
 
@@ -948,6 +959,27 @@ class OrderRepository {
       if (to == LineStatus.cancelled) 'cancel_reason': reason,
     });
     await _insertLineEvent(lineId, from, to, now, hlc, reason: reason);
+  }
+
+  /// Issued here rather than by the UI so a peer's op, a bulk move and a tap
+  /// all produce exactly one invoice. [InvoiceRepository.issue] is idempotent,
+  /// which is what makes that safe.
+  Future<void> _issueInvoice(String orderId, List<OrderLine> lines) async {
+    final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+        .getSingle();
+    await InvoiceRepository(db, mutations).issue(
+      orderId: orderId,
+      lines: lines,
+      totals: OrderTotals(
+        lines: lines,
+        discountType: o.discountType == null
+            ? null
+            : DiscountType.values.byName(o.discountType!),
+        discountValue: o.discountValue ?? 0,
+        deliveryCharge: Money(o.deliveryCharge),
+        paid: await _paidOf(orderId),
+      ),
+    );
   }
 
   Future<void> _insertLineEvent(

@@ -1,9 +1,14 @@
 # Invoicing — HLD
 
 
-> **Not built.** The `invoices` table and its GST columns exist in the
-> schema, but nothing writes them and there is no invoice screen. What
-> follows is the design.
+Built — `lib/domain/invoicing/repository.dart`, seven tests. Issued
+automatically when the **last live item** of an order is delivered, because the
+bill covers the order rather than the handover.
+
+**Still not built:** the GST columns (`gstin`, `hsn_code`, `tax_rate`, `cgst`,
+`sgst`, `igst`, `place_of_supply`) remain unwritten behind `gst_enabled`, and
+there is no separate invoice screen — the bill is rendered as a WhatsApp
+message from order detail, which is what D13 asked for.
 
 ## Purpose
 Produce a bill of supply that is numbered, immutable and readable in a WhatsApp message.

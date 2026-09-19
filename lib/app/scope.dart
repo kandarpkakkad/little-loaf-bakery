@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../domain/customers/repository.dart';
+import '../domain/invoicing/repository.dart';
 import '../domain/menu/repository.dart';
 import '../domain/orders/repository.dart';
 import '../domain/stock/repository.dart';
@@ -22,6 +23,7 @@ class AppServices {
         customers = CustomerRepository(db, mutations),
         orders = OrderRepository(db, mutations),
         stock = StockRepository(db, mutations),
+        invoices = InvoiceRepository(db, mutations),
         sync = SyncService(db: db, mutations: mutations, deviceId: deviceId);
 
   final AppDatabase db;
@@ -32,6 +34,7 @@ class AppServices {
   final CustomerRepository customers;
   final OrderRepository orders;
   final StockRepository stock;
+  final InvoiceRepository invoices;
   final SyncService sync;
 
   Future<Setting> settings() => db.select(db.settings).getSingle();

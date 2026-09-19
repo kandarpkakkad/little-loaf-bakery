@@ -832,7 +832,11 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
     bool isUpdate = false}) async {
-  final s = await context.app.settings();
+  // Both resolved before either await: reaching through context afterwards is
+  // what the async-gap lint is about.
+  final app = context.app;
+  final s = await app.settings();
+  final invoice = await app.invoices.forOrder(view.order.id);
   final o = view.order;
   return MessageContext(
     customerFirstName: view.customer.name.split(' ').first,
@@ -855,6 +859,8 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     lastPayment: justPaid,
     dropLines: dropLines,
     isUpdate: isUpdate,
+    invoiceNo: invoice?.invoiceNo,
+    voidedReason: invoice?.voidReason,
   );
 }
 

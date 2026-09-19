@@ -25,6 +25,8 @@ class MessageContext {
     this.lastPayment,
     this.dropLines = const [],
     this.isUpdate = false,
+    this.invoiceNo,
+    this.voidedReason,
   });
 
   final String customerFirstName;
@@ -55,6 +57,15 @@ class MessageContext {
   /// The same listing, opening with what happened rather than pretending it is
   /// the first time the customer has seen it.
   final bool isUpdate;
+
+  /// The invoice number, once one has been issued. Until then the document is
+  /// quoted against the order number — it is a statement of what is owed, not
+  /// yet a bill.
+  final String? invoiceNo;
+
+  /// Set when the invoice has been voided, so a copy resent by accident says
+  /// so rather than looking current.
+  final String? voidedReason;
 
   /// True when this message covers only part of the order.
   bool get isPartialDrop =>
@@ -267,8 +278,14 @@ String _invoice(MessageContext c) {
   return [
     '*${c.businessName}*',
     '',
+    if (c.voidedReason != null) ...[
+      '*VOIDED* — ${c.voidedReason}',
+      'This bill no longer stands.',
+      '',
+    ],
     '*Bill of Supply*',
-    c.orderNo,
+    // The invoice number once there is one; the order number until then.
+    c.invoiceNo ?? c.orderNo,
     '',
     'To: ${c.customerFirstName}',
     '',
