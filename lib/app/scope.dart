@@ -6,6 +6,7 @@ import '../domain/menu/repository.dart';
 import '../domain/orders/repository.dart';
 import '../domain/reporting/repository.dart';
 import '../domain/stock/repository.dart';
+import '../platform/security/app_lock.dart';
 import '../platform/storage/database.dart';
 import '../platform/sync/mutations.dart';
 import '../platform/sync/sync_service.dart';
@@ -20,7 +21,9 @@ class AppServices {
     required this.db,
     required this.deviceId,
     required this.mutations,
-  })  : menu = MenuRepository(db, mutations),
+    AppLock? lock,
+  })  : lock = lock ?? AppLock(db: db),
+        menu = MenuRepository(db, mutations),
         customers = CustomerRepository(db, mutations),
         orders = OrderRepository(db, mutations),
         stock = StockRepository(db, mutations),
@@ -44,6 +47,10 @@ class AppServices {
   /// total, not two.
   late final ReportRepository reports;
   final SyncService sync;
+
+  /// Whether the app asks for the device PIN before it shows anything. Off by
+  /// default, and the switch is in Business details.
+  final AppLock lock;
 
   Future<Setting> settings() => db.select(db.settings).getSingle();
 }

@@ -34,6 +34,7 @@ dependencies:
 
   # security
   flutter_secure_storage: ^10.0.0
+  local_auth: ^3.0.2
 
   # messaging & location — wa.me, geo:, app chooser
   url_launcher: ^6.3.1

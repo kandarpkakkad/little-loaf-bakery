@@ -31,9 +31,10 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Sync on open, on resume, and on a slow timer while the app is in front.
   ///
-  /// There is no background worker yet, so these are the moments sync happens.
-  /// It covers the real flow — pick up the tablet, it pulls what the phone did
-  /// — and every run is a no-op when Drive is not connected.
+  /// The background worker is the safety net; these are the moments that
+  /// actually keep a device current. It covers the real flow — pick up the
+  /// tablet, it pulls what the phone did — and every run is a no-op when
+  /// Drive is not connected.
   Timer? _syncTimer;
   bool _syncStarted = false;
 

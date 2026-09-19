@@ -59,9 +59,20 @@ run at 00:02 with the screen locked.
 
 ## 2. App lock
 
-> **Not built.** `settings.app_lock_enabled` exists as a column and nothing
-> reads it; there is no lock screen and `local_auth` is not a dependency. What
-> follows is the design.
+Built — `lib/platform/security/app_lock.dart`, the cover in
+`ui/shell/lock_gate.dart`, the switch in Business details, 12 tests.
+
+Two notes from building it:
+
+- **The prompt goes through a `DeviceAuth` seam**, not `local_auth` directly.
+  The plugin does not export the types on its own call signature, so nothing
+  can fake it — and ask-and-get-a-yes is the whole of what the app needs.
+- **Anything that throws unlocks.** No hardware, no enrolled credential, a
+  vendor plugin that threw: none of these may lock someone out of their own
+  orders. A refusal keeps the lock up; a failure to *ask* does not.
+- **The lock is a cover over the navigator**, not a route, so unlocking returns
+  to the half-typed order that was there before. `MainActivity` extends
+  `FlutterFragmentActivity` because the biometric prompt is a fragment.
 
 | | |
 |---|---|

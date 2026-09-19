@@ -8,6 +8,7 @@ import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/primitives.dart';
 
 /// The handful of facts that end up on every invoice and message.
 class BusinessConfigScreen extends StatefulWidget {
@@ -51,6 +52,18 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
       _deviceName.text = s.deviceName ?? '';
       _loaded = true;
     });
+  }
+
+  /// Saved on the switch, not on Save. A lock that only takes effect if you
+  /// remember to press another button is a lock that is off.
+  Future<void> _setLock(bool on) async {
+    try {
+      await context.app.lock.setEnabled(on);
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _save() async {
@@ -162,6 +175,36 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
                             style: context.text.bodySmall!
                                 .copyWith(color: context.colors.ink3)),
                       ],
+                    ),
+                  ),
+                  const SectionLabel('Lock'),
+                  LoafCard(
+                    padding: EdgeInsets.zero,
+                    child: ListenableBuilder(
+                      listenable: context.app.lock,
+                      builder: (context, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SwitchListTile(
+                            value: context.app.lock.enabled,
+                            onChanged: _setLock,
+                            title: const Text('Ask before opening'),
+                            subtitle: const Micro(
+                                'Uses this phone\'s PIN or fingerprint'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                Space.lg, 0, Space.lg, Space.md),
+                            child: Text(
+                              'Asked on opening, and again if the app has been '
+                              'in the background for five minutes. Backups and '
+                              'sync keep running either way.',
+                              style: context.text.bodySmall!
+                                  .copyWith(color: context.colors.ink3),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
