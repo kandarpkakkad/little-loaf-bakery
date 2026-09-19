@@ -25,6 +25,7 @@ class LoafField extends StatelessWidget {
     this.validator,
     this.onChanged,
     this.autofocus = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -44,11 +45,16 @@ class LoafField extends StatelessWidget {
   final void Function(String)? onChanged;
   final bool autofocus;
 
+  /// A disabled field is still readable — the value matters even when it
+  /// can no longer change.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: Space.lg),
         child: TextFormField(
           controller: controller,
+          enabled: enabled,
           autofocus: autofocus,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,

@@ -4,6 +4,7 @@ import '../../common/ids.dart';
 import '../../platform/storage/database.dart';
 import '../../platform/sync/mutations.dart';
 import '../../platform/sync/op.dart';
+import '../orders/repository.dart' show kUnchanged;
 
 /// The fixed items the bakery makes — "Cake", "Croissant", "Focaccia". The item
 /// *is* the category; there is no second grouping level. Maintained from Config
@@ -33,6 +34,8 @@ class MenuRepository {
   Future<String> create({
     required String name,
     int leadDays = 0,
+    int? seasonFrom,
+    int? seasonTo,
   }) async {
     final id = Uuid7.generate();
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -44,10 +47,14 @@ class MenuRepository {
             updatedAtHlc: mutations.lastHlc.toString(),
             name: name,
             leadDays: Value(leadDays),
+            seasonFrom: Value(seasonFrom),
+            seasonTo: Value(seasonTo),
           ));
       await mutations.record('menu_items', id, OpKind.upsert, {
         'name': name,
         'lead_days': leadDays,
+        'season_from': seasonFrom,
+        'season_to': seasonTo,
         'active': true,
       });
     });
@@ -59,9 +66,15 @@ class MenuRepository {
     String? name,
     int? leadDays,
     bool? active,
+    // A season is cleared by passing a null pair, which a plain null cannot
+    // say — hence the sentinel the rest of the app uses for the same problem.
+    Object? seasonFrom = kUnchanged,
+    Object? seasonTo = kUnchanged,
   }) async {
     final fields = <String, Object?>{
       if (name != null) 'name': name,
+      if (seasonFrom != kUnchanged) 'season_from': seasonFrom,
+      if (seasonTo != kUnchanged) 'season_to': seasonTo,
       if (leadDays != null) 'lead_days': leadDays,
       if (active != null) 'active': active,
     };
@@ -70,6 +83,12 @@ class MenuRepository {
       await (db.update(db.menuItems)..where((t) => t.id.equals(id))).write(
         MenuItemsCompanion(
           name: name == null ? const Value.absent() : Value(name),
+          seasonFrom: seasonFrom == kUnchanged
+              ? const Value.absent()
+              : Value(seasonFrom as int?),
+          seasonTo: seasonTo == kUnchanged
+              ? const Value.absent()
+              : Value(seasonTo as int?),
           leadDays: leadDays == null ? const Value.absent() : Value(leadDays),
           active: active == null ? const Value.absent() : Value(active),
           updatedAtHlc: Value(mutations.lastHlc.toString()),

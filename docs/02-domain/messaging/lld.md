@@ -63,9 +63,9 @@ String _delivery(Order o) {
   ].join('\n');
 }
 
-// NOT BUILT: offered after EVERY payment, including a partial one, and it says
-// what is still owed. A receipt that does not state the balance invites the
-// follow-up question it was meant to prevent.
+// Offered after EVERY payment, including a partial one, and it says what is
+// still owed. A receipt that omits the balance invites the follow-up question
+// it was meant to prevent.
 String _paymentReceived(Order o, Payment p) {
   final owed = balanceDue(o);
   return [
@@ -95,13 +95,29 @@ void onTransition(Order o, Status to) => switch (to) {
   _         => null,
 };
 
-// NOT BUILT. Recording money is its own trigger, and the only one that fires on
-// a partial payment -- which is the case the status-driven rule above misses
-// entirely, because a part-paid order sits at the same status before and after.
+// Adding an item to a confirmed order re-sends the confirmation, opening with
+// "your order has been updated" rather than "is confirmed". The customer agreed
+// to something that no longer matches what is written down, so they are shown
+// the new version -- the whole order, so nothing looks dropped. Not offered
+// before confirmation: nothing has been sent yet, so there is nothing to
+// correct.
+void onLineAdded(Order o) =>
+    o.confirmedAt == null ? null : offer(o, confirmation, isUpdate: true);
+
+// Built. Recording money is its own trigger, and the only one that fires on a
+// partial payment -- the case the status-driven rule above misses entirely,
+// because a part-paid order sits at the same status before and after.
 void onPaymentRecorded(Order o, Payment p) => offer(o, paymentReceived, p);
 
-// NOT BUILT (D25). 'out' and 'delivered' are now facts about a LINE, so these
-// two are offered when a line moves, and name the line:
+// D25. 'out' and 'delivered' are facts about a LINE, so these two are offered
+// when a DROP moves -- the lines sharing a day, a time and a destination.
+// One journey, one message: two cakes to the same house at 4pm is one
+// doorbell, and saying so twice is noise. A drop that is not the last one says
+// "part of your order has arrived" and names what is still to come, because
+// "your order has been delivered" would be a lie about the box on Sunday.
+//
+// Money is quoted only on the final drop: asking for the balance while
+// something is still outstanding reads as a demand for an undelivered item.
 void onLineMoved(OrderItem i, LineStatus to) => switch (to) {
   out       => i.trackingUrl != null ? offer(i.order, outForDelivery, i) : null,
   // Only once, when the last live line lands -- a message per line would be
@@ -119,7 +135,7 @@ bool canSendTracking(Order o) =>
 `hadBalanceBeforePayment` reads the payment history, not the current balance — by the time
 Completed is reached the balance is zero by definition.
 
-**NOT BUILT:** `onPaymentRecorded` supersedes that rule. Every payment gets a
+`onPaymentRecorded` supersedes that rule. Every payment gets a
 receipt, partial or final, because the moment money changes hands is the moment
 the customer wants it acknowledged — and a part payment is precisely when they
 are least sure what is still owed. The `completed` branch above then stops

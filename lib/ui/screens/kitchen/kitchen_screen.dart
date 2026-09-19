@@ -9,7 +9,8 @@ import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/sync_refresh.dart';
 import '../../widgets/primitives.dart';
-import '../orders/order_card.dart';
+import '../../theme/format.dart';
+import '../orders/order_detail_screen.dart';
 
 /// Two ways of reading the same orders: as a board of what to make next, and as
 /// a sheet of what to bake in total. The sheet is the one that gets held while
@@ -83,8 +84,14 @@ class _KitchenScreenState extends State<KitchenScreen> {
           if (all == null) {
             return const Pullable(child: CircularProgressIndicator());
           }
-          final due =
-              all.where((o) => o.order.deliveryDate < horizon).toList();
+          // A board of lines, not of orders. An order with a cake on Friday
+          // and a box on Sunday has to put the cake on Friday's board — its
+          // own date is the Sunday one (D25), so filtering by that would hide
+          // the cake from the week it is baked in.
+          final due = [
+            for (final o in all)
+              for (final l in o.linesDueBetween(0, horizon)) (order: o, line: l),
+          ];
 
           if (due.isEmpty) {
             return Pullable(child: EmptyState(
@@ -94,7 +101,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                   : 'Nothing to bake in the next $_days days.',
             ));
           }
-          return _view == 0 ? _Board(orders: due) : _BakeSheet(orders: due);
+          return _view == 0 ? _Board(work: due) : _BakeSheet(work: due);
         },
       )),
     );
@@ -102,46 +109,134 @@ class _KitchenScreenState extends State<KitchenScreen> {
 }
 
 /// Grouped by status, so the board reads left to right as work moving through.
-class _Board extends StatelessWidget {
-  const _Board({required this.orders});
+/// One item of one order — what the kitchen actually works on.
+typedef Work = ({OrderView order, OrderLine line});
 
-  final List<OrderView> orders;
+class _Board extends StatelessWidget {
+  const _Board({required this.work});
+
+  final List<Work> work;
 
   @override
   Widget build(BuildContext context) {
-    final byStatus = <OrderStatus, List<OrderView>>{};
-    for (final o in orders) {
-      byStatus.putIfAbsent(o.status, () => []).add(o);
+    final byStatus = <LineStatus, List<Work>>{};
+    for (final w in work) {
+      byStatus.putIfAbsent(w.line.status, () => []).add(w);
+    }
+    // Soonest first within a column: the board is read top-down under time
+    // pressure, so the next thing out of the oven belongs at the top.
+    for (final list in byStatus.values) {
+      list.sort((a, b) {
+        final d = (a.line.deliveryDate ?? 0).compareTo(b.line.deliveryDate ?? 0);
+        if (d != 0) return d;
+        return (a.line.deliveryTime ?? 1 << 30)
+            .compareTo(b.line.deliveryTime ?? 1 << 30);
+      });
     }
 
     return ContentWidth(
       max: 900,
       child: ListView(
-      padding: const EdgeInsets.fromLTRB(
-          Space.lg, Space.md, Space.lg, Space.xxl * 2),
-      children: [
-        for (final status in [
-          OrderStatus.confirmed,
-          OrderStatus.inProduction,
-          OrderStatus.ready,
-        ])
-          if (byStatus[status] != null) ...[
-            SectionLabel('${status.label} · ${byStatus[status]!.length}'),
-            CardGrid(children: [
-              for (final o in byStatus[status]!) OrderCard(view: o, showDate: true),
-            ]),
-          ],
-      ],
+        padding: const EdgeInsets.fromLTRB(
+            Space.lg, Space.md, Space.lg, Space.xxl * 2),
+        children: [
+          for (final status in [
+            LineStatus.inProduction,
+            LineStatus.ready,
+            LineStatus.out,
+          ])
+            if (byStatus[status] != null) ...[
+              SectionLabel('${status.label} · ${byStatus[status]!.length}'),
+              CardGrid(children: [
+                for (final w in byStatus[status]!) _WorkCard(work: w),
+              ]),
+            ],
+        ],
       ),
     );
   }
 }
 
+/// One line, with the order it belongs to named rather than assumed. Two
+/// customers ordering the same cake on the same day is the normal case, so the
+/// card has to say whose it is.
+class _WorkCard extends StatelessWidget {
+  const _WorkCard({required this.work});
+
+  final Work work;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l = work.line;
+    final sub = [
+      if (l.flavour != null) l.flavour!,
+      if (l.weight != null) l.weight!.label,
+      if (l.qty > 1) '× ${l.qty}',
+    ].join(' · ');
+
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(orderId: work.order.order.id)),
+      ),
+      child: LoafCard(
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l.itemName, style: context.text.titleMedium),
+          if (sub.isNotEmpty) Micro(sub),
+          const SizedBox(height: Space.sm),
+          Row(
+            children: [
+              Icon(Icons.event, size: 14, color: c.ink3),
+              const SizedBox(width: Space.xs),
+              Text(
+                [
+                  if (l.deliveryDate != null)
+                    _dayLabel(DateTime.fromMillisecondsSinceEpoch(l.deliveryDate!)),
+                  if (l.deliveryTime != null) timeLabel(l.deliveryTime),
+                  if (l.fulfilment == Fulfilment.pickup) 'pickup',
+                ].join(' · '),
+                style: context.text.bodySmall!.copyWith(color: c.ink2),
+              ),
+            ],
+          ),
+          Text(work.order.customer.name,
+              style: context.text.bodySmall!.copyWith(color: c.ink3)),
+            if (l.note != null)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xs),
+                child: Text(l.note!,
+                    style: context.text.bodySmall!.copyWith(color: c.warn)),
+              ),
+            // The board is where the work happens, so the next step is here
+            // rather than one tap away inside the order.
+            Align(
+              alignment: Alignment.centerRight,
+              child: LineNextStep(view: work.order, line: l),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _dayLabel(DateTime d) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${d.day} ${months[d.month - 1]}';
+}
+
 /// Every line across every order, added up. What to actually make.
 class _BakeSheet extends StatelessWidget {
-  const _BakeSheet({required this.orders});
+  const _BakeSheet({required this.work});
 
-  final List<OrderView> orders;
+  final List<Work> work;
 
   @override
   Widget build(BuildContext context) {
@@ -149,19 +244,20 @@ class _BakeSheet extends StatelessWidget {
     final totals = <String, int>{};
     final notes = <String, Set<String>>{};
 
-    for (final o in orders) {
-      for (final l in o.lines) {
-        final key = [
-          l.itemName,
-          if (l.flavour != null) l.flavour!,
-          if (l.weight != null) l.weight!.label,
-        ].join(' · ');
-        totals[key] = (totals[key] ?? 0) + l.qty;
-        for (final d in Dietary.labels(o.order.dietaryFlags)) {
-          notes.putIfAbsent(key, () => {}).add(d);
-        }
-        if (l.note != null) notes.putIfAbsent(key, () => {}).add(l.note!);
+    // Only the lines actually due in the horizon. Adding up every line of
+    // every order would put next month's cake on today's sheet.
+    for (final w in work) {
+      final l = w.line;
+      final key = [
+        l.itemName,
+        if (l.flavour != null) l.flavour!,
+        if (l.weight != null) l.weight!.label,
+      ].join(' · ');
+      totals[key] = (totals[key] ?? 0) + l.qty;
+      for (final d in Dietary.labels(w.order.order.dietaryFlags)) {
+        notes.putIfAbsent(key, () => {}).add(d);
       }
+      if (l.note != null) notes.putIfAbsent(key, () => {}).add(l.note!);
     }
 
     final keys = totals.keys.toList()..sort();

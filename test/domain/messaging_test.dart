@@ -23,6 +23,8 @@ MessageContext _ctx({
   String? upi = 'littleloaf@okaxis',
   String? phone = '+91 98… 1102',
   bool hadBalance = true,
+  Money? lastPayment,
+  bool isUpdate = false,
 }) =>
     MessageContext(
       customerFirstName: 'Meera',
@@ -45,6 +47,8 @@ MessageContext _ctx({
       upiId: upi,
       paymentPhone: phone,
       hadBalance: hadBalance,
+      lastPayment: lastPayment,
+      isUpdate: isUpdate,
     );
 
 void main() {
@@ -59,9 +63,12 @@ void main() {
       expect(isOffered(MessageKind.outForDelivery, _ctx(tracking: 'https://t.co/x')), isTrue);
     });
 
-    test('payment received only when there was a balance', () {
+    test('payment received is offered after every payment', () {
+      // It used to be offered only when a balance existed, which meant a
+      // partial payment never produced one at all — the order sits at the same
+      // status before and after, so nothing status-driven ever fired.
       expect(isOffered(MessageKind.paymentReceived, _ctx(hadBalance: true)), isTrue);
-      expect(isOffered(MessageKind.paymentReceived, _ctx(hadBalance: false)), isFalse);
+      expect(isOffered(MessageKind.paymentReceived, _ctx(hadBalance: false)), isTrue);
     });
   });
 
@@ -113,11 +120,41 @@ void main() {
     });
   });
 
-  test('payment received carries no numbers at all', () {
-    final m = compose(MessageKind.paymentReceived, _ctx());
-    expect(m, contains('we have received your payment'));
-    expect(m, isNot(contains('₹')));
-    expect(m, isNot(contains('LLB-')));
+  group('payment received', () {
+    test('names the amount just paid and what is still owed', () {
+      final m = compose(
+        MessageKind.paymentReceived,
+        _ctx(paid: Money.rupees(500), lastPayment: Money.rupees(500)),
+      );
+      expect(m, contains('we have received ₹500'));
+      expect(m, contains('LLB-0148-K7QP'));
+      expect(m, contains('Still to pay:'),
+          reason: 'a part payment is when the customer is least sure');
+    });
+
+    test('says so when that settles it', () {
+      // paid exactly the total, whatever the fixture's arithmetic works out to
+      final owedInFull = _ctx().totals.total;
+      final m = compose(
+        MessageKind.paymentReceived,
+        _ctx(paid: owedInFull, lastPayment: Money.rupees(500)),
+      );
+      expect(m, contains('paid in full'));
+      expect(m, isNot(contains('Still to pay')));
+    });
+
+    test('offers a refund when the order is in credit', () {
+      final m = compose(
+        MessageKind.paymentReceived,
+        _ctx(paid: Money.rupees(999999), lastPayment: Money.rupees(500)),
+      );
+      expect(m, contains('to refund to you'));
+    });
+
+    test('still reads sensibly when the amount is unknown', () {
+      final m = compose(MessageKind.paymentReceived, _ctx());
+      expect(m, contains('we have received your payment'));
+    });
   });
 
   test('on its way is bare — order number and link, nothing else', () {
@@ -201,5 +238,18 @@ void main() {
       final u = waMeUri(phoneE164: '+919876543210', text: '🎂 नमस्ते');
       expect(u.queryParameters['text'], '🎂 नमस्ते');
     });
+  });
+
+  test('an updated order opens as an update, not as a first confirmation', () {
+    final first = compose(MessageKind.confirmation, _ctx());
+    final again = compose(MessageKind.confirmation, _ctx(isUpdate: true));
+
+    expect(first, contains('is confirmed'));
+    expect(again, contains('has been updated'));
+    expect(again, isNot(contains('is confirmed')),
+        reason: 'they already had a confirmation; this is what changed');
+    // and it is still the whole order, so nothing looks dropped
+    expect(again, contains('Chocolate Truffle'));
+    expect(again, contains('Sourdough loaf'));
   });
 }

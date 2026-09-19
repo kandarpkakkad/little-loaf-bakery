@@ -5,7 +5,6 @@ import '../../../common/money.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
 import '../../../platform/storage/database.dart';
-import '../../theme/format.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
@@ -47,15 +46,9 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
       ? DeliveryType.outstation
       : DeliveryType.local;
 
-  late DateTime _date =
+  late final DateTime _date =
       DateTime.fromMillisecondsSinceEpoch(widget.order.deliveryDate);
 
-  late TimeOfDay? _time = widget.order.deliveryTime == null
-      ? null
-      : TimeOfDay(
-          hour: widget.order.deliveryTime! ~/ 60,
-          minute: widget.order.deliveryTime! % 60,
-        );
 
   late AddressDraft? _address = widget.order.addressText == null
       ? null
@@ -121,9 +114,6 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
       await orders.updateDetails(
         widget.order.id,
         fulfilment: _fulfilment,
-        deliveryDate:
-            DateTime(_date.year, _date.month, _date.day).millisecondsSinceEpoch,
-        deliveryTime: _time == null ? null : _time!.hour * 60 + _time!.minute,
         deliveryType: isDelivery ? _deliveryType : null,
         // A pickup has nowhere to be delivered to, so the address goes with it
         // rather than lingering on the order as a half-truth.
@@ -218,40 +208,20 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
                 ),
               ],
 
+              // No delivery date here. The order's is the last date among its
+              // items and moves when they do (D25), so a picker would be
+              // writing a value the next item change overwrote — a control
+              // that looks like it works and does not.
               Row(
                 children: [
+                  Icon(Icons.event, size: 16, color: context.colors.ink3),
+                  const SizedBox(width: Space.sm),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _date,
-                          firstDate: DateTime.now()
-                              .subtract(const Duration(days: 365)),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) setState(() => _date = picked);
-                      },
-                      icon: const Icon(Icons.event, size: 18),
-                      label: Text(_dateLabel(_date)),
-                    ),
-                  ),
-                  const SizedBox(width: Space.md),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime:
-                              _time ?? const TimeOfDay(hour: 11, minute: 0),
-                        );
-                        setState(() => _time = picked);
-                      },
-                      icon: const Icon(Icons.schedule, size: 18),
-                      label: Text(_time == null
-                          ? 'Any time'
-                          : timeLabel(_time!.hour * 60 + _time!.minute)),
+                    child: Text(
+                      'Dates are set on each item. This order is due '
+                      '${_dateLabel(_date)}.',
+                      style: context.text.bodySmall!
+                          .copyWith(color: context.colors.ink3),
                     ),
                   ),
                 ],

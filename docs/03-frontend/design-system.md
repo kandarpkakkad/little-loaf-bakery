@@ -16,35 +16,41 @@ bolted on.
 ### Light
 | Token | Value | Use |
 |---|---|---|
-| `paper` | `#FCFAF3` | Page ground |
-| `surface` | `#FEFDFB` | Cards, sheets |
+| `paper` | `#FBF8EF` | Page ground |
+| `surface` | `#FFFDF7` | Cards, sheets |
 | `surface-2` | `#F8F0D8` | **The logo cream.** Quiet fills, nav bar, chips |
-| `ink` | `#1A2A32` | Body text |
-| `ink-2` | `#435660` | Secondary |
-| `ink-3` | `#5C6F7A` | Tertiary, captions |
-| `rule` | `#E3DDC9` | Borders |
-| `rule-soft` | `#F3EFE2` | Dividers inside cards |
+| `ink` | `#16242B` | Body text |
+| `ink-2` | `#3A505B` | Secondary |
+| `ink-3` | `#566A75` | Tertiary, captions |
+| `rule` | `#E6DFC9` | Borders |
+| `rule-soft` | `#F4F0E0` | Dividers inside cards |
 | `brand` | `#507991` | **The logo slate, exact.** App bar only |
-| `accent` | `#46728B` | Same hue, 3% darker — links, small text, icons |
-| `accent-2` | `#3A5E73` | Pressed, emphasis on tint |
-| `accent-soft` | `#DCE8EF` | Selected chips, info tint |
-| `good` / `good-soft` | `#3B7259` / `#DDEEE6` | Semantic only |
-| `warn` / `warn-soft` | `#826026` / `#F3E5CD` | |
-| `bad` / `bad-soft` | `#A34B3E` / `#F4DFDC` | |
+| `accent` | `#3B6C8A` | Same hue, deeper — links, small text, icons |
+| `accent-2` | `#2B5268` | Pressed, emphasis on tint |
+| `accent-soft` | `#E2EEF4` | Selected chips, info tint |
+| `good` / `good-soft` | `#2D6A4F` / `#DBEEE4` | Semantic only |
+| `warn` / `warn-soft` | `#7D5613` / `#F5E6C8` | |
+| `bad` / `bad-soft` | `#98392D` / `#F6DED9` | |
 
 ### Dark
 | Token | Value |
 |---|---|
-| `paper` `surface` `surface-2` | `#141B1F` `#1D252A` `#293338` |
-| `ink` `ink-2` `ink-3` | `#F1ECDF` `#A9B5BC` `#8D9CA5` |
-| `rule` `rule-soft` | `#374249` `#2A3237` |
-| `brand` `accent` `accent-2` `accent-soft` | `#29414D` `#92BBD3` `#ACCEE2` `#263740` |
-| `good` `warn` `bad` | `#81BBA0` `#D6B171` `#D68F85` |
-| `good-soft` `warn-soft` `bad-soft` | `#213129` `#332C1E` `#372320` |
+| `paper` `surface` `surface-2` | `#11181C` `#1B2429` `#28333A` |
+| `ink` `ink-2` `ink-3` | `#F3EEE1` `#AEBAC1` `#93A2AB` |
+| `rule` `rule-soft` | `#38444B` `#2A3339` |
+| `brand` `accent` `accent-2` `accent-soft` | `#2B4553` `#9CC5DC` `#B8D6E8` `#22343E` |
+| `good` `warn` `bad` | `#7FC5A5` `#E2BA74` `#E4958B` |
+| `good-soft` `warn-soft` `bad-soft` | `#1F3129` `#342C1D` `#382320` |
 
 ### Rules
 - **Every pair clears WCAG AA (4.5:1) on every ground it sits on** — paper, surface *and*
-  cream — in both themes. Checked, not assumed.
+  cream — in both themes, and on its own soft tint. Checked by
+  `test/ui/contrast_test.dart`, which is what makes "checked" true rather than
+  a claim: it caught `accent` at 4.41 on `accent-soft` the moment the palette moved.
+- **Headroom is spent on chroma.** The first palette sat at 4.57 worst-case, which
+  capped how saturated anything could be and left the semantic trio muddy. Going a
+  step darker buys margin *and* colour: the worst pair now clears 4.9 and every
+  semantic hue gained roughly a point of contrast to spend.
 - **`brand` is the logo colour and appears only on the app bar.** `accent` is the same hue,
   3% darker, for anything read as text.
 - **Semantic colour is never decorative.** `good`/`warn`/`bad` mean a state, never a category.

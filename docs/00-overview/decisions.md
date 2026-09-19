@@ -159,8 +159,21 @@ One order can put a cake at the house on Friday and a snack box at the office on
 place two orders — which split the total, the discount and the payment across records that
 were really one sale.
 **Cost:** almost every read that used to ask an order for its date now has to ask its lines.
-Today, Kitchen and the Orders sort all key off a **derived** order date — the earliest line
-still outstanding — rather than a stored column.
+
+Two derivations, because the order needs to answer two different questions:
+
+| | |
+|---|---|
+| **Due date** — what the order shows | its **last** outstanding line: when the order finishes |
+| **Sort key** — where it sits in a list | its **earliest** outstanding line: when it next needs someone |
+
+A cake on Friday and a box on Sunday reads as due Sunday and sorts on Friday. Sorting by the
+due date would bury Friday's cake behind everything due earlier in the week.
+
+**The order's delivery date is never editable** — not on create, not on edit. It is a copy of
+the first derivation, maintained by the repository. A picker at order level would be writing a
+value the next item change silently overwrote, which is a control that looks like it works and
+does not.
 
 ### D26 · The order's status is computed, never typed
 > **Not built.** Design only.

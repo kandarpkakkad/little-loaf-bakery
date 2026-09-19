@@ -81,9 +81,10 @@ MigrationStrategy get migration => MigrationStrategy(
 
 ## 5b. v9 → v10 — scheduling moves to the line (D25–D27)
 
-> **Not built.** Written now because this is the first migration that has to run
-> against real data on two devices at once, and the order of the steps is the
-> whole difficulty.
+Built — `_v9ToV10` in `database.dart`, with six tests in
+`test/platform/migration_v10_test.dart` that run it against a hand-built v9
+database. The first migration to run against real data on two devices at once,
+so the order of the steps is the whole difficulty.
 
 **Why it cannot be a wipe.** Every migration before this one ran on a database
 nobody had typed into. This one runs on live orders, on two devices, with a

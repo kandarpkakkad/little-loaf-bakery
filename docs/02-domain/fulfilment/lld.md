@@ -20,7 +20,7 @@ ORDER BY o.delivery_date, o.delivery_time IS NULL, o.delivery_time, o.created_at
 Columns are the four in-flight statuses. Dragging a card calls `Orders.transition`, which is
 the same guarded path as everywhere else.
 
-> **NOT BUILT (D25, D26).** Both queries above filter on `o.delivery_date` and
+> **Built (D25, D26).** Both queries above filtered on `o.delivery_date` and
 > `o.status`. Once a line carries its own date and status, the board is a board
 > **of lines**, not of orders, and every predicate moves one level down:
 >
@@ -58,7 +58,7 @@ ORDER BY oi.item_name_snapshot;
 ```
 Requirements are concatenated **in full**. If they are long, the row grows — nothing is elided.
 
-**NOT BUILT (D25):** `WHERE oi.delivery_date = :day AND oi.status = 'in_production'`,
+**Built (D25):** `WHERE oi.delivery_date = :day AND oi.status = 'in_production'`,
 so a day's sheet lists what is due *that* day rather than every line of every
 order that has a line due that day.
 

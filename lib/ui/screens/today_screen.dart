@@ -57,20 +57,20 @@ class TodayScreen extends StatelessWidget {
           }
 
           final live = all.where((o) => !o.isCancelled).toList();
+          // By LINE, not by the order's own date. The order's date is its last
+          // item (D25), so an order with a cake on Friday and a box on Sunday
+          // would otherwise be missing from Friday entirely — and the cake with
+          // it. It legitimately appears on both days.
           final dueToday = live
               .where((o) =>
-                  o.order.deliveryDate >= today &&
-                  o.order.deliveryDate < tomorrow &&
+                  o.hasLineDueBetween(today, tomorrow) &&
                   o.status != OrderStatus.completed)
               .toList();
-          final dueTomorrow = live
-              .where((o) =>
-                  o.order.deliveryDate >= tomorrow &&
-                  o.order.deliveryDate < dayAfter)
-              .toList();
+          final dueTomorrow =
+              live.where((o) => o.hasLineDueBetween(tomorrow, dayAfter)).toList();
           final overdue = live
               .where((o) =>
-                  o.order.deliveryDate < today &&
+                  o.hasLineOverdueBefore(today) &&
                   o.status != OrderStatus.completed &&
                   o.status != OrderStatus.delivered)
               .toList();

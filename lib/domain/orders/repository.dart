@@ -22,9 +22,56 @@ class OrderView {
   final List<OrderLine> lines;
   final Money paid;
 
-  OrderStatus get status => OrderStatus.parse(order.status);
+  /// Derived from the lines, never read from the row (D26). `orders.status`
+  /// still exists because a v9 peer writes it and the migration reads it, but
+  /// nothing in this build treats it as the truth.
+  OrderStatus get status => deriveOrderStatus(
+        lines,
+        confirmedAt: order.confirmedAt,
+        completedAt: order.completedAt,
+      );
+
   bool get isCancelled => status == OrderStatus.cancelled;
-  bool get isPickup => order.fulfilment == 'pickup';
+
+  /// The lines still to make or hand over.
+  List<OrderLine> get liveLines => [for (final l in lines) if (l.isLive) l];
+
+  /// When this order is finished — its last outstanding line.
+  int? get dueDate => deriveDueDate(lines);
+  int? get dueTime => deriveDueTime(lines);
+
+  /// The handovers this order breaks into: lines sharing a day, a time and a
+  /// destination travel together and are told about together (D25).
+  List<Drop> get drops => dropsOf(lines.where((l) => l.isLive));
+
+  /// The outstanding lines falling in `[from, to)`.
+  ///
+  /// The question every day-based screen actually asks. Reading the order's own
+  /// date instead would hide a two-day order on the first of its days, because
+  /// that date is the *last* line (D25) — and the first line is the one someone
+  /// has to bake.
+  Iterable<OrderLine> linesDueBetween(int from, int to) => lines.where((l) =>
+      !l.status.isDone &&
+      l.deliveryDate != null &&
+      l.deliveryDate! >= from &&
+      l.deliveryDate! < to);
+
+  bool hasLineDueBetween(int from, int to) =>
+      linesDueBetween(from, to).isNotEmpty;
+
+  /// An outstanding line whose day has already passed.
+  bool hasLineOverdueBefore(int day) => lines.any((l) =>
+      !l.status.isDone && l.deliveryDate != null && l.deliveryDate! < day);
+
+  /// What it needs *next*, which on a multi-day order is a different date.
+  /// This is what the lists sort by.
+  int? get nextLineDate => deriveNextLineDate(lines);
+  int? get nextLineTime => deriveNextLineTime(lines);
+
+  /// True when every line is collected rather than delivered — the wording
+  /// case. A mixed order is described as a delivery, because part of it is.
+  bool get isPickup => liveLines.isNotEmpty &&
+      liveLines.every((l) => l.fulfilment == Fulfilment.pickup);
 
   /// Status wording that follows how this order is fulfilled: nothing is
   /// delivered to someone who comes and collects it.
@@ -71,6 +118,14 @@ class DraftLine {
     this.basePrice = Money.zero,
     this.note,
     this.addons = const [],
+    this.deliveryDate,
+    this.deliveryTime,
+    this.fulfilment,
+    this.deliveryType,
+    this.addressText,
+    this.pinLat,
+    this.pinLng,
+    this.pinUrl,
   });
 
   String menuItemId;
@@ -82,11 +137,42 @@ class DraftLine {
   String? note;
   List<Addon> addons;
 
+  // ── the line's own schedule (D25) ──
+  int? deliveryDate;
+  int? deliveryTime;
+  Fulfilment? fulfilment;
+  DeliveryType? deliveryType;
+  String? addressText;
+  double? pinLat;
+  double? pinLng;
+  String? pinUrl;
+
+  /// "Same as the item above" — a copy, not a link, so editing the first line
+  /// afterwards leaves this one alone.
+  void copyScheduleFrom(DraftLine other) {
+    deliveryDate = other.deliveryDate;
+    deliveryTime = other.deliveryTime;
+    fulfilment = other.fulfilment;
+    deliveryType = other.deliveryType;
+    addressText = other.addressText;
+    pinLat = other.pinLat;
+    pinLng = other.pinLng;
+    pinUrl = other.pinUrl;
+  }
+
   OrderLine toLine() => OrderLine(
         menuItemId: menuItemId,
         itemName: itemName,
         flavour: flavour,
         weight: weight,
+        deliveryDate: deliveryDate,
+        deliveryTime: deliveryTime,
+        fulfilment: fulfilment,
+        deliveryType: deliveryType,
+        addressText: addressText,
+        pinLat: pinLat,
+        pinLng: pinLng,
+        pinUrl: pinUrl,
         qty: qty,
         basePrice: basePrice,
         note: note,
@@ -122,16 +208,10 @@ class OrderRepository {
     }
     if (onDate != null) q.where(db.orders.deliveryDate.equals(onDate));
 
-    q.orderBy([
-      OrderingTerm.asc(db.orders.deliveryDate),
-      // NULLs last so "any time" falls after the timed orders of that day
-      OrderingTerm(
-        expression: db.orders.deliveryTime,
-        mode: OrderingMode.asc,
-        nulls: NullsOrder.last,
-      ),
-      OrderingTerm.asc(db.orders.createdAt),
-    ]);
+    // Only a stable tie-break here. The real ordering is by the earliest
+    // outstanding *line*, which SQL cannot see from this table any more — see
+    // the sort below.
+    q.orderBy([OrderingTerm.asc(db.orders.createdAt)]);
 
     // Same reason as watchOrder: the list shows totals, and totals come from
     // tables this query does not name.
@@ -146,8 +226,38 @@ class OrderRepository {
           paid: await _paidOf(o.id),
         ));
       }
+      result.sort(_byNextLine);
       return result;
     });
+  }
+
+  /// Earliest outstanding **line** first.
+  ///
+  /// Deliberately not the order's due date, which is its *last* line: a cake on
+  /// Friday and a box on Sunday is due Sunday, but it has to appear on Friday
+  /// or nobody bakes the cake. Sorting by what is needed next and showing when
+  /// the order finishes are two different questions, and this is the first.
+  ///
+  /// Sorted here rather than in SQL because the key lives in the lines, and
+  /// doing it in Dart means the sort and the screen share one derivation
+  /// instead of two that can drift apart.
+  static int _byNextLine(OrderView a, OrderView b) {
+    // Nothing outstanding sorts last: it is waiting on money, not on the
+    // kitchen.
+    final da = a.nextLineDate, dbb = b.nextLineDate;
+    if (da != dbb) {
+      if (da == null) return 1;
+      if (dbb == null) return -1;
+      return da.compareTo(dbb);
+    }
+    final ta = a.nextLineTime, tb = b.nextLineTime;
+    if (ta != tb) {
+      // "any time" falls after the timed lines of that day
+      if (ta == null) return 1;
+      if (tb == null) return -1;
+      return ta.compareTo(tb);
+    }
+    return a.order.createdAt.compareTo(b.order.createdAt);
   }
 
   Stream<OrderView?> watchOrder(String id) => _onOrderData().asyncMap((_) async {
@@ -202,10 +312,27 @@ class OrderRepository {
     return [
       for (final i in items)
         OrderLine(
+          id: i.id,
           menuItemId: i.menuItemId,
           itemName: i.itemNameSnapshot,
           flavour: i.flavour,
           weight: Weight.maybe(i.weightValue, i.weightUnit),
+          status: LineStatus.parse(i.status),
+          deliveryDate: i.deliveryDate,
+          deliveryTime: i.deliveryTime,
+          fulfilment:
+              i.fulfilment == null ? null : Fulfilment.values.firstWhere(
+                  (f) => f.name == i.fulfilment,
+                  orElse: () => Fulfilment.delivery),
+          deliveryType: i.deliveryType == null
+              ? null
+              : DeliveryType.values.firstWhere((d) => d.wire == i.deliveryType,
+                  orElse: () => DeliveryType.local),
+          addressText: i.addressText,
+          pinLat: i.pinLat,
+          pinLng: i.pinLng,
+          pinUrl: i.pinUrl,
+          trackingUrl: i.trackingUrl,
           qty: i.qty,
           basePrice: Money(i.basePrice),
           note: i.note,
@@ -244,7 +371,10 @@ class OrderRepository {
     required String customerId,
     required List<DraftLine> lines,
     required Fulfilment fulfilment,
-    required int deliveryDate,
+    /// Only a **fallback** for lines that carry no date of their own. The
+    /// order's own `delivery_date` is never this value — it is recomputed from
+    /// the lines below, because the order is due when its last item is (D25).
+    int? deliveryDate,
     int? deliveryTime,
     DeliveryType? deliveryType,
     String? addressText,
@@ -276,7 +406,11 @@ class OrderRepository {
             customerId: customerId,
             status: OrderStatus.created.wire,
             fulfilment: fulfilment.name,
-            deliveryDate: deliveryDate,
+            deliveryDate: deliveryDate ??
+                lines
+                    .map((l) => l.deliveryDate)
+                    .whereType<int>()
+                    .fold<int>(0, (a, b) => b > a ? b : a),
             deliveryTime: Value(deliveryTime),
             deliveryType:
                 Value(fulfilment == Fulfilment.delivery ? deliveryType?.wire : null),
@@ -303,8 +437,26 @@ class OrderRepository {
       });
 
       for (var i = 0; i < lines.length; i++) {
-        await _insertLine(id, lines[i], i, now, hlc);
+        // A line without its own schedule inherits the order's (D25). The
+        // order-level values are the defaults a line copies, so a caller that
+        // knows nothing about per-line scheduling still produces lines that
+        // are properly dated — which is what keeps every list sorting.
+        final l = lines[i];
+        l.deliveryDate ??= deliveryDate;
+        l.deliveryTime ??= deliveryTime;
+        l.fulfilment ??= fulfilment;
+        l.deliveryType ??=
+            fulfilment == Fulfilment.pickup ? null : deliveryType;
+        l.addressText ??= addressText;
+        l.pinLat ??= pinLat;
+        l.pinLng ??= pinLng;
+        l.pinUrl ??= pinUrl;
+        await _insertLine(id, l, i, now, hlc);
       }
+      // The order is due when its last item is. Stored rather than left to the
+      // reader because the column is NOT NULL and a v9 peer still reads it —
+      // but it is a copy of the derivation, never something a person typed.
+      await _refreshOrderDate(id, hlc);
 
       await _insertStatusEvent(id, null, OrderStatus.created, now, hlc);
 
@@ -315,7 +467,8 @@ class OrderRepository {
     return id;
   }
 
-  Future<void> _insertLine(
+  /// Returns the new line's id, which [addLine] hands back to the caller.
+  Future<String> _insertLine(
       String orderId, DraftLine l, int position, int now, String hlc) async {
     final itemId = Uuid7.generate();
     await db.into(db.orderItems).insert(OrderItemsCompanion.insert(
@@ -333,12 +486,32 @@ class OrderRepository {
           basePrice: l.basePrice.paise,
           note: Value(l.note),
           position: position,
+          // the line's own schedule (D25)
+          deliveryDate: Value(l.deliveryDate),
+          deliveryTime: Value(l.deliveryTime),
+          fulfilment: Value(l.fulfilment?.name),
+          deliveryType: Value(
+              l.fulfilment == Fulfilment.pickup ? null : l.deliveryType?.wire),
+          addressText: Value(l.addressText),
+          pinLat: Value(l.pinLat),
+          pinLng: Value(l.pinLng),
+          pinUrl: Value(l.pinUrl),
         ));
     await mutations.record('order_items', itemId, OpKind.upsert, {
       'order_id': orderId,
       'menu_item_id': l.menuItemId,
       'item_name_snapshot': l.itemName,
       'flavour': l.flavour,
+      'status': LineStatus.created.wire,
+      'delivery_date': l.deliveryDate,
+      'delivery_time': l.deliveryTime,
+      'fulfilment': l.fulfilment?.name,
+      'delivery_type':
+          l.fulfilment == Fulfilment.pickup ? null : l.deliveryType?.wire,
+      'address_text': l.addressText,
+      'pin_lat': l.pinLat,
+      'pin_lng': l.pinLng,
+      'pin_url': l.pinUrl,
       // primitives only — the payload is JSON on the wire
       'weight_value': l.weight?.value,
       'weight_unit': l.weight?.unit,
@@ -368,6 +541,7 @@ class OrderRepository {
         'position': j,
       });
     }
+    return itemId;
   }
 
   /// The app offers a move; a person takes it. An illegal move throws rather
@@ -423,6 +597,390 @@ class OrderRepository {
     });
   }
 
+  // ───────────────────── line-level moves (D25, D26) ─────────────────────
+
+  /// Move one line. The order's own status is derived, so there is nothing to
+  /// write on it — which is the whole point of D26.
+  Future<void> moveLine(String lineId, LineStatus to, {String? reason}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+
+    await db.transaction(() async {
+      final i = await (db.select(db.orderItems)
+            ..where((t) => t.id.equals(lineId)))
+          .getSingle();
+      final from = LineStatus.parse(i.status);
+
+      if (!from.canGoTo(to)) {
+        throw StateError('${from.label} cannot become ${to.label}');
+      }
+      if (to == LineStatus.out && i.fulfilment == Fulfilment.pickup.name) {
+        throw StateError('A pickup never goes out for delivery');
+      }
+      if (to == LineStatus.cancelled && (reason == null || reason.isEmpty)) {
+        throw StateError('Cancelling a line needs a reason');
+      }
+
+      await _writeLineStatus(lineId, from, to, now, hlc, reason: reason);
+      // Delivering or cancelling changes which lines are still outstanding,
+      // and so which of them the order is due on.
+      await _refreshOrderDate(i.orderId, hlc);
+    });
+  }
+
+  /// Re-derives `orders.delivery_date` / `delivery_time` from the lines.
+  ///
+  /// The order's delivery date is **never edited** — it is the last date among
+  /// its outstanding items, and it moves when they do. The column exists
+  /// because it is NOT NULL and a v9 peer still reads it; this keeps the copy
+  /// honest after anything that can change a line.
+  Future<void> _refreshOrderDate(String orderId, String hlc) async {
+    final lines = await _linesOf(orderId);
+    // Fall back to every line once nothing is outstanding, so a fully
+    // delivered order keeps the date it actually happened on rather than
+    // reverting to nothing.
+    final date = deriveDueDate(lines) ??
+        lines
+            .map((l) => l.deliveryDate)
+            .whereType<int>()
+            .fold<int?>(null, (a, b) => a == null || b > a ? b : a);
+    if (date == null) return;
+    final time = deriveDueTime(lines);
+
+    await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
+      OrdersCompanion(
+        deliveryDate: Value(date),
+        deliveryTime: Value(time),
+        updatedAtHlc: Value(hlc),
+      ),
+    );
+    await mutations.record('orders', orderId, OpKind.upsert, {
+      'delivery_date': date,
+      'delivery_time': time,
+    });
+  }
+
+  /// Change what a line is, or when and where it goes.
+  ///
+  /// The order's due date and status are derived, so nothing needs updating
+  /// alongside this: moving a line to a later day moves the order's due date
+  /// by itself, on the next read.
+  Future<void> updateLine(
+    String lineId, {
+    Object? flavour = kUnchanged,
+    Object? weight = kUnchanged,
+    int? qty,
+    Money? basePrice,
+    Object? note = kUnchanged,
+    int? deliveryDate,
+    Object? deliveryTime = kUnchanged,
+    Fulfilment? fulfilment,
+    Object? deliveryType = kUnchanged,
+    Object? addressText = kUnchanged,
+    Object? pinLat = kUnchanged,
+    Object? pinLng = kUnchanged,
+    Object? pinUrl = kUnchanged,
+  }) async {
+    final fields = <String, Object?>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+
+    await db.transaction(() async {
+      final i = await (db.select(db.orderItems)
+            ..where((t) => t.id.equals(lineId)))
+          .getSingle();
+
+      final status = LineStatus.parse(i.status);
+
+      // A delivered or cancelled line is history. Editing what was handed over
+      // would rewrite the record of what actually happened.
+      if (status.isDone) {
+        throw StateError('A ${status.label.toLowerCase()} item cannot be edited');
+      }
+
+      // Once the baker has started, what the item *is* stops being editable:
+      // the flavour has been read and the tin weighed, so changing them now
+      // changes something already half-made. When and where it goes stays
+      // editable — a van can be redirected, a cake cannot be un-baked.
+      final changesWhatItIs = flavour != kUnchanged ||
+          weight != kUnchanged ||
+          qty != null ||
+          basePrice != null;
+      if (status.hasStarted && changesWhatItIs) {
+        throw StateError(
+          'This item is already ${status.label.toLowerCase()}. Its date, time '
+          'and address can still change, but not what it is.',
+        );
+      }
+
+      final w = weight == kUnchanged ? null : weight as Weight?;
+      final effectiveFulfilment = fulfilment ??
+          (i.fulfilment == Fulfilment.pickup.name
+              ? Fulfilment.pickup
+              : Fulfilment.delivery);
+      // A pickup goes nowhere, so it drops the two columns a delivery needs.
+      final clearsDelivery = effectiveFulfilment == Fulfilment.pickup;
+
+      await (db.update(db.orderItems)..where((t) => t.id.equals(lineId))).write(
+        OrderItemsCompanion(
+          flavour: flavour == kUnchanged
+              ? const Value.absent()
+              : Value(flavour as String?),
+          weightValue:
+              weight == kUnchanged ? const Value.absent() : Value(w?.value),
+          weightUnit:
+              weight == kUnchanged ? const Value.absent() : Value(w?.unit),
+          qty: qty == null ? const Value.absent() : Value(qty),
+          basePrice:
+              basePrice == null ? const Value.absent() : Value(basePrice.paise),
+          note: note == kUnchanged ? const Value.absent() : Value(note as String?),
+          deliveryDate:
+              deliveryDate == null ? const Value.absent() : Value(deliveryDate),
+          deliveryTime: deliveryTime == kUnchanged
+              ? const Value.absent()
+              : Value(deliveryTime as int?),
+          fulfilment: fulfilment == null
+              ? const Value.absent()
+              : Value(fulfilment.name),
+          deliveryType: clearsDelivery
+              ? const Value(null)
+              : (deliveryType == kUnchanged
+                  ? const Value.absent()
+                  : Value((deliveryType as DeliveryType?)?.wire)),
+          trackingUrl: clearsDelivery ? const Value(null) : const Value.absent(),
+          addressText: addressText == kUnchanged
+              ? const Value.absent()
+              : Value(addressText as String?),
+          pinLat: pinLat == kUnchanged
+              ? const Value.absent()
+              : Value(pinLat as double?),
+          pinLng: pinLng == kUnchanged
+              ? const Value.absent()
+              : Value(pinLng as double?),
+          pinUrl: pinUrl == kUnchanged
+              ? const Value.absent()
+              : Value(pinUrl as String?),
+          updatedAtHlc: Value(hlc),
+        ),
+      );
+
+      if (flavour != kUnchanged) fields['flavour'] = flavour;
+      if (weight != kUnchanged) {
+        fields['weight_value'] = w?.value;
+        fields['weight_unit'] = w?.unit;
+      }
+      if (qty != null) fields['qty'] = qty;
+      if (basePrice != null) fields['base_price'] = basePrice.paise;
+      if (note != kUnchanged) fields['note'] = note;
+      if (deliveryDate != null) fields['delivery_date'] = deliveryDate;
+      if (deliveryTime != kUnchanged) fields['delivery_time'] = deliveryTime;
+      if (fulfilment != null) fields['fulfilment'] = fulfilment.name;
+      if (clearsDelivery) {
+        fields['delivery_type'] = null;
+        fields['tracking_url'] = null;
+      } else if (deliveryType != kUnchanged) {
+        fields['delivery_type'] = (deliveryType as DeliveryType?)?.wire;
+      }
+      if (addressText != kUnchanged) fields['address_text'] = addressText;
+      if (pinLat != kUnchanged) fields['pin_lat'] = pinLat;
+      if (pinLng != kUnchanged) fields['pin_lng'] = pinLng;
+      if (pinUrl != kUnchanged) fields['pin_url'] = pinUrl;
+
+      if (fields.isNotEmpty) {
+        await mutations.record('order_items', lineId, OpKind.upsert, fields);
+      }
+      // Touch the order so a list watching it redraws, and so the edit has an
+      // HLC of its own for the merge.
+      await (db.update(db.orders)..where((t) => t.id.equals(i.orderId)))
+          .write(OrdersCompanion(updatedAtHlc: Value(hlc)));
+      if (fields.isNotEmpty) {
+        await _insertStatusEvent(i.orderId, null, OrderStatus.inProduction, now,
+            hlc, reason: 'item edited');
+      }
+      if (deliveryDate != null || deliveryTime != kUnchanged) {
+        await _refreshOrderDate(i.orderId, hlc);
+      }
+    });
+  }
+
+  /// Add a line to an order that already exists.
+  Future<String> addLine(String orderId, DraftLine line) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+    late String id;
+    await db.transaction(() async {
+      final existing = await (db.select(db.orderItems)
+            ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull()))
+          .get();
+      final position = existing.fold<int>(-1, (a, i) => i.position > a ? i.position : a) + 1;
+      id = await _insertLine(orderId, line, position, now, hlc);
+
+      // An item added to an order already agreed with the customer is agreed
+      // too — it arrived through the same conversation. Leaving it at `created`
+      // would make the order look unconfirmed again.
+      final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+          .getSingle();
+      if (o.confirmedAt != null) {
+        await _writeLineStatus(
+            id, LineStatus.created, LineStatus.confirmed, now, hlc);
+      }
+      await _refreshOrderDate(orderId, hlc);
+    });
+    return id;
+  }
+
+  /// Catch every line up to [to] in one gesture.
+  ///
+  /// Deriving the order status costs the one-tap "the whole order is ready"
+  /// move; this is it, expressed over lines. Lines that cannot legally reach
+  /// [to] are skipped in silence — the intent is "catch everything up", and
+  /// refusing the batch because one line is already delivered would be a worse
+  /// reading of it.
+  Future<int> moveAllLines(String orderId, LineStatus to) async {
+    final lines = await (db.select(db.orderItems)
+          ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull()))
+        .get();
+    var moved = 0;
+    for (final i in lines) {
+      final from = LineStatus.parse(i.status);
+      if (!from.canGoTo(to)) continue;
+      if (to == LineStatus.out && i.fulfilment == Fulfilment.pickup.name) {
+        continue;
+      }
+      await moveLine(i.id, to);
+      moved++;
+    }
+    return moved;
+  }
+
+  /// The order-level moments a person writes, because neither is a fact about
+  /// lines (D26).
+  Future<void> confirm(String orderId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+    await db.transaction(() async {
+      final lines = await _linesOf(orderId);
+      if (lines.isEmpty) throw StateError('An order needs at least one item');
+      if (lines.any((l) => l.deliveryDate == null)) {
+        throw StateError('Every item needs a delivery date');
+      }
+      await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
+        OrdersCompanion(confirmedAt: Value(now), updatedAtHlc: Value(hlc)),
+      );
+      await mutations.record('orders', orderId, OpKind.upsert, {
+        'confirmed_at': now,
+      });
+      // An item is confirmed when its order is — that step belongs to the
+      // conversation with the customer, not to the kitchen. After this each
+      // item moves on its own.
+      for (final l in lines) {
+        if (l.status == LineStatus.created) {
+          await _writeLineStatus(l.id!, LineStatus.created, LineStatus.confirmed,
+              now, hlc);
+        }
+      }
+      await _insertStatusEvent(
+          orderId, OrderStatus.created, OrderStatus.confirmed, now, hlc);
+    });
+  }
+
+  /// Closing the books. Refused while money is owed **in either direction**:
+  /// an order in credit owes a refund, and "completed" would bury it.
+  Future<void> complete(String orderId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+    await db.transaction(() async {
+      final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+          .getSingle();
+      final totals = OrderTotals(
+        lines: await _linesOf(orderId),
+        discountType: o.discountType == null
+            ? null
+            : DiscountType.values.byName(o.discountType!),
+        discountValue: o.discountValue ?? 0,
+        deliveryCharge: Money(o.deliveryCharge),
+        paid: await _paidOf(orderId),
+      );
+      if (totals.hasBalance) {
+        throw StateError('Cannot complete: '
+            '₹${(totals.balanceDue.paise / 100).toStringAsFixed(2)} still due');
+      }
+      if (totals.inCredit) {
+        throw StateError('Cannot complete: '
+            '₹${(totals.creditDue.paise / 100).toStringAsFixed(2)} to refund');
+      }
+      await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+          .write(OrdersCompanion(
+        completedAt: Value(now),
+        updatedAtHlc: Value(hlc),
+      ));
+      await mutations.record('orders', orderId, OpKind.upsert, {
+        'completed_at': now,
+      });
+      await _insertStatusEvent(
+          orderId, OrderStatus.delivered, OrderStatus.completed, now, hlc);
+    });
+  }
+
+  /// The one place a line's status is written, so confirming an order and
+  /// moving a single item cannot drift apart.
+  Future<void> _writeLineStatus(
+    String lineId,
+    LineStatus from,
+    LineStatus to,
+    int now,
+    String hlc, {
+    String? reason,
+  }) async {
+    await (db.update(db.orderItems)..where((t) => t.id.equals(lineId))).write(
+      OrderItemsCompanion(
+        status: Value(to.wire),
+        updatedAtHlc: Value(hlc),
+        deliveredAt:
+            to == LineStatus.delivered ? Value(now) : const Value.absent(),
+        cancelReason:
+            to == LineStatus.cancelled ? Value(reason) : const Value.absent(),
+      ),
+    );
+    await mutations.record('order_items', lineId, OpKind.upsert, {
+      'status': to.wire,
+      if (to == LineStatus.delivered) 'delivered_at': now,
+      if (to == LineStatus.cancelled) 'cancel_reason': reason,
+    });
+    await _insertLineEvent(lineId, from, to, now, hlc, reason: reason);
+  }
+
+  Future<void> _insertLineEvent(
+    String lineId,
+    LineStatus from,
+    LineStatus to,
+    int at,
+    String hlc, {
+    String? reason,
+  }) async {
+    final id = Uuid7.generate();
+    await db.into(db.orderItemStatusEvents).insert(
+          OrderItemStatusEventsCompanion.insert(
+            id: id,
+            deviceId: mutations.deviceId,
+            createdAt: at,
+            updatedAtHlc: hlc,
+            orderItemId: lineId,
+            fromStatus: Value(from.wire),
+            toStatus: to.wire,
+            reason: Value(reason),
+            at: at,
+          ),
+        );
+    await mutations.record('order_item_status_events', id, OpKind.upsert, {
+      'order_item_id': lineId,
+      'from_status': from.wire,
+      'to_status': to.wire,
+      'reason': reason,
+      'at': at,
+    });
+  }
+
   Future<void> _insertStatusEvent(
     String orderId,
     OrderStatus? from,
@@ -470,8 +1028,9 @@ class OrderRepository {
   Future<void> updateDetails(
     String orderId, {
     Fulfilment? fulfilment,
-    int? deliveryDate,
-    Object? deliveryTime = kUnchanged,
+    // No deliveryDate or deliveryTime. The order's are derived from its items
+    // and are not a thing anyone edits (D25) — editing them here would write a
+    // value the next line change silently overwrote.
     DeliveryType? deliveryType,
     Object? addressText = kUnchanged,
     Object? pinLat = kUnchanged,
@@ -490,8 +1049,6 @@ class OrderRepository {
 
     final fields = <String, Object?>{
       if (fulfilment != null) 'fulfilment': fulfilment.name,
-      if (deliveryDate != null) 'delivery_date': deliveryDate,
-      if (deliveryTime != kUnchanged) 'delivery_time': deliveryTime,
       if (becomingPickup)
         'delivery_type': null
       else if (deliveryType != null)
@@ -516,11 +1073,6 @@ class OrderRepository {
         OrdersCompanion(
           fulfilment:
               fulfilment == null ? const Value.absent() : Value(fulfilment.name),
-          deliveryDate:
-              deliveryDate == null ? const Value.absent() : Value(deliveryDate),
-          deliveryTime: deliveryTime == kUnchanged
-              ? const Value.absent()
-              : Value(deliveryTime as int?),
           deliveryType: becomingPickup
               ? const Value(null)
               : (deliveryType == null

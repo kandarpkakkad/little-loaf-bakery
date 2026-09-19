@@ -18,11 +18,13 @@ CREATE TABLE orders (
   pin_lat                 REAL,
   pin_lng                 REAL,
   pin_url                 TEXT,                           -- the link as shared; often resolves better than coords
-  -- NOT BUILT (D25): once a line carries its own schedule, these stop being
-  -- facts about the order and become the **defaults a new line copies** --
-  -- which is what makes "same as the one above" a copy rather than a link.
-  -- Nothing reads them to answer "when is this order due"; that is derived
-  -- from the lines. See lld.md §4.2.
+  -- D25: delivery_date and delivery_time are **derived and never edited**.
+  -- They hold the last date among the order's outstanding items, rewritten by
+  -- the repository whenever an item is added, edited, delivered or cancelled.
+  -- The columns exist because delivery_date is NOT NULL and a v9 peer still
+  -- reads it -- not because anybody types into them. There is no date picker
+  -- at order level in either the create or the edit form.
+  -- The remaining fulfilment columns are the defaults a new item copies.
   tracking_url            TEXT,
   discount_type           TEXT,                           -- percent|amount|NULL
   discount_value          INTEGER,                        -- basis points if percent, paise if amount
@@ -39,7 +41,8 @@ CREATE TABLE orders (
   delivered_at            INTEGER,
   -- common columns
   CHECK (status IN ('created','confirmed','in_production','delivered','completed','cancelled'))
-  -- NOT BUILT (D26): 'ready' and 'out' move down to the line,
+  -- D26: 'ready' and 'out' live on the line now. The column is still written
+  -- because a v9 peer reads it; nothing in this build treats it as truth,
   CHECK (fulfilment IN ('delivery','pickup')),
   CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation')),
   CHECK (discount_type IS NULL OR discount_type IN ('percent','amount')),
@@ -86,7 +89,7 @@ CREATE TABLE order_items (
   weight_value       REAL,               -- number and unit, so a bake sheet can total it
   weight_unit        TEXT,               -- g|kg|pcs|dozen
 
-  -- ── the line's own schedule (D25) ── NOT BUILT ──
+  -- ── the line's own schedule (D25) ──
   -- Migration: 01-platform/storage/lld.md §5b (v9 → v10).
   -- A line is what gets made and handed over, so it carries the when, the
   -- where and the how. Nullable only so an existing row can be backfilled;
@@ -112,7 +115,7 @@ CREATE TABLE order_items (
   CHECK ((weight_value IS NULL) = (weight_unit IS NULL)),
   CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen')),
   CHECK (weight_value IS NULL OR weight_value > 0),
-  -- NOT BUILT, with the rest of D25:
+  -- D25:
   CHECK (status IN ('in_production','ready','out','delivered','cancelled')),
   CHECK (fulfilment IS NULL OR fulfilment IN ('delivery','pickup')),
   CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation')),
@@ -124,8 +127,9 @@ CREATE TABLE order_items (
   CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))
 );
 CREATE INDEX ix_items_order ON order_items(order_id, position);
--- NOT BUILT (D25): the app's main sort moves here from orders, because the
--- question "what is due next" is now a question about lines.
+-- D25: the app's main sort key lives here now, because "what is due next" is
+-- a question about lines. The list sorts on the EARLIEST outstanding line;
+-- the order's own delivery_date holds the LAST one. Two questions.
 CREATE INDEX ix_items_due ON order_items(delivery_date, delivery_time)
   WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled');
 CREATE INDEX ix_items_menu  ON order_items(menu_item_id);   -- price history + sales by product
@@ -163,7 +167,7 @@ CREATE INDEX ix_status_order ON order_status_events(order_id, at);
 
 ## order_item_status_events
 
-> **Not built** (D25).
+Built (D25).
 
 ```sql
 -- Same shape as order_status_events, one level down. The order's own history

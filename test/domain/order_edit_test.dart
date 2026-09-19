@@ -37,17 +37,21 @@ void main() {
   Future<Map<String, Object?>> order() async =>
       (await f.row('orders', orderId))!;
 
-  test('the date, time and charge can all change', () async {
-    await f.services.orders.updateDetails(
-      orderId,
-      deliveryDate: DateTime(2026, 9, 25).millisecondsSinceEpoch,
-      deliveryTime: 1020,
-      deliveryCharge: Money.rupees(80),
-    );
-    final o = await order();
-    expect(o['delivery_date'], DateTime(2026, 9, 25).millisecondsSinceEpoch);
-    expect(o['delivery_time'], 1020);
-    expect(o['delivery_charge'], 8000);
+  test('the charge can change', () async {
+    await f.services.orders
+        .updateDetails(orderId, deliveryCharge: Money.rupees(80));
+    expect((await order())['delivery_charge'], 8000);
+  });
+
+  test('the delivery date is not something this can change', () async {
+    // The order is due when its last item is (D25), so the column is a copy of
+    // that derivation. updateDetails has no date parameter at all — the
+    // compiler enforces it; this records why.
+    final before = (await order())['delivery_date'];
+    await f.services.orders
+        .updateDetails(orderId, deliveryCharge: Money.rupees(80));
+    expect((await order())['delivery_date'], before,
+        reason: 'editing the order cannot move its date');
   });
 
   test('the items, message and requirements are never touched', () async {
@@ -75,7 +79,7 @@ void main() {
   });
 
   test('untouched fields stay untouched', () async {
-    await f.services.orders.updateDetails(orderId, deliveryTime: 900);
+    await f.services.orders.updateDetails(orderId, dietaryFlags: 2);
     final o = await order();
     expect(o['address_text'], '14 Turner Rd',
         reason: 'not passed, so not changed');
@@ -86,7 +90,6 @@ void main() {
     final before = (await f.rows('outbox')).length;
     await f.services.orders.updateDetails(
       orderId,
-      deliveryTime: 900,
       deliveryCharge: Money.rupees(70),
       dietaryFlags: 1,
     );
@@ -121,7 +124,7 @@ void main() {
   test('a locked message is left alone, not cleared', () async {
     // kUnchanged is what a form passes for a field it did not render
     await f.services.orders
-        .updateDetails(orderId, itemMessage: kUnchanged, deliveryTime: 900);
+        .updateDetails(orderId, itemMessage: kUnchanged, dietaryFlags: 2);
     expect((await order())['item_message'], 'Happy birthday',
         reason: 'passing null here would have wiped it');
   });

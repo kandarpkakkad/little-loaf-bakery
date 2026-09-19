@@ -2604,6 +2604,28 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _confirmedAtMeta = const VerificationMeta(
+    'confirmedAt',
+  );
+  @override
+  late final GeneratedColumn<int> confirmedAt = GeneratedColumn<int>(
+    'confirmed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<int> completedAt = GeneratedColumn<int>(
+    'completed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2637,6 +2659,8 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     notes,
     cancelReason,
     deliveredAt,
+    confirmedAt,
+    completedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2905,6 +2929,24 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         ),
       );
     }
+    if (data.containsKey('confirmed_at')) {
+      context.handle(
+        _confirmedAtMeta,
+        confirmedAt.isAcceptableOrUnknown(
+          data['confirmed_at']!,
+          _confirmedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3038,6 +3080,14 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.int,
         data['${effectivePrefix}delivered_at'],
       ),
+      confirmedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}confirmed_at'],
+      ),
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}completed_at'],
+      ),
     );
   }
 
@@ -3079,6 +3129,8 @@ class Order extends DataClass implements Insertable<Order> {
   final String? notes;
   final String? cancelReason;
   final int? deliveredAt;
+  final int? confirmedAt;
+  final int? completedAt;
   const Order({
     required this.id,
     required this.deviceId,
@@ -3111,6 +3163,8 @@ class Order extends DataClass implements Insertable<Order> {
     this.notes,
     this.cancelReason,
     this.deliveredAt,
+    this.confirmedAt,
+    this.completedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3183,6 +3237,12 @@ class Order extends DataClass implements Insertable<Order> {
     }
     if (!nullToAbsent || deliveredAt != null) {
       map['delivered_at'] = Variable<int>(deliveredAt);
+    }
+    if (!nullToAbsent || confirmedAt != null) {
+      map['confirmed_at'] = Variable<int>(confirmedAt);
+    }
+    if (!nullToAbsent || completedAt != null) {
+      map['completed_at'] = Variable<int>(completedAt);
     }
     return map;
   }
@@ -3258,6 +3318,12 @@ class Order extends DataClass implements Insertable<Order> {
       deliveredAt: deliveredAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deliveredAt),
+      confirmedAt: confirmedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(confirmedAt),
+      completedAt: completedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAt),
     );
   }
 
@@ -3300,6 +3366,8 @@ class Order extends DataClass implements Insertable<Order> {
       notes: serializer.fromJson<String?>(json['notes']),
       cancelReason: serializer.fromJson<String?>(json['cancelReason']),
       deliveredAt: serializer.fromJson<int?>(json['deliveredAt']),
+      confirmedAt: serializer.fromJson<int?>(json['confirmedAt']),
+      completedAt: serializer.fromJson<int?>(json['completedAt']),
     );
   }
   @override
@@ -3337,6 +3405,8 @@ class Order extends DataClass implements Insertable<Order> {
       'notes': serializer.toJson<String?>(notes),
       'cancelReason': serializer.toJson<String?>(cancelReason),
       'deliveredAt': serializer.toJson<int?>(deliveredAt),
+      'confirmedAt': serializer.toJson<int?>(confirmedAt),
+      'completedAt': serializer.toJson<int?>(completedAt),
     };
   }
 
@@ -3372,6 +3442,8 @@ class Order extends DataClass implements Insertable<Order> {
     Value<String?> notes = const Value.absent(),
     Value<String?> cancelReason = const Value.absent(),
     Value<int?> deliveredAt = const Value.absent(),
+    Value<int?> confirmedAt = const Value.absent(),
+    Value<int?> completedAt = const Value.absent(),
   }) => Order(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -3410,6 +3482,8 @@ class Order extends DataClass implements Insertable<Order> {
     notes: notes.present ? notes.value : this.notes,
     cancelReason: cancelReason.present ? cancelReason.value : this.cancelReason,
     deliveredAt: deliveredAt.present ? deliveredAt.value : this.deliveredAt,
+    confirmedAt: confirmedAt.present ? confirmedAt.value : this.confirmedAt,
+    completedAt: completedAt.present ? completedAt.value : this.completedAt,
   );
   Order copyWithCompanion(OrdersCompanion data) {
     return Order(
@@ -3484,6 +3558,12 @@ class Order extends DataClass implements Insertable<Order> {
       deliveredAt: data.deliveredAt.present
           ? data.deliveredAt.value
           : this.deliveredAt,
+      confirmedAt: data.confirmedAt.present
+          ? data.confirmedAt.value
+          : this.confirmedAt,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
     );
   }
 
@@ -3520,7 +3600,9 @@ class Order extends DataClass implements Insertable<Order> {
           ..write('source: $source, ')
           ..write('notes: $notes, ')
           ..write('cancelReason: $cancelReason, ')
-          ..write('deliveredAt: $deliveredAt')
+          ..write('deliveredAt: $deliveredAt, ')
+          ..write('confirmedAt: $confirmedAt, ')
+          ..write('completedAt: $completedAt')
           ..write(')'))
         .toString();
   }
@@ -3558,6 +3640,8 @@ class Order extends DataClass implements Insertable<Order> {
     notes,
     cancelReason,
     deliveredAt,
+    confirmedAt,
+    completedAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3593,7 +3677,9 @@ class Order extends DataClass implements Insertable<Order> {
           other.source == this.source &&
           other.notes == this.notes &&
           other.cancelReason == this.cancelReason &&
-          other.deliveredAt == this.deliveredAt);
+          other.deliveredAt == this.deliveredAt &&
+          other.confirmedAt == this.confirmedAt &&
+          other.completedAt == this.completedAt);
 }
 
 class OrdersCompanion extends UpdateCompanion<Order> {
@@ -3628,6 +3714,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<String?> notes;
   final Value<String?> cancelReason;
   final Value<int?> deliveredAt;
+  final Value<int?> confirmedAt;
+  final Value<int?> completedAt;
   final Value<int> rowid;
   const OrdersCompanion({
     this.id = const Value.absent(),
@@ -3661,6 +3749,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.notes = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.deliveredAt = const Value.absent(),
+    this.confirmedAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrdersCompanion.insert({
@@ -3695,6 +3785,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.notes = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.deliveredAt = const Value.absent(),
+    this.confirmedAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deviceId = Value(deviceId),
@@ -3737,6 +3829,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Expression<String>? notes,
     Expression<String>? cancelReason,
     Expression<int>? deliveredAt,
+    Expression<int>? confirmedAt,
+    Expression<int>? completedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3772,6 +3866,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       if (notes != null) 'notes': notes,
       if (cancelReason != null) 'cancel_reason': cancelReason,
       if (deliveredAt != null) 'delivered_at': deliveredAt,
+      if (confirmedAt != null) 'confirmed_at': confirmedAt,
+      if (completedAt != null) 'completed_at': completedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3808,6 +3904,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Value<String?>? notes,
     Value<String?>? cancelReason,
     Value<int?>? deliveredAt,
+    Value<int?>? confirmedAt,
+    Value<int?>? completedAt,
     Value<int>? rowid,
   }) {
     return OrdersCompanion(
@@ -3843,6 +3941,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       notes: notes ?? this.notes,
       cancelReason: cancelReason ?? this.cancelReason,
       deliveredAt: deliveredAt ?? this.deliveredAt,
+      confirmedAt: confirmedAt ?? this.confirmedAt,
+      completedAt: completedAt ?? this.completedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3945,6 +4045,12 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     if (deliveredAt.present) {
       map['delivered_at'] = Variable<int>(deliveredAt.value);
     }
+    if (confirmedAt.present) {
+      map['confirmed_at'] = Variable<int>(confirmedAt.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<int>(completedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3985,6 +4091,8 @@ class OrdersCompanion extends UpdateCompanion<Order> {
           ..write('notes: $notes, ')
           ..write('cancelReason: $cancelReason, ')
           ..write('deliveredAt: $deliveredAt, ')
+          ..write('confirmedAt: $confirmedAt, ')
+          ..write('completedAt: $completedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4163,6 +4271,131 @@ class $OrderItemsTable extends OrderItems
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('created'),
+  );
+  static const VerificationMeta _deliveryDateMeta = const VerificationMeta(
+    'deliveryDate',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryDate = GeneratedColumn<int>(
+    'delivery_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveryTimeMeta = const VerificationMeta(
+    'deliveryTime',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryTime = GeneratedColumn<int>(
+    'delivery_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fulfilmentMeta = const VerificationMeta(
+    'fulfilment',
+  );
+  @override
+  late final GeneratedColumn<String> fulfilment = GeneratedColumn<String>(
+    'fulfilment',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveryTypeMeta = const VerificationMeta(
+    'deliveryType',
+  );
+  @override
+  late final GeneratedColumn<String> deliveryType = GeneratedColumn<String>(
+    'delivery_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressTextMeta = const VerificationMeta(
+    'addressText',
+  );
+  @override
+  late final GeneratedColumn<String> addressText = GeneratedColumn<String>(
+    'address_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinLatMeta = const VerificationMeta('pinLat');
+  @override
+  late final GeneratedColumn<double> pinLat = GeneratedColumn<double>(
+    'pin_lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinLngMeta = const VerificationMeta('pinLng');
+  @override
+  late final GeneratedColumn<double> pinLng = GeneratedColumn<double>(
+    'pin_lng',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinUrlMeta = const VerificationMeta('pinUrl');
+  @override
+  late final GeneratedColumn<String> pinUrl = GeneratedColumn<String>(
+    'pin_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _trackingUrlMeta = const VerificationMeta(
+    'trackingUrl',
+  );
+  @override
+  late final GeneratedColumn<String> trackingUrl = GeneratedColumn<String>(
+    'tracking_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveredAtMeta = const VerificationMeta(
+    'deliveredAt',
+  );
+  @override
+  late final GeneratedColumn<int> deliveredAt = GeneratedColumn<int>(
+    'delivered_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cancelReasonMeta = const VerificationMeta(
+    'cancelReason',
+  );
+  @override
+  late final GeneratedColumn<String> cancelReason = GeneratedColumn<String>(
+    'cancel_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4180,6 +4413,18 @@ class $OrderItemsTable extends OrderItems
     basePrice,
     note,
     position,
+    status,
+    deliveryDate,
+    deliveryTime,
+    fulfilment,
+    deliveryType,
+    addressText,
+    pinLat,
+    pinLng,
+    pinUrl,
+    trackingUrl,
+    deliveredAt,
+    cancelReason,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4310,6 +4555,99 @@ class $OrderItemsTable extends OrderItems
     } else if (isInserting) {
       context.missing(_positionMeta);
     }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('delivery_date')) {
+      context.handle(
+        _deliveryDateMeta,
+        deliveryDate.isAcceptableOrUnknown(
+          data['delivery_date']!,
+          _deliveryDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivery_time')) {
+      context.handle(
+        _deliveryTimeMeta,
+        deliveryTime.isAcceptableOrUnknown(
+          data['delivery_time']!,
+          _deliveryTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fulfilment')) {
+      context.handle(
+        _fulfilmentMeta,
+        fulfilment.isAcceptableOrUnknown(data['fulfilment']!, _fulfilmentMeta),
+      );
+    }
+    if (data.containsKey('delivery_type')) {
+      context.handle(
+        _deliveryTypeMeta,
+        deliveryType.isAcceptableOrUnknown(
+          data['delivery_type']!,
+          _deliveryTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('address_text')) {
+      context.handle(
+        _addressTextMeta,
+        addressText.isAcceptableOrUnknown(
+          data['address_text']!,
+          _addressTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pin_lat')) {
+      context.handle(
+        _pinLatMeta,
+        pinLat.isAcceptableOrUnknown(data['pin_lat']!, _pinLatMeta),
+      );
+    }
+    if (data.containsKey('pin_lng')) {
+      context.handle(
+        _pinLngMeta,
+        pinLng.isAcceptableOrUnknown(data['pin_lng']!, _pinLngMeta),
+      );
+    }
+    if (data.containsKey('pin_url')) {
+      context.handle(
+        _pinUrlMeta,
+        pinUrl.isAcceptableOrUnknown(data['pin_url']!, _pinUrlMeta),
+      );
+    }
+    if (data.containsKey('tracking_url')) {
+      context.handle(
+        _trackingUrlMeta,
+        trackingUrl.isAcceptableOrUnknown(
+          data['tracking_url']!,
+          _trackingUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivered_at')) {
+      context.handle(
+        _deliveredAtMeta,
+        deliveredAt.isAcceptableOrUnknown(
+          data['delivered_at']!,
+          _deliveredAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cancel_reason')) {
+      context.handle(
+        _cancelReasonMeta,
+        cancelReason.isAcceptableOrUnknown(
+          data['cancel_reason']!,
+          _cancelReasonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4379,6 +4717,54 @@ class $OrderItemsTable extends OrderItems
         DriftSqlType.int,
         data['${effectivePrefix}position'],
       )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      deliveryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_date'],
+      ),
+      deliveryTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_time'],
+      ),
+      fulfilment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fulfilment'],
+      ),
+      deliveryType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivery_type'],
+      ),
+      addressText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address_text'],
+      ),
+      pinLat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}pin_lat'],
+      ),
+      pinLng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}pin_lng'],
+      ),
+      pinUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_url'],
+      ),
+      trackingUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tracking_url'],
+      ),
+      deliveredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivered_at'],
+      ),
+      cancelReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cancel_reason'],
+      ),
     );
   }
 
@@ -4404,6 +4790,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
   final int basePrice;
   final String? note;
   final int position;
+  final String status;
+  final int? deliveryDate;
+  final int? deliveryTime;
+  final String? fulfilment;
+  final String? deliveryType;
+  final String? addressText;
+  final double? pinLat;
+  final double? pinLng;
+  final String? pinUrl;
+  final String? trackingUrl;
+  final int? deliveredAt;
+  final String? cancelReason;
   const OrderItem({
     required this.id,
     required this.deviceId,
@@ -4420,6 +4818,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     required this.basePrice,
     this.note,
     required this.position,
+    required this.status,
+    this.deliveryDate,
+    this.deliveryTime,
+    this.fulfilment,
+    this.deliveryType,
+    this.addressText,
+    this.pinLat,
+    this.pinLng,
+    this.pinUrl,
+    this.trackingUrl,
+    this.deliveredAt,
+    this.cancelReason,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4449,6 +4859,40 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       map['note'] = Variable<String>(note);
     }
     map['position'] = Variable<int>(position);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || deliveryDate != null) {
+      map['delivery_date'] = Variable<int>(deliveryDate);
+    }
+    if (!nullToAbsent || deliveryTime != null) {
+      map['delivery_time'] = Variable<int>(deliveryTime);
+    }
+    if (!nullToAbsent || fulfilment != null) {
+      map['fulfilment'] = Variable<String>(fulfilment);
+    }
+    if (!nullToAbsent || deliveryType != null) {
+      map['delivery_type'] = Variable<String>(deliveryType);
+    }
+    if (!nullToAbsent || addressText != null) {
+      map['address_text'] = Variable<String>(addressText);
+    }
+    if (!nullToAbsent || pinLat != null) {
+      map['pin_lat'] = Variable<double>(pinLat);
+    }
+    if (!nullToAbsent || pinLng != null) {
+      map['pin_lng'] = Variable<double>(pinLng);
+    }
+    if (!nullToAbsent || pinUrl != null) {
+      map['pin_url'] = Variable<String>(pinUrl);
+    }
+    if (!nullToAbsent || trackingUrl != null) {
+      map['tracking_url'] = Variable<String>(trackingUrl);
+    }
+    if (!nullToAbsent || deliveredAt != null) {
+      map['delivered_at'] = Variable<int>(deliveredAt);
+    }
+    if (!nullToAbsent || cancelReason != null) {
+      map['cancel_reason'] = Variable<String>(cancelReason);
+    }
     return map;
   }
 
@@ -4477,6 +4921,40 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: Value(basePrice),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       position: Value(position),
+      status: Value(status),
+      deliveryDate: deliveryDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryDate),
+      deliveryTime: deliveryTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryTime),
+      fulfilment: fulfilment == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fulfilment),
+      deliveryType: deliveryType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryType),
+      addressText: addressText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(addressText),
+      pinLat: pinLat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinLat),
+      pinLng: pinLng == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinLng),
+      pinUrl: pinUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinUrl),
+      trackingUrl: trackingUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackingUrl),
+      deliveredAt: deliveredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredAt),
+      cancelReason: cancelReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cancelReason),
     );
   }
 
@@ -4501,6 +4979,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: serializer.fromJson<int>(json['basePrice']),
       note: serializer.fromJson<String?>(json['note']),
       position: serializer.fromJson<int>(json['position']),
+      status: serializer.fromJson<String>(json['status']),
+      deliveryDate: serializer.fromJson<int?>(json['deliveryDate']),
+      deliveryTime: serializer.fromJson<int?>(json['deliveryTime']),
+      fulfilment: serializer.fromJson<String?>(json['fulfilment']),
+      deliveryType: serializer.fromJson<String?>(json['deliveryType']),
+      addressText: serializer.fromJson<String?>(json['addressText']),
+      pinLat: serializer.fromJson<double?>(json['pinLat']),
+      pinLng: serializer.fromJson<double?>(json['pinLng']),
+      pinUrl: serializer.fromJson<String?>(json['pinUrl']),
+      trackingUrl: serializer.fromJson<String?>(json['trackingUrl']),
+      deliveredAt: serializer.fromJson<int?>(json['deliveredAt']),
+      cancelReason: serializer.fromJson<String?>(json['cancelReason']),
     );
   }
   @override
@@ -4522,6 +5012,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       'basePrice': serializer.toJson<int>(basePrice),
       'note': serializer.toJson<String?>(note),
       'position': serializer.toJson<int>(position),
+      'status': serializer.toJson<String>(status),
+      'deliveryDate': serializer.toJson<int?>(deliveryDate),
+      'deliveryTime': serializer.toJson<int?>(deliveryTime),
+      'fulfilment': serializer.toJson<String?>(fulfilment),
+      'deliveryType': serializer.toJson<String?>(deliveryType),
+      'addressText': serializer.toJson<String?>(addressText),
+      'pinLat': serializer.toJson<double?>(pinLat),
+      'pinLng': serializer.toJson<double?>(pinLng),
+      'pinUrl': serializer.toJson<String?>(pinUrl),
+      'trackingUrl': serializer.toJson<String?>(trackingUrl),
+      'deliveredAt': serializer.toJson<int?>(deliveredAt),
+      'cancelReason': serializer.toJson<String?>(cancelReason),
     };
   }
 
@@ -4541,6 +5043,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     int? basePrice,
     Value<String?> note = const Value.absent(),
     int? position,
+    String? status,
+    Value<int?> deliveryDate = const Value.absent(),
+    Value<int?> deliveryTime = const Value.absent(),
+    Value<String?> fulfilment = const Value.absent(),
+    Value<String?> deliveryType = const Value.absent(),
+    Value<String?> addressText = const Value.absent(),
+    Value<double?> pinLat = const Value.absent(),
+    Value<double?> pinLng = const Value.absent(),
+    Value<String?> pinUrl = const Value.absent(),
+    Value<String?> trackingUrl = const Value.absent(),
+    Value<int?> deliveredAt = const Value.absent(),
+    Value<String?> cancelReason = const Value.absent(),
   }) => OrderItem(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -4557,6 +5071,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     basePrice: basePrice ?? this.basePrice,
     note: note.present ? note.value : this.note,
     position: position ?? this.position,
+    status: status ?? this.status,
+    deliveryDate: deliveryDate.present ? deliveryDate.value : this.deliveryDate,
+    deliveryTime: deliveryTime.present ? deliveryTime.value : this.deliveryTime,
+    fulfilment: fulfilment.present ? fulfilment.value : this.fulfilment,
+    deliveryType: deliveryType.present ? deliveryType.value : this.deliveryType,
+    addressText: addressText.present ? addressText.value : this.addressText,
+    pinLat: pinLat.present ? pinLat.value : this.pinLat,
+    pinLng: pinLng.present ? pinLng.value : this.pinLng,
+    pinUrl: pinUrl.present ? pinUrl.value : this.pinUrl,
+    trackingUrl: trackingUrl.present ? trackingUrl.value : this.trackingUrl,
+    deliveredAt: deliveredAt.present ? deliveredAt.value : this.deliveredAt,
+    cancelReason: cancelReason.present ? cancelReason.value : this.cancelReason,
   );
   OrderItem copyWithCompanion(OrderItemsCompanion data) {
     return OrderItem(
@@ -4585,6 +5111,34 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: data.basePrice.present ? data.basePrice.value : this.basePrice,
       note: data.note.present ? data.note.value : this.note,
       position: data.position.present ? data.position.value : this.position,
+      status: data.status.present ? data.status.value : this.status,
+      deliveryDate: data.deliveryDate.present
+          ? data.deliveryDate.value
+          : this.deliveryDate,
+      deliveryTime: data.deliveryTime.present
+          ? data.deliveryTime.value
+          : this.deliveryTime,
+      fulfilment: data.fulfilment.present
+          ? data.fulfilment.value
+          : this.fulfilment,
+      deliveryType: data.deliveryType.present
+          ? data.deliveryType.value
+          : this.deliveryType,
+      addressText: data.addressText.present
+          ? data.addressText.value
+          : this.addressText,
+      pinLat: data.pinLat.present ? data.pinLat.value : this.pinLat,
+      pinLng: data.pinLng.present ? data.pinLng.value : this.pinLng,
+      pinUrl: data.pinUrl.present ? data.pinUrl.value : this.pinUrl,
+      trackingUrl: data.trackingUrl.present
+          ? data.trackingUrl.value
+          : this.trackingUrl,
+      deliveredAt: data.deliveredAt.present
+          ? data.deliveredAt.value
+          : this.deliveredAt,
+      cancelReason: data.cancelReason.present
+          ? data.cancelReason.value
+          : this.cancelReason,
     );
   }
 
@@ -4605,13 +5159,25 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ..write('qty: $qty, ')
           ..write('basePrice: $basePrice, ')
           ..write('note: $note, ')
-          ..write('position: $position')
+          ..write('position: $position, ')
+          ..write('status: $status, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveryTime: $deliveryTime, ')
+          ..write('fulfilment: $fulfilment, ')
+          ..write('deliveryType: $deliveryType, ')
+          ..write('addressText: $addressText, ')
+          ..write('pinLat: $pinLat, ')
+          ..write('pinLng: $pinLng, ')
+          ..write('pinUrl: $pinUrl, ')
+          ..write('trackingUrl: $trackingUrl, ')
+          ..write('deliveredAt: $deliveredAt, ')
+          ..write('cancelReason: $cancelReason')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     deviceId,
     createdAt,
@@ -4627,7 +5193,19 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     basePrice,
     note,
     position,
-  );
+    status,
+    deliveryDate,
+    deliveryTime,
+    fulfilment,
+    deliveryType,
+    addressText,
+    pinLat,
+    pinLng,
+    pinUrl,
+    trackingUrl,
+    deliveredAt,
+    cancelReason,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4646,7 +5224,19 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           other.qty == this.qty &&
           other.basePrice == this.basePrice &&
           other.note == this.note &&
-          other.position == this.position);
+          other.position == this.position &&
+          other.status == this.status &&
+          other.deliveryDate == this.deliveryDate &&
+          other.deliveryTime == this.deliveryTime &&
+          other.fulfilment == this.fulfilment &&
+          other.deliveryType == this.deliveryType &&
+          other.addressText == this.addressText &&
+          other.pinLat == this.pinLat &&
+          other.pinLng == this.pinLng &&
+          other.pinUrl == this.pinUrl &&
+          other.trackingUrl == this.trackingUrl &&
+          other.deliveredAt == this.deliveredAt &&
+          other.cancelReason == this.cancelReason);
 }
 
 class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
@@ -4665,6 +5255,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
   final Value<int> basePrice;
   final Value<String?> note;
   final Value<int> position;
+  final Value<String> status;
+  final Value<int?> deliveryDate;
+  final Value<int?> deliveryTime;
+  final Value<String?> fulfilment;
+  final Value<String?> deliveryType;
+  final Value<String?> addressText;
+  final Value<double?> pinLat;
+  final Value<double?> pinLng;
+  final Value<String?> pinUrl;
+  final Value<String?> trackingUrl;
+  final Value<int?> deliveredAt;
+  final Value<String?> cancelReason;
   final Value<int> rowid;
   const OrderItemsCompanion({
     this.id = const Value.absent(),
@@ -4682,6 +5284,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.basePrice = const Value.absent(),
     this.note = const Value.absent(),
     this.position = const Value.absent(),
+    this.status = const Value.absent(),
+    this.deliveryDate = const Value.absent(),
+    this.deliveryTime = const Value.absent(),
+    this.fulfilment = const Value.absent(),
+    this.deliveryType = const Value.absent(),
+    this.addressText = const Value.absent(),
+    this.pinLat = const Value.absent(),
+    this.pinLng = const Value.absent(),
+    this.pinUrl = const Value.absent(),
+    this.trackingUrl = const Value.absent(),
+    this.deliveredAt = const Value.absent(),
+    this.cancelReason = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrderItemsCompanion.insert({
@@ -4700,6 +5314,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     required int basePrice,
     this.note = const Value.absent(),
     required int position,
+    this.status = const Value.absent(),
+    this.deliveryDate = const Value.absent(),
+    this.deliveryTime = const Value.absent(),
+    this.fulfilment = const Value.absent(),
+    this.deliveryType = const Value.absent(),
+    this.addressText = const Value.absent(),
+    this.pinLat = const Value.absent(),
+    this.pinLng = const Value.absent(),
+    this.pinUrl = const Value.absent(),
+    this.trackingUrl = const Value.absent(),
+    this.deliveredAt = const Value.absent(),
+    this.cancelReason = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deviceId = Value(deviceId),
@@ -4726,6 +5352,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Expression<int>? basePrice,
     Expression<String>? note,
     Expression<int>? position,
+    Expression<String>? status,
+    Expression<int>? deliveryDate,
+    Expression<int>? deliveryTime,
+    Expression<String>? fulfilment,
+    Expression<String>? deliveryType,
+    Expression<String>? addressText,
+    Expression<double>? pinLat,
+    Expression<double>? pinLng,
+    Expression<String>? pinUrl,
+    Expression<String>? trackingUrl,
+    Expression<int>? deliveredAt,
+    Expression<String>? cancelReason,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4744,6 +5382,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       if (basePrice != null) 'base_price': basePrice,
       if (note != null) 'note': note,
       if (position != null) 'position': position,
+      if (status != null) 'status': status,
+      if (deliveryDate != null) 'delivery_date': deliveryDate,
+      if (deliveryTime != null) 'delivery_time': deliveryTime,
+      if (fulfilment != null) 'fulfilment': fulfilment,
+      if (deliveryType != null) 'delivery_type': deliveryType,
+      if (addressText != null) 'address_text': addressText,
+      if (pinLat != null) 'pin_lat': pinLat,
+      if (pinLng != null) 'pin_lng': pinLng,
+      if (pinUrl != null) 'pin_url': pinUrl,
+      if (trackingUrl != null) 'tracking_url': trackingUrl,
+      if (deliveredAt != null) 'delivered_at': deliveredAt,
+      if (cancelReason != null) 'cancel_reason': cancelReason,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4764,6 +5414,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Value<int>? basePrice,
     Value<String?>? note,
     Value<int>? position,
+    Value<String>? status,
+    Value<int?>? deliveryDate,
+    Value<int?>? deliveryTime,
+    Value<String?>? fulfilment,
+    Value<String?>? deliveryType,
+    Value<String?>? addressText,
+    Value<double?>? pinLat,
+    Value<double?>? pinLng,
+    Value<String?>? pinUrl,
+    Value<String?>? trackingUrl,
+    Value<int?>? deliveredAt,
+    Value<String?>? cancelReason,
     Value<int>? rowid,
   }) {
     return OrderItemsCompanion(
@@ -4782,6 +5444,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       basePrice: basePrice ?? this.basePrice,
       note: note ?? this.note,
       position: position ?? this.position,
+      status: status ?? this.status,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      deliveryTime: deliveryTime ?? this.deliveryTime,
+      fulfilment: fulfilment ?? this.fulfilment,
+      deliveryType: deliveryType ?? this.deliveryType,
+      addressText: addressText ?? this.addressText,
+      pinLat: pinLat ?? this.pinLat,
+      pinLng: pinLng ?? this.pinLng,
+      pinUrl: pinUrl ?? this.pinUrl,
+      trackingUrl: trackingUrl ?? this.trackingUrl,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+      cancelReason: cancelReason ?? this.cancelReason,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4834,6 +5508,42 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (deliveryDate.present) {
+      map['delivery_date'] = Variable<int>(deliveryDate.value);
+    }
+    if (deliveryTime.present) {
+      map['delivery_time'] = Variable<int>(deliveryTime.value);
+    }
+    if (fulfilment.present) {
+      map['fulfilment'] = Variable<String>(fulfilment.value);
+    }
+    if (deliveryType.present) {
+      map['delivery_type'] = Variable<String>(deliveryType.value);
+    }
+    if (addressText.present) {
+      map['address_text'] = Variable<String>(addressText.value);
+    }
+    if (pinLat.present) {
+      map['pin_lat'] = Variable<double>(pinLat.value);
+    }
+    if (pinLng.present) {
+      map['pin_lng'] = Variable<double>(pinLng.value);
+    }
+    if (pinUrl.present) {
+      map['pin_url'] = Variable<String>(pinUrl.value);
+    }
+    if (trackingUrl.present) {
+      map['tracking_url'] = Variable<String>(trackingUrl.value);
+    }
+    if (deliveredAt.present) {
+      map['delivered_at'] = Variable<int>(deliveredAt.value);
+    }
+    if (cancelReason.present) {
+      map['cancel_reason'] = Variable<String>(cancelReason.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4858,6 +5568,639 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
           ..write('basePrice: $basePrice, ')
           ..write('note: $note, ')
           ..write('position: $position, ')
+          ..write('status: $status, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveryTime: $deliveryTime, ')
+          ..write('fulfilment: $fulfilment, ')
+          ..write('deliveryType: $deliveryType, ')
+          ..write('addressText: $addressText, ')
+          ..write('pinLat: $pinLat, ')
+          ..write('pinLng: $pinLng, ')
+          ..write('pinUrl: $pinUrl, ')
+          ..write('trackingUrl: $trackingUrl, ')
+          ..write('deliveredAt: $deliveredAt, ')
+          ..write('cancelReason: $cancelReason, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OrderItemStatusEventsTable extends OrderItemStatusEvents
+    with TableInfo<$OrderItemStatusEventsTable, OrderItemStatusEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OrderItemStatusEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtHlcMeta = const VerificationMeta(
+    'updatedAtHlc',
+  );
+  @override
+  late final GeneratedColumn<String> updatedAtHlc = GeneratedColumn<String>(
+    'updated_at_hlc',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _orderItemIdMeta = const VerificationMeta(
+    'orderItemId',
+  );
+  @override
+  late final GeneratedColumn<String> orderItemId = GeneratedColumn<String>(
+    'order_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES order_items (id)',
+    ),
+  );
+  static const VerificationMeta _fromStatusMeta = const VerificationMeta(
+    'fromStatus',
+  );
+  @override
+  late final GeneratedColumn<String> fromStatus = GeneratedColumn<String>(
+    'from_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _toStatusMeta = const VerificationMeta(
+    'toStatus',
+  );
+  @override
+  late final GeneratedColumn<String> toStatus = GeneratedColumn<String>(
+    'to_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _atMeta = const VerificationMeta('at');
+  @override
+  late final GeneratedColumn<int> at = GeneratedColumn<int>(
+    'at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
+    orderItemId,
+    fromStatus,
+    toStatus,
+    reason,
+    at,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'order_item_status_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OrderItemStatusEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at_hlc')) {
+      context.handle(
+        _updatedAtHlcMeta,
+        updatedAtHlc.isAcceptableOrUnknown(
+          data['updated_at_hlc']!,
+          _updatedAtHlcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtHlcMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('order_item_id')) {
+      context.handle(
+        _orderItemIdMeta,
+        orderItemId.isAcceptableOrUnknown(
+          data['order_item_id']!,
+          _orderItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_orderItemIdMeta);
+    }
+    if (data.containsKey('from_status')) {
+      context.handle(
+        _fromStatusMeta,
+        fromStatus.isAcceptableOrUnknown(data['from_status']!, _fromStatusMeta),
+      );
+    }
+    if (data.containsKey('to_status')) {
+      context.handle(
+        _toStatusMeta,
+        toStatus.isAcceptableOrUnknown(data['to_status']!, _toStatusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_toStatusMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    }
+    if (data.containsKey('at')) {
+      context.handle(_atMeta, at.isAcceptableOrUnknown(data['at']!, _atMeta));
+    } else if (isInserting) {
+      context.missing(_atMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OrderItemStatusEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OrderItemStatusEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAtHlc: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at_hlc'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      orderItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_item_id'],
+      )!,
+      fromStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_status'],
+      ),
+      toStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_status'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      ),
+      at: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}at'],
+      )!,
+    );
+  }
+
+  @override
+  $OrderItemStatusEventsTable createAlias(String alias) {
+    return $OrderItemStatusEventsTable(attachedDatabase, alias);
+  }
+}
+
+class OrderItemStatusEvent extends DataClass
+    implements Insertable<OrderItemStatusEvent> {
+  final String id;
+  final String deviceId;
+  final int createdAt;
+  final String updatedAtHlc;
+  final int? deletedAt;
+  final String orderItemId;
+  final String? fromStatus;
+  final String toStatus;
+  final String? reason;
+  final int at;
+  const OrderItemStatusEvent({
+    required this.id,
+    required this.deviceId,
+    required this.createdAt,
+    required this.updatedAtHlc,
+    this.deletedAt,
+    required this.orderItemId,
+    this.fromStatus,
+    required this.toStatus,
+    this.reason,
+    required this.at,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at_hlc'] = Variable<String>(updatedAtHlc);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['order_item_id'] = Variable<String>(orderItemId);
+    if (!nullToAbsent || fromStatus != null) {
+      map['from_status'] = Variable<String>(fromStatus);
+    }
+    map['to_status'] = Variable<String>(toStatus);
+    if (!nullToAbsent || reason != null) {
+      map['reason'] = Variable<String>(reason);
+    }
+    map['at'] = Variable<int>(at);
+    return map;
+  }
+
+  OrderItemStatusEventsCompanion toCompanion(bool nullToAbsent) {
+    return OrderItemStatusEventsCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      createdAt: Value(createdAt),
+      updatedAtHlc: Value(updatedAtHlc),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      orderItemId: Value(orderItemId),
+      fromStatus: fromStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fromStatus),
+      toStatus: Value(toStatus),
+      reason: reason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reason),
+      at: Value(at),
+    );
+  }
+
+  factory OrderItemStatusEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OrderItemStatusEvent(
+      id: serializer.fromJson<String>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAtHlc: serializer.fromJson<String>(json['updatedAtHlc']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      orderItemId: serializer.fromJson<String>(json['orderItemId']),
+      fromStatus: serializer.fromJson<String?>(json['fromStatus']),
+      toStatus: serializer.fromJson<String>(json['toStatus']),
+      reason: serializer.fromJson<String?>(json['reason']),
+      at: serializer.fromJson<int>(json['at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAtHlc': serializer.toJson<String>(updatedAtHlc),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'orderItemId': serializer.toJson<String>(orderItemId),
+      'fromStatus': serializer.toJson<String?>(fromStatus),
+      'toStatus': serializer.toJson<String>(toStatus),
+      'reason': serializer.toJson<String?>(reason),
+      'at': serializer.toJson<int>(at),
+    };
+  }
+
+  OrderItemStatusEvent copyWith({
+    String? id,
+    String? deviceId,
+    int? createdAt,
+    String? updatedAtHlc,
+    Value<int?> deletedAt = const Value.absent(),
+    String? orderItemId,
+    Value<String?> fromStatus = const Value.absent(),
+    String? toStatus,
+    Value<String?> reason = const Value.absent(),
+    int? at,
+  }) => OrderItemStatusEvent(
+    id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    orderItemId: orderItemId ?? this.orderItemId,
+    fromStatus: fromStatus.present ? fromStatus.value : this.fromStatus,
+    toStatus: toStatus ?? this.toStatus,
+    reason: reason.present ? reason.value : this.reason,
+    at: at ?? this.at,
+  );
+  OrderItemStatusEvent copyWithCompanion(OrderItemStatusEventsCompanion data) {
+    return OrderItemStatusEvent(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAtHlc: data.updatedAtHlc.present
+          ? data.updatedAtHlc.value
+          : this.updatedAtHlc,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      orderItemId: data.orderItemId.present
+          ? data.orderItemId.value
+          : this.orderItemId,
+      fromStatus: data.fromStatus.present
+          ? data.fromStatus.value
+          : this.fromStatus,
+      toStatus: data.toStatus.present ? data.toStatus.value : this.toStatus,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      at: data.at.present ? data.at.value : this.at,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OrderItemStatusEvent(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('orderItemId: $orderItemId, ')
+          ..write('fromStatus: $fromStatus, ')
+          ..write('toStatus: $toStatus, ')
+          ..write('reason: $reason, ')
+          ..write('at: $at')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
+    orderItemId,
+    fromStatus,
+    toStatus,
+    reason,
+    at,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OrderItemStatusEvent &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAtHlc == this.updatedAtHlc &&
+          other.deletedAt == this.deletedAt &&
+          other.orderItemId == this.orderItemId &&
+          other.fromStatus == this.fromStatus &&
+          other.toStatus == this.toStatus &&
+          other.reason == this.reason &&
+          other.at == this.at);
+}
+
+class OrderItemStatusEventsCompanion
+    extends UpdateCompanion<OrderItemStatusEvent> {
+  final Value<String> id;
+  final Value<String> deviceId;
+  final Value<int> createdAt;
+  final Value<String> updatedAtHlc;
+  final Value<int?> deletedAt;
+  final Value<String> orderItemId;
+  final Value<String?> fromStatus;
+  final Value<String> toStatus;
+  final Value<String?> reason;
+  final Value<int> at;
+  final Value<int> rowid;
+  const OrderItemStatusEventsCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAtHlc = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.orderItemId = const Value.absent(),
+    this.fromStatus = const Value.absent(),
+    this.toStatus = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.at = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OrderItemStatusEventsCompanion.insert({
+    required String id,
+    required String deviceId,
+    required int createdAt,
+    required String updatedAtHlc,
+    this.deletedAt = const Value.absent(),
+    required String orderItemId,
+    this.fromStatus = const Value.absent(),
+    required String toStatus,
+    this.reason = const Value.absent(),
+    required int at,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       deviceId = Value(deviceId),
+       createdAt = Value(createdAt),
+       updatedAtHlc = Value(updatedAtHlc),
+       orderItemId = Value(orderItemId),
+       toStatus = Value(toStatus),
+       at = Value(at);
+  static Insertable<OrderItemStatusEvent> custom({
+    Expression<String>? id,
+    Expression<String>? deviceId,
+    Expression<int>? createdAt,
+    Expression<String>? updatedAtHlc,
+    Expression<int>? deletedAt,
+    Expression<String>? orderItemId,
+    Expression<String>? fromStatus,
+    Expression<String>? toStatus,
+    Expression<String>? reason,
+    Expression<int>? at,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAtHlc != null) 'updated_at_hlc': updatedAtHlc,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (orderItemId != null) 'order_item_id': orderItemId,
+      if (fromStatus != null) 'from_status': fromStatus,
+      if (toStatus != null) 'to_status': toStatus,
+      if (reason != null) 'reason': reason,
+      if (at != null) 'at': at,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OrderItemStatusEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? deviceId,
+    Value<int>? createdAt,
+    Value<String>? updatedAtHlc,
+    Value<int?>? deletedAt,
+    Value<String>? orderItemId,
+    Value<String?>? fromStatus,
+    Value<String>? toStatus,
+    Value<String?>? reason,
+    Value<int>? at,
+    Value<int>? rowid,
+  }) {
+    return OrderItemStatusEventsCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+      deletedAt: deletedAt ?? this.deletedAt,
+      orderItemId: orderItemId ?? this.orderItemId,
+      fromStatus: fromStatus ?? this.fromStatus,
+      toStatus: toStatus ?? this.toStatus,
+      reason: reason ?? this.reason,
+      at: at ?? this.at,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAtHlc.present) {
+      map['updated_at_hlc'] = Variable<String>(updatedAtHlc.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (orderItemId.present) {
+      map['order_item_id'] = Variable<String>(orderItemId.value);
+    }
+    if (fromStatus.present) {
+      map['from_status'] = Variable<String>(fromStatus.value);
+    }
+    if (toStatus.present) {
+      map['to_status'] = Variable<String>(toStatus.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (at.present) {
+      map['at'] = Variable<int>(at.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OrderItemStatusEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('orderItemId: $orderItemId, ')
+          ..write('fromStatus: $fromStatus, ')
+          ..write('toStatus: $toStatus, ')
+          ..write('reason: $reason, ')
+          ..write('at: $at, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -13504,6 +14847,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MenuItemsTable menuItems = $MenuItemsTable(this);
   late final $OrdersTable orders = $OrdersTable(this);
   late final $OrderItemsTable orderItems = $OrderItemsTable(this);
+  late final $OrderItemStatusEventsTable orderItemStatusEvents =
+      $OrderItemStatusEventsTable(this);
   late final $OrderItemAddonsTable orderItemAddons = $OrderItemAddonsTable(
     this,
   );
@@ -13532,6 +14877,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     menuItems,
     orders,
     orderItems,
+    orderItemStatusEvents,
     orderItemAddons,
     orderStatusEvents,
     attachments,
@@ -15074,6 +16420,8 @@ typedef $$OrdersTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<String?> cancelReason,
       Value<int?> deliveredAt,
+      Value<int?> confirmedAt,
+      Value<int?> completedAt,
       Value<int> rowid,
     });
 typedef $$OrdersTableUpdateCompanionBuilder =
@@ -15109,6 +16457,8 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<String?> cancelReason,
       Value<int?> deliveredAt,
+      Value<int?> confirmedAt,
+      Value<int?> completedAt,
       Value<int> rowid,
     });
 
@@ -15403,6 +16753,16 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<int> get deliveredAt => $composableBuilder(
     column: $table.deliveredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15739,6 +17099,16 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CustomersTableOrderingComposer get customerId {
     final $$CustomersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -15897,6 +17267,16 @@ class $$OrdersTableAnnotationComposer
 
   GeneratedColumn<int> get deliveredAt => $composableBuilder(
     column: $table.deliveredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => column,
   );
 
@@ -16142,6 +17522,8 @@ class $$OrdersTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
+                Value<int?> confirmedAt = const Value.absent(),
+                Value<int?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrdersCompanion(
                 id: id,
@@ -16175,6 +17557,8 @@ class $$OrdersTableTableManager
                 notes: notes,
                 cancelReason: cancelReason,
                 deliveredAt: deliveredAt,
+                confirmedAt: confirmedAt,
+                completedAt: completedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -16210,6 +17594,8 @@ class $$OrdersTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
+                Value<int?> confirmedAt = const Value.absent(),
+                Value<int?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrdersCompanion.insert(
                 id: id,
@@ -16243,6 +17629,8 @@ class $$OrdersTableTableManager
                 notes: notes,
                 cancelReason: cancelReason,
                 deliveredAt: deliveredAt,
+                confirmedAt: confirmedAt,
+                completedAt: completedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -16470,6 +17858,18 @@ typedef $$OrderItemsTableCreateCompanionBuilder =
       required int basePrice,
       Value<String?> note,
       required int position,
+      Value<String> status,
+      Value<int?> deliveryDate,
+      Value<int?> deliveryTime,
+      Value<String?> fulfilment,
+      Value<String?> deliveryType,
+      Value<String?> addressText,
+      Value<double?> pinLat,
+      Value<double?> pinLng,
+      Value<String?> pinUrl,
+      Value<String?> trackingUrl,
+      Value<int?> deliveredAt,
+      Value<String?> cancelReason,
       Value<int> rowid,
     });
 typedef $$OrderItemsTableUpdateCompanionBuilder =
@@ -16489,6 +17889,18 @@ typedef $$OrderItemsTableUpdateCompanionBuilder =
       Value<int> basePrice,
       Value<String?> note,
       Value<int> position,
+      Value<String> status,
+      Value<int?> deliveryDate,
+      Value<int?> deliveryTime,
+      Value<String?> fulfilment,
+      Value<String?> deliveryType,
+      Value<String?> addressText,
+      Value<double?> pinLat,
+      Value<double?> pinLng,
+      Value<String?> pinUrl,
+      Value<String?> trackingUrl,
+      Value<int?> deliveredAt,
+      Value<String?> cancelReason,
       Value<int> rowid,
     });
 
@@ -16527,6 +17939,31 @@ final class $$OrderItemsTableReferences
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $OrderItemStatusEventsTable,
+    List<OrderItemStatusEvent>
+  >
+  _orderItemStatusEventsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.orderItemStatusEvents,
+        aliasName: 'order_items__id__order_item_status_events__order_item_id',
+      );
+
+  $$OrderItemStatusEventsTableProcessedTableManager
+  get orderItemStatusEventsRefs {
+    final manager = $$OrderItemStatusEventsTableTableManager(
+      $_db,
+      $_db.orderItemStatusEvents,
+    ).filter((f) => f.orderItemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _orderItemStatusEventsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
     );
   }
 
@@ -16625,6 +18062,66 @@ class $$OrderItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pinLat => $composableBuilder(
+    column: $table.pinLat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pinLng => $composableBuilder(
+    column: $table.pinLng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinUrl => $composableBuilder(
+    column: $table.pinUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cancelReason => $composableBuilder(
+    column: $table.cancelReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$OrdersTableFilterComposer get orderId {
     final $$OrdersTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -16669,6 +18166,32 @@ class $$OrderItemsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> orderItemStatusEventsRefs(
+    Expression<bool> Function($$OrderItemStatusEventsTableFilterComposer f) f,
+  ) {
+    final $$OrderItemStatusEventsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.orderItemStatusEvents,
+          getReferencedColumn: (t) => t.orderItemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OrderItemStatusEventsTableFilterComposer(
+                $db: $db,
+                $table: $db.orderItemStatusEvents,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
   }
 
   Expression<bool> orderItemAddonsRefs(
@@ -16768,6 +18291,66 @@ class $$OrderItemsTableOrderingComposer
 
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get pinLat => $composableBuilder(
+    column: $table.pinLat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get pinLng => $composableBuilder(
+    column: $table.pinLng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinUrl => $composableBuilder(
+    column: $table.pinUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cancelReason => $composableBuilder(
+    column: $table.cancelReason,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -16874,6 +18457,58 @@ class $$OrderItemsTableAnnotationComposer
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
 
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get pinLat =>
+      $composableBuilder(column: $table.pinLat, builder: (column) => column);
+
+  GeneratedColumn<double> get pinLng =>
+      $composableBuilder(column: $table.pinLng, builder: (column) => column);
+
+  GeneratedColumn<String> get pinUrl =>
+      $composableBuilder(column: $table.pinUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cancelReason => $composableBuilder(
+    column: $table.cancelReason,
+    builder: (column) => column,
+  );
+
   $$OrdersTableAnnotationComposer get orderId {
     final $$OrdersTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -16920,6 +18555,32 @@ class $$OrderItemsTableAnnotationComposer
     return composer;
   }
 
+  Expression<T> orderItemStatusEventsRefs<T extends Object>(
+    Expression<T> Function($$OrderItemStatusEventsTableAnnotationComposer a) f,
+  ) {
+    final $$OrderItemStatusEventsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.orderItemStatusEvents,
+          getReferencedColumn: (t) => t.orderItemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OrderItemStatusEventsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.orderItemStatusEvents,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> orderItemAddonsRefs<T extends Object>(
     Expression<T> Function($$OrderItemAddonsTableAnnotationComposer a) f,
   ) {
@@ -16962,6 +18623,7 @@ class $$OrderItemsTableTableManager
           PrefetchHooks Function({
             bool orderId,
             bool menuItemId,
+            bool orderItemStatusEventsRefs,
             bool orderItemAddonsRefs,
           })
         > {
@@ -16993,6 +18655,18 @@ class $$OrderItemsTableTableManager
                 Value<int> basePrice = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int?> deliveryDate = const Value.absent(),
+                Value<int?> deliveryTime = const Value.absent(),
+                Value<String?> fulfilment = const Value.absent(),
+                Value<String?> deliveryType = const Value.absent(),
+                Value<String?> addressText = const Value.absent(),
+                Value<double?> pinLat = const Value.absent(),
+                Value<double?> pinLng = const Value.absent(),
+                Value<String?> pinUrl = const Value.absent(),
+                Value<String?> trackingUrl = const Value.absent(),
+                Value<int?> deliveredAt = const Value.absent(),
+                Value<String?> cancelReason = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion(
                 id: id,
@@ -17010,6 +18684,18 @@ class $$OrderItemsTableTableManager
                 basePrice: basePrice,
                 note: note,
                 position: position,
+                status: status,
+                deliveryDate: deliveryDate,
+                deliveryTime: deliveryTime,
+                fulfilment: fulfilment,
+                deliveryType: deliveryType,
+                addressText: addressText,
+                pinLat: pinLat,
+                pinLng: pinLng,
+                pinUrl: pinUrl,
+                trackingUrl: trackingUrl,
+                deliveredAt: deliveredAt,
+                cancelReason: cancelReason,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -17029,6 +18715,18 @@ class $$OrderItemsTableTableManager
                 required int basePrice,
                 Value<String?> note = const Value.absent(),
                 required int position,
+                Value<String> status = const Value.absent(),
+                Value<int?> deliveryDate = const Value.absent(),
+                Value<int?> deliveryTime = const Value.absent(),
+                Value<String?> fulfilment = const Value.absent(),
+                Value<String?> deliveryType = const Value.absent(),
+                Value<String?> addressText = const Value.absent(),
+                Value<double?> pinLat = const Value.absent(),
+                Value<double?> pinLng = const Value.absent(),
+                Value<String?> pinUrl = const Value.absent(),
+                Value<String?> trackingUrl = const Value.absent(),
+                Value<int?> deliveredAt = const Value.absent(),
+                Value<String?> cancelReason = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion.insert(
                 id: id,
@@ -17046,6 +18744,18 @@ class $$OrderItemsTableTableManager
                 basePrice: basePrice,
                 note: note,
                 position: position,
+                status: status,
+                deliveryDate: deliveryDate,
+                deliveryTime: deliveryTime,
+                fulfilment: fulfilment,
+                deliveryType: deliveryType,
+                addressText: addressText,
+                pinLat: pinLat,
+                pinLng: pinLng,
+                pinUrl: pinUrl,
+                trackingUrl: trackingUrl,
+                deliveredAt: deliveredAt,
+                cancelReason: cancelReason,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -17060,11 +18770,13 @@ class $$OrderItemsTableTableManager
               ({
                 orderId = false,
                 menuItemId = false,
+                orderItemStatusEventsRefs = false,
                 orderItemAddonsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (orderItemStatusEventsRefs) db.orderItemStatusEvents,
                     if (orderItemAddonsRefs) db.orderItemAddons,
                   ],
                   addJoins:
@@ -17116,6 +18828,27 @@ class $$OrderItemsTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (orderItemStatusEventsRefs)
+                        await $_getPrefetchedData<
+                          OrderItem,
+                          $OrderItemsTable,
+                          OrderItemStatusEvent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$OrderItemsTableReferences
+                              ._orderItemStatusEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$OrderItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).orderItemStatusEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.orderItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (orderItemAddonsRefs)
                         await $_getPrefetchedData<
                           OrderItem,
@@ -17160,8 +18893,447 @@ typedef $$OrderItemsTableProcessedTableManager =
       PrefetchHooks Function({
         bool orderId,
         bool menuItemId,
+        bool orderItemStatusEventsRefs,
         bool orderItemAddonsRefs,
       })
+    >;
+typedef $$OrderItemStatusEventsTableCreateCompanionBuilder =
+    OrderItemStatusEventsCompanion Function({
+      required String id,
+      required String deviceId,
+      required int createdAt,
+      required String updatedAtHlc,
+      Value<int?> deletedAt,
+      required String orderItemId,
+      Value<String?> fromStatus,
+      required String toStatus,
+      Value<String?> reason,
+      required int at,
+      Value<int> rowid,
+    });
+typedef $$OrderItemStatusEventsTableUpdateCompanionBuilder =
+    OrderItemStatusEventsCompanion Function({
+      Value<String> id,
+      Value<String> deviceId,
+      Value<int> createdAt,
+      Value<String> updatedAtHlc,
+      Value<int?> deletedAt,
+      Value<String> orderItemId,
+      Value<String?> fromStatus,
+      Value<String> toStatus,
+      Value<String?> reason,
+      Value<int> at,
+      Value<int> rowid,
+    });
+
+final class $$OrderItemStatusEventsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $OrderItemStatusEventsTable,
+          OrderItemStatusEvent
+        > {
+  $$OrderItemStatusEventsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $OrderItemsTable _orderItemIdTable(_$AppDatabase db) => db.orderItems
+      .createAlias('order_item_status_events__order_item_id__order_items__id');
+
+  $$OrderItemsTableProcessedTableManager get orderItemId {
+    final $_column = $_itemColumn<String>('order_item_id')!;
+
+    final manager = $$OrderItemsTableTableManager(
+      $_db,
+      $_db.orderItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_orderItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$OrderItemStatusEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $OrderItemStatusEventsTable> {
+  $$OrderItemStatusEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toStatus => $composableBuilder(
+    column: $table.toStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get at => $composableBuilder(
+    column: $table.at,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$OrderItemsTableFilterComposer get orderItemId {
+    final $$OrderItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderItemId,
+      referencedTable: $db.orderItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrderItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.orderItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OrderItemStatusEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OrderItemStatusEventsTable> {
+  $$OrderItemStatusEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toStatus => $composableBuilder(
+    column: $table.toStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get at => $composableBuilder(
+    column: $table.at,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$OrderItemsTableOrderingComposer get orderItemId {
+    final $$OrderItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderItemId,
+      referencedTable: $db.orderItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrderItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.orderItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OrderItemStatusEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OrderItemStatusEventsTable> {
+  $$OrderItemStatusEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get toStatus =>
+      $composableBuilder(column: $table.toStatus, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<int> get at =>
+      $composableBuilder(column: $table.at, builder: (column) => column);
+
+  $$OrderItemsTableAnnotationComposer get orderItemId {
+    final $$OrderItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderItemId,
+      referencedTable: $db.orderItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrderItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.orderItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OrderItemStatusEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OrderItemStatusEventsTable,
+          OrderItemStatusEvent,
+          $$OrderItemStatusEventsTableFilterComposer,
+          $$OrderItemStatusEventsTableOrderingComposer,
+          $$OrderItemStatusEventsTableAnnotationComposer,
+          $$OrderItemStatusEventsTableCreateCompanionBuilder,
+          $$OrderItemStatusEventsTableUpdateCompanionBuilder,
+          (OrderItemStatusEvent, $$OrderItemStatusEventsTableReferences),
+          OrderItemStatusEvent,
+          PrefetchHooks Function({bool orderItemId})
+        > {
+  $$OrderItemStatusEventsTableTableManager(
+    _$AppDatabase db,
+    $OrderItemStatusEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OrderItemStatusEventsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$OrderItemStatusEventsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$OrderItemStatusEventsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> updatedAtHlc = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<String> orderItemId = const Value.absent(),
+                Value<String?> fromStatus = const Value.absent(),
+                Value<String> toStatus = const Value.absent(),
+                Value<String?> reason = const Value.absent(),
+                Value<int> at = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OrderItemStatusEventsCompanion(
+                id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
+                orderItemId: orderItemId,
+                fromStatus: fromStatus,
+                toStatus: toStatus,
+                reason: reason,
+                at: at,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String deviceId,
+                required int createdAt,
+                required String updatedAtHlc,
+                Value<int?> deletedAt = const Value.absent(),
+                required String orderItemId,
+                Value<String?> fromStatus = const Value.absent(),
+                required String toStatus,
+                Value<String?> reason = const Value.absent(),
+                required int at,
+                Value<int> rowid = const Value.absent(),
+              }) => OrderItemStatusEventsCompanion.insert(
+                id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
+                orderItemId: orderItemId,
+                fromStatus: fromStatus,
+                toStatus: toStatus,
+                reason: reason,
+                at: at,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$OrderItemStatusEventsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({orderItemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (orderItemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.orderItemId,
+                                referencedTable:
+                                    $$OrderItemStatusEventsTableReferences
+                                        ._orderItemIdTable(db),
+                                referencedColumn:
+                                    $$OrderItemStatusEventsTableReferences
+                                        ._orderItemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$OrderItemStatusEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OrderItemStatusEventsTable,
+      OrderItemStatusEvent,
+      $$OrderItemStatusEventsTableFilterComposer,
+      $$OrderItemStatusEventsTableOrderingComposer,
+      $$OrderItemStatusEventsTableAnnotationComposer,
+      $$OrderItemStatusEventsTableCreateCompanionBuilder,
+      $$OrderItemStatusEventsTableUpdateCompanionBuilder,
+      (OrderItemStatusEvent, $$OrderItemStatusEventsTableReferences),
+      OrderItemStatusEvent,
+      PrefetchHooks Function({bool orderItemId})
     >;
 typedef $$OrderItemAddonsTableCreateCompanionBuilder =
     OrderItemAddonsCompanion Function({
@@ -22323,6 +24495,8 @@ class $AppDatabaseManager {
       $$OrdersTableTableManager(_db, _db.orders);
   $$OrderItemsTableTableManager get orderItems =>
       $$OrderItemsTableTableManager(_db, _db.orderItems);
+  $$OrderItemStatusEventsTableTableManager get orderItemStatusEvents =>
+      $$OrderItemStatusEventsTableTableManager(_db, _db.orderItemStatusEvents);
   $$OrderItemAddonsTableTableManager get orderItemAddons =>
       $$OrderItemAddonsTableTableManager(_db, _db.orderItemAddons);
   $$OrderStatusEventsTableTableManager get orderStatusEvents =>

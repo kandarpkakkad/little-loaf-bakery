@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 9;
+const int kSchemaVersion = 10;
 
 @DriftDatabase(
   tables: [
@@ -14,6 +14,7 @@ const int kSchemaVersion = 9;
     MenuItems,
     Orders,
     OrderItems,
+    OrderItemStatusEvents,
     OrderItemAddons,
     OrderStatusEvents,
     Attachments,
@@ -63,11 +64,112 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
-  /// One entry per version transition. Deliberately empty while the app is
-  /// pre-release: a schema change means uninstall and start again, and an
-  /// empty map makes that explicit by throwing rather than silently opening a
-  /// database written by an older build.
-  static final Map<int, Future<void> Function(Migrator)> _steps = {};
+  /// One entry per version transition.
+  /// The first migration to run against real data on two devices at once, so
+  /// the order of the steps is the whole difficulty. See
+  /// docs/01-platform/storage/lld.md §5b.
+  static final Map<int, Future<void> Function(Migrator)> _steps = {
+    9: _v9ToV10,
+  };
+
+  /// Scheduling moves from the order down to the line (D25-D27).
+  static Future<void> _v9ToV10(Migrator m) async {
+    final db = m.database as AppDatabase;
+    final items = db.orderItems;
+    final orders = db.orders;
+
+    // 1 - additive only, so a v9 build that reads this file after a rollback
+    //     still works.
+    for (final c in [
+      items.status,
+      items.deliveryDate,
+      items.deliveryTime,
+      items.fulfilment,
+      items.deliveryType,
+      items.addressText,
+      items.pinLat,
+      items.pinLng,
+      items.pinUrl,
+      items.trackingUrl,
+      items.deliveredAt,
+      items.cancelReason,
+    ]) {
+      await m.addColumn(items, c);
+    }
+    await m.addColumn(orders, orders.confirmedAt);
+    await m.addColumn(orders, orders.completedAt);
+    await m.createTable(db.orderItemStatusEvents);
+
+    // 2 - every existing line inherits its order's schedule. This is what
+    //     makes a one-date order still mean the same thing afterwards.
+    await db.customStatement('''
+      UPDATE order_items SET
+        delivery_date = (SELECT o.delivery_date FROM orders o WHERE o.id = order_id),
+        delivery_time = (SELECT o.delivery_time FROM orders o WHERE o.id = order_id),
+        fulfilment    = (SELECT o.fulfilment    FROM orders o WHERE o.id = order_id),
+        delivery_type = (SELECT o.delivery_type FROM orders o WHERE o.id = order_id),
+        address_text  = (SELECT o.address_text  FROM orders o WHERE o.id = order_id),
+        pin_lat       = (SELECT o.pin_lat       FROM orders o WHERE o.id = order_id),
+        pin_lng       = (SELECT o.pin_lng       FROM orders o WHERE o.id = order_id),
+        pin_url       = (SELECT o.pin_url       FROM orders o WHERE o.id = order_id),
+        tracking_url  = (SELECT o.tracking_url  FROM orders o WHERE o.id = order_id)
+    ''');
+
+    // 3 - and its order's status, mapped down. The order vocabulary is wider
+    //     than the line's: created/confirmed both collapse to "not started",
+    //     and completed lands on delivered.
+    await db.customStatement('''
+      UPDATE order_items SET status = CASE
+        (SELECT o.status FROM orders o WHERE o.id = order_id)
+          WHEN 'created'       THEN 'created'
+          WHEN 'confirmed'     THEN 'confirmed'
+          WHEN 'in_production' THEN 'in_production'
+          WHEN 'ready'         THEN 'ready'
+          WHEN 'out'           THEN 'out'
+          WHEN 'delivered'     THEN 'delivered'
+          WHEN 'completed'     THEN 'delivered'
+          WHEN 'cancelled'     THEN 'cancelled'
+          ELSE 'created'
+        END
+    ''');
+
+    // 4 - the two columns a CHECK pairs with a status.
+    await db.customStatement('''
+      UPDATE order_items
+         SET delivered_at = COALESCE(
+               (SELECT o.delivered_at FROM orders o WHERE o.id = order_id),
+               (SELECT o.created_at   FROM orders o WHERE o.id = order_id))
+       WHERE status = 'delivered'
+    ''');
+    await db.customStatement('''
+      UPDATE order_items
+         SET cancel_reason = COALESCE(
+               (SELECT o.cancel_reason FROM orders o WHERE o.id = order_id),
+               'cancelled before per-line cancellation existed')
+       WHERE status = 'cancelled'
+    ''');
+
+    // 5 - confirmed_at / completed_at, which the derivation needs and the old
+    //     model never stored. Recovered from the status history where there is
+    //     one, from the row's own timestamps where there is not.
+    await db.customStatement('''
+      UPDATE orders SET confirmed_at = COALESCE(
+        (SELECT MIN(e.at) FROM order_status_events e
+          WHERE e.order_id = orders.id AND e.to_status = 'confirmed'),
+        CASE WHEN status = 'created' THEN NULL ELSE created_at END)
+    ''');
+    await db.customStatement('''
+      UPDATE orders SET completed_at = (
+        SELECT MIN(e.at) FROM order_status_events e
+         WHERE e.order_id = orders.id AND e.to_status = 'completed')
+    ''');
+
+    await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS ix_items_due '
+      'ON order_items(delivery_date, delivery_time) '
+      "WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled')",
+    );
+  }
 
   Future<void> _createIndexes(Migrator m) async {
     const statements = [
@@ -77,6 +179,11 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX ix_orders_customer ON orders(customer_id) WHERE deleted_at IS NULL',
       'CREATE UNIQUE INDEX ux_orders_no ON orders(order_no) WHERE deleted_at IS NULL',
       'CREATE INDEX ix_items_order ON order_items(order_id, position)',
+      // the app's main sort lives here now: "what is due next" is a
+      // question about lines, not orders (D25)
+      'CREATE INDEX ix_items_due ON order_items(delivery_date, delivery_time) '
+          "WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled')",
+      'CREATE INDEX ix_item_status ON order_item_status_events(order_item_id, at)',
       'CREATE INDEX ix_items_menu ON order_items(menu_item_id)',
       'CREATE INDEX ix_addons_item ON order_item_addons(order_item_id, position)',
       'CREATE INDEX ix_status_order ON order_status_events(order_id, at)',

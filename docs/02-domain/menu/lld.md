@@ -10,10 +10,12 @@ Tables: `menu_items`
 
 ## 2. Availability
 
-> **Not built.** `season_from` / `season_to` exist as columns and nothing
-> reads them; no code computes availability from a date. The only
-> availability the app has is the manual `active` flag, toggled in Config.
-> What follows is the design.
+Built — `lib/domain/menu/availability.dart`, eight tests.
+
+Two gates that mean different things: `active` is a switch somebody flips
+("we have stopped making this"), a season is a fact about the year that needs
+no attention once set. A season is picked by **month** in Config; "from" takes
+the first of the month and "to" the last, so Nov–Jan runs to the 31st.
 
 ```dart
 bool availableOn(MenuItem m, Date d) {
@@ -33,9 +35,10 @@ The wrapping case is the one that matters — plum cake runs November to January
 A flat list, whole thing on screen — no search-first, and no grouping: the
 item *is* the category ("Cake", "Croissant", "Focaccia"), so there is no second
 level to group by.
-Inactive items are **excluded**, not greyed — the picker asks for
-`list(activeOnly: true)`. (The design below wanted them shown with a reason;
-that is not what was built.)
+Inactive items are excluded — the picker asks for `list(activeOnly: true)`.
+An item that is merely **out of season is still shown**, with its season beside
+it: a customer can order a Christmas cake in June if they want one in December,
+and hiding it would leave someone wondering whether they imagined it.
 ```
 
 The picker creates nothing. An item that is not on the menu is added under
@@ -70,7 +73,7 @@ accident.
 |---|---|
 | Two items with the same name | Allowed, and indistinguishable in the picker — there is no category to tell them apart. Merging is a human decision in Config |
 | Item deleted with open orders | Tombstoned. Lines keep `item_name_snapshot`; reports group by `menu_item_id`, so history stays intact |
-| Season crossing new year | Handled by the wrap branch in §2 — **not built** |
+| Season crossing new year | Handled by the wrap branch in §2 |
 | `lead_days` changed after an order exists | Only affects new orders; the rush warning is computed at edit time |
 | Menu item created offline | Fine — it is a normal row with an op, and replicates like anything else |
 

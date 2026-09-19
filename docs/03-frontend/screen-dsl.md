@@ -133,14 +133,14 @@ screen OrderEdit
           Row Field @a.name | NumField @a.price prefix=₹
         Row strong "Line total" | Money @item.lineTotal
 
-        # ── NOT BUILT (D25): each line carries its own when and where ──
+        # ── each line carries its own when and where (D25) ──
         Micro "WHEN AND WHERE"
         when i > 0
-          # The whole point of the affordance: most multi-line orders go to one
-          # place on one day, and re-entering that per line is the tax D25 would
-          # otherwise impose. Copies the values; it is not a link, so changing
-          # line 1 afterwards leaves line 2 alone.
-          Button ghost "Same as item @{i-1}" -> copySchedule(from: i-1)
+          # A new line opens ALREADY carrying the one above's schedule — most
+          # multi-item orders go to one place on one day, so the common case
+          # needs no typing. This button puts it back after a change. A copy,
+          # not a link: editing line 1 afterwards leaves line 2 alone.
+          Button ghost "Same as above" -> copySchedule(from: i-1)
         Row      DateField "Delivery date *" | TimeField "Time"
         Segmented fulfilment [ Delivery, Pickup ]
         when @item.fulfilment == Delivery
@@ -158,11 +158,14 @@ screen OrderEdit
     Photos   @order.attachments max=5
 
     Micro "DELIVERY"
+    # Defaults the FIRST item copies, not facts about the order (D25). There is
+    # no date here: each item has its own, and the order's is whatever the last
+    # of them is — a picker at this level would set something the items
+    # overwrite. The screen shows the derived date instead.
     Seg      [ Delivery, Pickup ]
-    DatePick "Date *" default=@menu.soonestAllowed
+    Text caption "Due @order.dueDate — the last item to go"
     when @order.isRush
       Alert warn "Rush — @order.leadDays days lead time"
-    TimePick "Time" typed allowEmpty hint='blank = "any time"'
     when @order.fulfilment == delivery
       Seg   "Where *" [ "Inside city", "Out of city" ]   # drives the default charge
       Micro "ADDRESS"

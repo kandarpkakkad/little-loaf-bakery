@@ -35,9 +35,10 @@ for on Monday sits at Delivered all weekend, which is exactly where the outstand
 should find it.
 
 ## Key decisions
-- **A line is scheduled, not the order** (D25, D26, D27) — **not built**. Each line
-  carries its own delivery date, time, type, address and status; the order's status and
-  due date are derived from its lines; money stays on the order.
+- **A line is scheduled, not the order** (D25, D26, D27). Each line carries its own
+  delivery date, time, type, address and status. The order's status is derived from
+  them; its due date is the **last** outstanding line and is never edited; lists sort
+  by the **earliest** outstanding line. Money stays on the order.
 - **Items come from the menu** (D16). `menu_item_id` is not null and the picker
   creates a real menu entry rather than a one-off string.
 - **The line stores a copy of the item name**, so renaming a menu item never rewrites history.

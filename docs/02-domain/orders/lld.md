@@ -12,8 +12,8 @@ Tables: `orders`, `order_items`, `order_item_addons`, `order_status_events`, `at
 Money lineTotal(OrderItem i) =>
     i.basePrice.times(i.qty) + i.addons.fold(Money.zero, (a, x) => a + x.price);
 
-// NOT BUILT (D27): a cancelled line leaves the total entirely. Excluding it
-// here is what can put a paid-up order into credit -- see §4.4.
+// D27: a cancelled line leaves the total entirely. Excluding it here is what
+// can put a paid-up order into credit -- see §4.4.
 Money subtotal(Order o) => o.items
     .where((i) => i.status != cancelled)
     .fold(Money.zero, (a, i) => a + lineTotal(i));
@@ -27,7 +27,7 @@ Money discountOf(Order o) => switch (o.discountType) {
 Money total(Order o)      => subtotal(o) - discountOf(o) + Money(o.deliveryCharge);
 Money paid(Order o)       => o.payments.fold(Money.zero, (a, p) => a + p.amount);
 Money balanceDue(Order o) => total(o) - paid(o);
-// Negative balance is not a balance. NOT BUILT (D27):
+// Negative balance is not a balance (D27):
 bool  inCredit(Order o)     => balanceDue(o).paise < 0;
 Money creditDue(Order o)    => inCredit(o) ? -balanceDue(o) : Money.zero;
 ```
@@ -51,9 +51,8 @@ number unique regardless (D8). The number is **not** the primary key.
 
 ## 4. State machine
 
-> **Not built** (D25, D26). The app today has one status on the order and one
-> delivery date on the order. What follows replaces both. Everything in §4.1–4.4
-> is design.
+Built (D25, D26). The order no longer carries a status anyone sets or a date
+anyone picks — both are read from the lines.
 
 ### 4.1 The line is the thing that moves
 
@@ -104,15 +103,34 @@ The order's **due date** is derived the same way — the earliest line still
 outstanding, which is the honest answer to "when does this order next need me":
 
 ```dart
-int? dueAt(Order o) => o.items
+/// When the order FINISHES: its last outstanding line. This is what the order
+/// shows, and what `orders.delivery_date` is kept equal to.
+int? dueDate(Order o) => o.items
+    .where((i) => i.status != delivered && i.status != cancelled)
+    .map((i) => i.deliveryDate)
+    .fold(null, (a, b) => a == null || b > a ? b : a);
+
+/// What it needs NEXT: its earliest outstanding line. This is what every list
+/// sorts by.
+int? nextLineDate(Order o) => o.items
     .where((i) => i.status != delivered && i.status != cancelled)
     .map((i) => i.deliveryDate)
     .fold(null, (a, b) => a == null || b < a ? b : a);
 ```
 
-Today, Kitchen and the Orders sort all read `dueAt`. An order with a cake on
-Friday and a snack box on Sunday appears on Friday, and again on Sunday once
-Friday's line is delivered.
+**The two differ on a multi-day order, and both are needed.** A cake on Friday
+and a box on Sunday *finishes* Sunday but *needs someone* on Friday. Show the
+first, sort by the second — sorting by the due date buries Friday's cake behind
+everything due earlier in the week, and nobody bakes it.
+
+**`orders.delivery_date` is never edited.** It is a stored copy of `dueDate`,
+rewritten whenever a line is added, edited, delivered or cancelled. The column
+survives because it is NOT NULL and a v9 peer still reads it — not because
+anyone types into it. There is no date picker at order level in either form.
+
+The Orders list sorts on `nextLineDate`. Today and Kitchen must use it too —
+**not built yet**, and until they are, a two-day order shows against the wrong
+day in those two screens.
 
 ### 4.3 Moving several lines at once
 
@@ -144,6 +162,17 @@ Future<void> cancelLine(OrderItem i, String reason) async {
 
 If every line is cancelled the order is cancelled, and the reason shown is the
 last line's.
+
+### 4.4b An item added later
+
+An item added to an order the customer has already agreed to is **confirmed on
+arrival** — it came through the same conversation, and leaving it at `created`
+would make the order read as unconfirmed again. Added before confirmation it is
+`created` like the rest.
+
+Either way it is only `confirmed`, never `in_production`: agreeing to bake
+something is not starting it, and the item stays fully editable until a baker
+picks it up.
 
 ### 4.5 Writing a move
 
@@ -199,9 +228,21 @@ ORDER BY delivery_date ASC,
          created_at ASC               -- breaks every tie, including among untimed
 ```
 
-**NOT BUILT (D25).** Once lines carry the date, the order list sorts by the
-derived `dueAt` (§4.2) rather than a column, so the same ordering has to be
-expressed over the lines:
+**Built (D25).** Two different questions, and the list needs the second one:
+
+| | |
+|---|---|
+| **Due date** — what the order *shows* | its **last** outstanding line: when the order finishes |
+| **Sort key** — what the list *orders by* | its **earliest** outstanding line: when it next needs someone |
+
+A cake on Friday and a box on Sunday reads as due Sunday, but sorts on Friday.
+Sorting by the due date would bury Friday's cake behind everything due earlier
+in the week, and nobody would bake it.
+
+The sort happens in Dart, after the views are assembled, rather than in SQL —
+the key lives in the lines, and the screen already has them. One derivation
+serves both the sort and the label, so they cannot drift apart. The SQL below
+is what an equivalent query would look like if it ever needs to move back:
 
 ```sql
 -- the order's position is its earliest outstanding line

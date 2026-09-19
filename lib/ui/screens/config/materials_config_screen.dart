@@ -137,6 +137,7 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
   // count on the Stock screen, and a second "opening" figure would quietly
   // overwrite whatever those recorded.
   final opening = TextEditingController();
+  final openingCost = TextEditingController();
   var unit = existing?.unit ?? 'kg';
   var category = existing?.category ?? 'raw';
   final formKey = GlobalKey<FormState>();
@@ -145,7 +146,7 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => ControllerHost(
-      controllers: [name, threshold, opening],
+      controllers: [name, threshold, opening, openingCost],
       child: StatefulBuilder(
       builder: (sheetContext, setSheetState) => Padding(
         padding: EdgeInsets.only(
@@ -205,7 +206,7 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
                 ],
               ),
 
-              if (existing == null)
+              if (existing == null) ...[
                 LoafField(
                   label: 'Stock on hand now',
                   controller: opening,
@@ -213,6 +214,19 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
                   inputFormatters: qtyInput,
                   helper: 'What you already have. Leave blank for none.',
                 ),
+                // Optional, and worth asking: this is the only price the app
+                // will ever know for a material you already had. Without it
+                // the first "use last price" has nothing to offer, and the
+                // opening stock is worth nothing on paper.
+                LoafField(
+                  label: 'What that cost',
+                  controller: openingCost,
+                  prefix: '₹ ',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: rupeeInput,
+                  helper: 'For all of it, not per unit. Skip if you do not know.',
+                ),
+              ],
               const SizedBox(height: Space.md),
               FilledButton(
                 onPressed: () {
@@ -235,14 +249,17 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
     if (existing == null) {
       final id = await app.stock.createMaterial(
           name: name.text.trim(), category: category, unit: unit, thresholdQty: t);
-      // Recorded as a count, which sets the level absolutely — the same thing a
-      // stocktake does. An "in" movement would read as a purchase that never
-      // happened and would want a price.
       if (start > 0) {
+        final cost = moneyFromField(openingCost.text);
+        // With a price it is a purchase: it sets the level AND teaches the app
+        // what this material costs, which is what "use last price" reads.
+        // Without one it is a stocktake — you have it, you cannot say what it
+        // cost, and inventing a number would be worse than leaving it blank.
         await app.stock.addMovement(
           materialId: id,
-          kind: StockKind.count,
+          kind: cost.isZero ? StockKind.count : StockKind.stockIn,
           qty: start,
+          amount: cost.isZero ? null : cost,
         );
       }
     } else {

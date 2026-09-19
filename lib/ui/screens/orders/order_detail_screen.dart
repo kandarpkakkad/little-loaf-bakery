@@ -14,6 +14,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/primitives.dart';
 import 'edit_order_sheet.dart';
+import 'line_editor.dart';
 
 /// Everything about one order, and every action it can take right now.
 ///
@@ -193,35 +194,87 @@ class _Detail extends StatelessWidget {
             child: Column(
               children: [
                 for (final l in view.lines) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Space.xs),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  InkWell(
+                    onTap: () => _editItem(context, view, l),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    '${l.itemName}${l.qty > 1 ? '  × ${l.qty}' : ''}',
+                                    style: context.text.bodyLarge!.copyWith(
+                                      decoration:
+                                          l.status == LineStatus.cancelled
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                      color: l.status == LineStatus.cancelled
+                                          ? c.ink3
+                                          : null,
+                                    )),
+                                if ([l.flavour, l.weight].any((x) => x != null))
+                                  Micro([
+                                    if (l.flavour != null) l.flavour!,
+                                    if (l.weight != null) l.weight!.label,
+                                  ].join(' · ')),
+                                for (final a in l.addons)
+                                  Micro('+ ${a.name}  ${money(a.price) ?? ''}'),
+                                if (l.note != null) Micro('Note: ${l.note!}'),
+                                // Each item says when it goes and where it is
+                                // in its own life -- the whole point of D25 is
+                                // that these differ within one order.
+                                Padding(
+                                  padding: const EdgeInsets.only(top: Space.xs),
+                                  child: Wrap(
+                                    spacing: Space.sm,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      _LineChip(status: l.status),
+                                      if (l.deliveryDate != null)
+                                        Micro([
+                                          _dateLabel(
+                                              DateTime.fromMillisecondsSinceEpoch(
+                                                  l.deliveryDate!)),
+                                          if (l.deliveryTime != null)
+                                            timeLabel(l.deliveryTime),
+                                          if (l.fulfilment == Fulfilment.pickup)
+                                            'pickup',
+                                        ].join(' · ')),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('${l.itemName}${l.qty > 1 ? '  × ${l.qty}' : ''}',
+                              Text(money(l.total, showZero: true)!,
                                   style: context.text.bodyLarge),
-                              if ([l.flavour, l.weight].any((x) => x != null))
-                                Micro([
-                                  if (l.flavour != null) l.flavour!,
-                                  if (l.weight != null) l.weight!.label,
-                                ].join(' · ')),
-                              for (final a in l.addons)
-                                Micro('+ ${a.name}  ${money(a.price) ?? ''}'),
-                              if (l.note != null) Micro('Note: ${l.note!}'),
+                              LineNextStep(view: view, line: l),
                             ],
                           ),
-                        ),
-                        Text(money(l.total, showZero: true)!,
-                            style: context.text.bodyLarge),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   if (l != view.lines.last) Divider(color: c.ruleSoft),
                 ],
+                // Adding to a live order is an edit, not a new order -- the
+                // customer rang back, they did not place a second one.
+                if (view.status != OrderStatus.completed && !view.isCancelled)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => _addItem(context, view),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Add item'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -426,6 +479,227 @@ Future<void> _move(BuildContext context, OrderView view, OrderStatus to) async {
   if (kind != null) await _offerMessage(context, view, kind);
 }
 
+/// Move every line of one drop together, then offer the one message that
+/// describes it.
+///
+/// A drop is a journey: lines sharing a day, a time and a destination. Moving
+/// them one at a time would be three taps and three identical texts for what
+/// the customer experienced as one doorbell.
+Future<void> moveDrop(
+  BuildContext context,
+  OrderView view,
+  Drop drop,
+  LineStatus to,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final orders = context.app.orders;
+  try {
+    for (final line in drop.lines) {
+      if (line.status.canGoTo(to)) await orders.moveLine(line.id!, to);
+    }
+  } on StateError catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    return;
+  }
+  if (!context.mounted) return;
+
+  final kind = switch (to) {
+    LineStatus.out => MessageKind.outForDelivery,
+    LineStatus.delivered => MessageKind.delivery,
+    _ => null,
+  };
+  if (kind == null) return;
+
+  // The message names what arrived and what is still coming, so the customer
+  // is never told "your order has been delivered" while a box is outstanding.
+  final fresh = await orders.watchOrder(view.order.id).first;
+  if (fresh == null || !context.mounted) return;
+  await _offerMessage(context, fresh, kind, dropLines: drop.lines);
+}
+
+/// The one step this item can take next, as a button.
+///
+/// Baking is per item; handing over is per **drop**. So "Start" and "Ready"
+/// move this item alone, while "Send out" and "Delivered" move everything
+/// travelling with it — two cakes going to the same house at 4pm leave in one
+/// van, and marking them separately would send the customer two texts about
+/// one doorbell.
+class LineNextStep extends StatelessWidget {
+  const LineNextStep({super.key, required this.view, required this.line});
+
+  final OrderView view;
+  final OrderLine line;
+
+  /// The single step worth offering. Cancelling is deliberately not here — it
+  /// needs a reason, and a destructive action does not belong on the same
+  /// gesture as the ordinary next step.
+  LineStatus? get _next {
+    final next = line.nextStatuses.where((s) => s != LineStatus.cancelled);
+    if (next.isEmpty) return null;
+    // ready → {out, delivered}: a delivery goes out, a pickup is collected.
+    if (next.contains(LineStatus.out)) return LineStatus.out;
+    if (next.contains(LineStatus.delivered)) return LineStatus.delivered;
+    return next.first;
+  }
+
+  /// Verbs, deliberately. The chip beside this says where the item *is*; a
+  /// button reading the same word would be two different claims in one row.
+  String _label(LineStatus to) => switch (to) {
+        LineStatus.confirmed => 'Confirm',
+        LineStatus.inProduction => 'Start',
+        LineStatus.ready => 'Mark ready',
+        LineStatus.out => 'Send out',
+        LineStatus.delivered =>
+          line.fulfilment == Fulfilment.pickup ? 'Mark collected' : 'Mark delivered',
+        _ => to.label,
+      };
+
+  bool _isHandover(LineStatus to) =>
+      to == LineStatus.out || to == LineStatus.delivered;
+
+  @override
+  Widget build(BuildContext context) {
+    final to = _next;
+    // An order still to be confirmed is moved as a whole, from the order's own
+    // action — confirming one item of three is not a thing that happens.
+    if (to == null || to == LineStatus.confirmed) return const SizedBox.shrink();
+
+    final drop = dropFor(line, view.liveLines);
+    final travelsWith = _isHandover(to) ? drop.lines.length : 1;
+
+    return TextButton(
+      onPressed: () => _go(context, to, drop),
+      child: Text(
+        travelsWith > 1 ? '${_label(to)} ($travelsWith)' : _label(to),
+      ),
+    );
+  }
+
+  Future<void> _go(BuildContext context, LineStatus to, Drop drop) async {
+    if (_isHandover(to)) {
+      await moveDrop(context, view, drop, to);
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.app.orders.moveLine(line.id!, to);
+    } on StateError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+}
+
+/// Edit one item. What it *is* is only editable until a baker has started on
+/// it; when and where it goes stays editable until it has gone.
+Future<void> _editItem(
+    BuildContext context, OrderView view, OrderLine line) async {
+  if (line.status.isDone) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('This item is ${line.status.label.toLowerCase()} — '
+          'it is a record of what happened now.'),
+    ));
+    return;
+  }
+
+  final orders = context.app.orders;
+  final messenger = ScaffoldMessenger.of(context);
+  final edited = await editLine(
+    context,
+    existing: _draftOf(line),
+    customerId: view.customer.id,
+    status: line.status,
+  );
+  if (edited == null) return;
+
+  try {
+    await orders.updateLine(
+      line.id!,
+      flavour: edited.flavour,
+      weight: edited.weight,
+      qty: edited.qty,
+      basePrice: edited.basePrice,
+      note: edited.note,
+      deliveryDate: edited.deliveryDate,
+      deliveryTime: edited.deliveryTime,
+      fulfilment: edited.fulfilment,
+      deliveryType: edited.deliveryType,
+      addressText: edited.addressText,
+      pinLat: edited.pinLat,
+      pinLng: edited.pinLng,
+      pinUrl: edited.pinUrl,
+    );
+  } on StateError catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+Future<void> _addItem(BuildContext context, OrderView view) async {
+  final orders = context.app.orders;
+  final added = await editLine(
+    context,
+    // a new item starts from the last one, as it does on the order form
+    copyFrom: view.lines.isEmpty ? null : _draftOf(view.lines.last),
+    customerId: view.customer.id,
+  );
+  if (added == null) return;
+  await orders.addLine(view.order.id, added);
+  if (!context.mounted) return;
+
+  // The customer agreed to an order that no longer matches what is written
+  // down, so they are shown the new version. Only once it has been confirmed:
+  // before that, nothing has been sent and there is nothing to correct.
+  if (view.order.confirmedAt == null) return;
+  final fresh = await orders.watchOrder(view.order.id).first;
+  if (fresh == null || !context.mounted) return;
+  await _offerMessage(context, fresh, MessageKind.confirmation, isUpdate: true);
+}
+
+DraftLine _draftOf(OrderLine l) => DraftLine(
+      menuItemId: l.menuItemId,
+      itemName: l.itemName,
+      flavour: l.flavour,
+      weight: l.weight,
+      qty: l.qty,
+      basePrice: l.basePrice,
+      note: l.note,
+      addons: l.addons,
+      deliveryDate: l.deliveryDate,
+      deliveryTime: l.deliveryTime,
+      fulfilment: l.fulfilment,
+      deliveryType: l.deliveryType,
+      addressText: l.addressText,
+      pinLat: l.pinLat,
+      pinLng: l.pinLng,
+      pinUrl: l.pinUrl,
+    );
+
+/// Where one item is in its own life. Small, because it is read alongside the
+/// item rather than instead of it.
+class _LineChip extends StatelessWidget {
+  const _LineChip({required this.status});
+
+  final LineStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final (fg, bg) = switch (status) {
+      LineStatus.cancelled => (c.bad, c.badSoft),
+      LineStatus.delivered => (c.good, c.goodSoft),
+      LineStatus.out || LineStatus.ready => (c.accent, c.accentSoft),
+      _ => (c.ink3, c.surface2),
+    };
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 2),
+      decoration: BoxDecoration(
+          color: bg, borderRadius: BorderRadius.circular(Radii.sm)),
+      child: Text(status.label,
+          style: context.text.bodySmall!.copyWith(color: fg)),
+    );
+  }
+}
+
 Future<void> _cancel(BuildContext context, String orderId) async {
   final reason = await promptText(context,
       title: 'Cancel order', hint: 'Reason', confirm: 'Cancel order');
@@ -535,17 +809,18 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
     // The button already refuses this, but the value is re-checked here so no
     // other route into this code can record more than is owed.
     if (value.paise > 0 && value <= due) {
-      final hadBalance = view.totals.hasBalance;
       await context.app.orders.addPayment(
         orderId: view.order.id,
         amount: value,
         kind: view.totals.paid.isZero ? 'advance' : 'balance',
         mode: mode,
       );
-      // Offered only when there was a balance to clear — otherwise the
-      // customer already knows, and the delivery message thanked them.
-      if (hadBalance && context.mounted) {
-        await _offerMessage(context, view, MessageKind.paymentReceived);
+      // Every payment earns a receipt, partial or final. Recording money is
+      // its own trigger: a part-paid order sits at the same status before and
+      // after, so nothing status-driven would ever fire for it.
+      if (context.mounted) {
+        await _offerMessage(context, view, MessageKind.paymentReceived,
+            justPaid: value);
       }
     }
   }
@@ -553,7 +828,10 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
 
 // ── WhatsApp ──────────────────────────────────────────────────────────────
 
-Future<MessageContext> _messageContext(BuildContext context, OrderView view) async {
+Future<MessageContext> _messageContext(BuildContext context, OrderView view,
+    {Money? justPaid,
+    List<OrderLine> dropLines = const [],
+    bool isUpdate = false}) async {
   final s = await context.app.settings();
   final o = view.order;
   return MessageContext(
@@ -562,9 +840,11 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view) asy
     totals: view.totals,
     lines: view.lines,
     businessName: s.businessName,
-    deliveryDateLabel:
-        _dateLabel(DateTime.fromMillisecondsSinceEpoch(o.deliveryDate)),
-    deliveryTimeLabel: timeLabel(o.deliveryTime),
+    // the order's own date is just the default new lines copy now (D25), so
+    // the message quotes when the order is actually next due
+    deliveryDateLabel: _dateLabel(DateTime.fromMillisecondsSinceEpoch(
+        view.dueDate ?? o.deliveryDate)),
+    deliveryTimeLabel: timeLabel(view.dueTime ?? o.deliveryTime),
     addressText: o.addressText,
     trackingUrl: o.trackingUrl,
     itemMessage: o.itemMessage,
@@ -572,6 +852,9 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view) asy
     upiId: s.upiId,
     paymentPhone: s.paymentPhone,
     hadBalance: view.totals.hasBalance,
+    lastPayment: justPaid,
+    dropLines: dropLines,
+    isUpdate: isUpdate,
   );
 }
 
@@ -580,8 +863,12 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view) asy
 /// carry an attachment — which is exactly why the invoice is text.
 /// docs/00-overview/decisions.md D13.
 Future<void> _offerMessage(
-    BuildContext context, OrderView view, MessageKind kind) async {
-  final ctx = await _messageContext(context, view);
+    BuildContext context, OrderView view, MessageKind kind,
+    {Money? justPaid,
+    List<OrderLine> dropLines = const [],
+    bool isUpdate = false}) async {
+  final ctx = await _messageContext(context, view,
+      justPaid: justPaid, dropLines: dropLines, isUpdate: isUpdate);
   if (!context.mounted || !isOffered(kind, ctx)) return;
   final text = compose(kind, ctx);
 

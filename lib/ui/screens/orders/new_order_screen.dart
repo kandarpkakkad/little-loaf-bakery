@@ -40,8 +40,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   Fulfilment _fulfilment = Fulfilment.delivery;
   DeliveryType _deliveryType = DeliveryType.local;
   DiscountType? _discountType;
-  DateTime _date = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay? _time;
   int _dietary = 0;
   String _advanceMode = 'upi';
   bool _saving = false;
@@ -136,6 +134,30 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.dispose();
   }
 
+  /// The order-level date, fulfilment and address are no longer facts about
+  /// the order — they are the defaults a new line starts from (D25). Shaped as
+  /// a DraftLine so the line editor can copy it exactly as it copies a real
+  /// line above.
+  /// What the order will be due — the last date among its items (D25).
+  int? get _dueDate => _lines
+      .map((l) => l.deliveryDate)
+      .whereType<int>()
+      .fold<int?>(null, (a, b) => a == null || b > a ? b : a);
+
+  DraftLine get _orderDefaults => DraftLine(
+        menuItemId: '',
+        itemName: '',
+        // deliberately no date: the first item asks for one, and every item
+        // after copies the one above
+        fulfilment: _fulfilment,
+        deliveryType:
+            _fulfilment == Fulfilment.delivery ? _deliveryType : null,
+        addressText: _address?.addressText,
+        pinLat: _address?.pinLat,
+        pinLng: _address?.pinLng,
+        pinUrl: _address?.pinUrl,
+      );
+
   OrderTotals get _totals => OrderTotals(
         lines: [for (final l in _lines) l.toLine()],
         discountType: _discountType,
@@ -181,8 +203,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         customerId: customerId,
         lines: _lines,
         fulfilment: _fulfilment,
-        deliveryDate: DateTime(_date.year, _date.month, _date.day).millisecondsSinceEpoch,
-        deliveryTime: _time == null ? null : _time!.hour * 60 + _time!.minute,
         deliveryType: _fulfilment == Fulfilment.delivery ? _deliveryType : null,
         // snapshotted onto the order, so editing the address later cannot
         // rewrite where a delivered order went
@@ -289,7 +309,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             SectionLabel('Items',
                 trailing: TextButton.icon(
                   onPressed: () async {
-                    final line = await editLine(context);
+                    final line = await editLine(
+                      context,
+                      // a new line starts as a copy of the one above
+                      // the first line copies the order-level defaults;
+                      // later ones copy the line above (D25)
+                      copyFrom: _lines.isEmpty ? _orderDefaults : _lines.last,
+                      customerId: _customerId,
+                    );
                     if (line != null) setState(() => _lines.add(line));
                   },
                   icon: const Icon(Icons.add, size: 16),
@@ -311,7 +338,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                         line: _lines[i],
                         onEdit: () async {
                           final edited =
-                              await editLine(context, existing: _lines[i]);
+                              await editLine(
+                                context,
+                                existing: _lines[i],
+                                copyFrom:
+                                    i == 0 ? _orderDefaults : _lines[i - 1],
+                                customerId: _customerId,
+                              );
                           if (edited != null) setState(() => _lines[i] = edited);
                         },
                         onRemove: () => setState(() => _lines.removeAt(i)),
@@ -360,37 +393,20 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       onClear: () => setState(() => _address = null),
                     ),
                   ],
+                  // No date here. Each item carries its own (D25), and the
+                  // order's is whatever the last of them is — so a picker at
+                  // this level would be setting something the items overwrite.
                   Row(
                     children: [
+                      Icon(Icons.event, size: 16, color: c.ink3),
+                      const SizedBox(width: Space.sm),
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _date,
-                              firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
-                            );
-                            if (picked != null) setState(() => _date = picked);
-                          },
-                          icon: const Icon(Icons.event, size: 18),
-                          label: Text(_dateLabel(_date)),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: _time ?? const TimeOfDay(hour: 11, minute: 0),
-                            );
-                            setState(() => _time = picked);
-                          },
-                          icon: const Icon(Icons.schedule, size: 18),
-                          label: Text(_time == null
-                              ? 'Any time'
-                              : timeLabel(_time!.hour * 60 + _time!.minute)),
+                        child: Text(
+                          _lines.isEmpty
+                              ? 'Each item gets its own delivery date.'
+                              : 'Due ${_dateLabel(DateTime.fromMillisecondsSinceEpoch(_dueDate!))} — '
+                                  'the last item to go.',
+                          style: context.text.bodySmall!.copyWith(color: c.ink3),
                         ),
                       ),
                     ],

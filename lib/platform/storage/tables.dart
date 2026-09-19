@@ -108,6 +108,13 @@ class Orders extends Table with Common, FieldHlc {
   TextColumn get cancelReason => text().nullable()();
   IntColumn get deliveredAt => integer().nullable()();
 
+  // ── the three moments a person writes (D26) ──
+  // Everything between them is derived from the lines. `status` stays because
+  // a v9 device still writes it and the migration reads it, but nothing in
+  // this build treats it as the truth.
+  IntColumn get confirmedAt => integer().nullable()();
+  IntColumn get completedAt => integer().nullable()();
+
   @override
   List<String> get customConstraints => [
         "CHECK (status IN ('created','confirmed','in_production','ready','out','delivered','completed','cancelled'))",
@@ -131,9 +138,35 @@ class OrderItems extends Table with Common {
   TextColumn get note => text().nullable()();
   IntColumn get position => integer()();
 
+  // ── the line's own schedule (D25) ──
+  // A line is what gets made and handed over, so it carries the when, the
+  // where and the how. Nullable so the v9→v10 migration can add them before
+  // backfilling; the repository requires a delivery date.
+  TextColumn get status => text().withDefault(const Constant('created'))();
+  IntColumn get deliveryDate => integer().nullable()(); // local midnight
+  IntColumn get deliveryTime => integer().nullable()(); // minutes from midnight
+  TextColumn get fulfilment => text().nullable()(); // delivery|pickup
+  TextColumn get deliveryType => text().nullable()(); // local|outstation
+  TextColumn get addressText => text().nullable()();
+  RealColumn get pinLat => real().nullable()();
+  RealColumn get pinLng => real().nullable()();
+  TextColumn get pinUrl => text().nullable()();
+  TextColumn get trackingUrl => text().nullable()();
+  IntColumn get deliveredAt => integer().nullable()();
+  TextColumn get cancelReason => text().nullable()();
+
   @override
   List<String> get customConstraints => [
         'CHECK (qty > 0)',
+        "CHECK (status IN ('created','confirmed','in_production','ready','out','delivered','cancelled'))",
+        "CHECK (fulfilment IS NULL OR fulfilment IN ('delivery','pickup'))",
+        "CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation'))",
+        // a pickup goes nowhere: no delivery type, no tracking link
+        "CHECK (fulfilment IS NULL OR fulfilment = 'delivery' "
+            'OR (delivery_type IS NULL AND tracking_url IS NULL))',
+        'CHECK ((pin_lat IS NULL) = (pin_lng IS NULL))',
+        "CHECK ((status = 'cancelled') = (cancel_reason IS NOT NULL))",
+        "CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))",
         // a weight is both halves or neither
         'CHECK ((weight_value IS NULL) = (weight_unit IS NULL))',
         "CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen'))",
@@ -150,6 +183,18 @@ class OrderItemAddons extends Table with Common {
 
 class OrderStatusEvents extends Table with Common {
   TextColumn get orderId => text().references(Orders, #id)();
+  TextColumn get fromStatus => text().nullable()();
+  TextColumn get toStatus => text()();
+  TextColumn get reason => text().nullable()();
+  IntColumn get at => integer()();
+}
+
+/// Same shape as [OrderStatusEvents], one level down. The order's own history
+/// keeps only what a person did to it — confirmed, completed, cancelled —
+/// because everything between those is derived, and recording it twice would
+/// make the two disagree.
+class OrderItemStatusEvents extends Table with Common {
+  TextColumn get orderItemId => text().references(OrderItems, #id)();
   TextColumn get fromStatus => text().nullable()();
   TextColumn get toStatus => text()();
   TextColumn get reason => text().nullable()();

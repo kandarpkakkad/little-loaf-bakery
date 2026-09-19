@@ -22,6 +22,9 @@ class MessageContext {
     this.upiId,
     this.paymentPhone,
     this.hadBalance = false,
+    this.lastPayment,
+    this.dropLines = const [],
+    this.isUpdate = false,
   });
 
   final String customerFirstName;
@@ -36,6 +39,26 @@ class MessageContext {
   /// Whether a balance existed *before* the final payment — by the time
   /// Completed is reached the balance is zero by definition.
   final bool hadBalance;
+
+  /// What was just handed over, when this message follows a payment.
+  final Money? lastPayment;
+
+  /// The lines this message is about, when it is about some of them rather
+  /// than the whole order.
+  ///
+  /// A two-day order is two handovers, and one "your order has been delivered"
+  /// on the Friday would be a lie about the Sunday box. Empty means the whole
+  /// order, which is what a single-drop order always is.
+  final List<OrderLine> dropLines;
+
+  /// The order already existed and has changed — an item added, usually.
+  /// The same listing, opening with what happened rather than pretending it is
+  /// the first time the customer has seen it.
+  final bool isUpdate;
+
+  /// True when this message covers only part of the order.
+  bool get isPartialDrop =>
+      dropLines.isNotEmpty && dropLines.length < lines.length;
 }
 
 /// Whether a message is offered at all. Two of the four are conditional.
@@ -46,7 +69,10 @@ bool isOffered(MessageKind kind, MessageContext c) => switch (kind) {
       MessageKind.delivery => true,
       // they know what they paid — and if there was never a balance, the
       // delivery message already thanked them
-      MessageKind.paymentReceived => c.hadBalance,
+      // Every payment earns a receipt, partial or final. The old rule —
+      // only when a balance existed — never fired for a part payment at
+      // all, because the order sits at the same status before and after.
+      MessageKind.paymentReceived => true,
       MessageKind.invoice => true,
     };
 
@@ -58,8 +84,19 @@ String compose(MessageKind kind, MessageContext c) => switch (kind) {
       MessageKind.invoice => _invoice(c),
     };
 
+/// What is on this message: the lines being dropped, or all of them.
+List<OrderLine> _subject(MessageContext c) =>
+    c.dropLines.isEmpty ? c.lines : c.dropLines;
+
+/// The rest of the order, named so the customer knows nothing was forgotten.
+String _stillToCome(MessageContext c) {
+  final dropped = _subject(c).toSet();
+  final rest = c.lines.where((l) => !dropped.contains(l)).map((l) => l.itemName);
+  return rest.join(', ');
+}
+
 List<String> _itemLines(MessageContext c) => [
-      for (final l in c.lines) ...[
+      for (final l in _subject(c)) ...[
         '${[
           l.itemName,
           if (l.flavour != null) l.flavour!,
@@ -80,7 +117,10 @@ String _moneyLine(MessageContext c) {
 }
 
 String _confirmation(MessageContext c) => [
-      'Hi ${c.customerFirstName}, your order with ${c.businessName} is confirmed 🍞',
+      if (c.isUpdate)
+        'Hi ${c.customerFirstName}, your order has been updated 🍞'
+      else
+        'Hi ${c.customerFirstName}, your order with ${c.businessName} is confirmed 🍞',
       '',
       'Order: ${c.orderNo}',
       ..._itemLines(c),
@@ -118,12 +158,22 @@ List<String> _payLines(MessageContext c) => [
 /// the balance; when nothing is owed those lines are simply absent.
 String _delivery(MessageContext c) {
   final owed = c.totals.balanceDue;
-  final owes = owed.paise > 0;
+  // Money is the whole order's (D27), so it is only quoted once everything has
+  // arrived. Asking for the balance while a box is still to come reads as a
+  // demand for something not yet delivered.
+  final owes = owed.paise > 0 && !c.isPartialDrop;
   return [
-    'Hi ${c.customerFirstName}, your order has been delivered 🎂',
+    if (c.isPartialDrop)
+      'Hi ${c.customerFirstName}, part of your order has arrived 🎂'
+    else
+      'Hi ${c.customerFirstName}, your order has been delivered 🎂',
     '',
     'Order: ${c.orderNo}',
     ..._itemLines(c),
+    if (c.isPartialDrop) ...[
+      '',
+      'Still to come: ${_stillToCome(c)}',
+    ],
     '',
     if (owes) ...[
       'Total ${money(c.totals.total)} · Paid ${money(c.totals.paid)}',
@@ -139,9 +189,28 @@ String _delivery(MessageContext c) {
 }
 
 /// No amount, no summary. They know what they paid, because they just paid it.
-String _paymentReceived(MessageContext c) =>
-    'Hi ${c.customerFirstName}, we have received your payment. Thank you!\n\n'
-    '— ${c.businessName}';
+/// Offered after **every** payment, including a partial one, and it says what
+/// is still owed. A receipt that omits the balance invites the question it was
+/// meant to prevent — and a part payment is exactly when the customer is least
+/// sure where they stand.
+String _paymentReceived(MessageContext c) {
+  final owed = c.totals.balanceDue;
+  return [
+    if (c.lastPayment != null)
+      'Hi ${c.customerFirstName}, we have received '
+          '${money(c.lastPayment!, showZero: true)}. Thank you!'
+    else
+      'Hi ${c.customerFirstName}, we have received your payment. Thank you!',
+    '',
+    'Order: ${c.orderNo}',
+    if (owed.paise > 0) 'Still to pay: ${money(owed, showZero: true)}',
+    if (owed.isZero) 'That settles it — paid in full.',
+    if (owed.paise < 0)
+      'That leaves ${money(Money(-owed.paise), showZero: true)} to refund to you.',
+    '',
+    '— ${c.businessName}',
+  ].join('\n');
+}
 
 // ── the invoice, as a formatted message ──────────────────────────────────
 
