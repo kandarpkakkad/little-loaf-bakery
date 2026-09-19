@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/scope.dart';
 import '../../domain/orders/repository.dart';
 import '../theme/format.dart';
+import 'config/reports_screen.dart';
 import 'config/sync_screen.dart';
 import '../theme/breakpoints.dart';
 import '../theme/theme.dart';
@@ -72,6 +73,13 @@ class MoreScreen extends StatelessWidget {
                   title: 'Business',
                   subtitle: 'Name, UPI, delivery charges, this device',
                   screen: const BusinessConfigScreen(),
+                ),
+                Divider(height: 1, color: context.colors.ruleSoft),
+                _Link(
+                  icon: Icons.insights_outlined,
+                  title: 'Reports',
+                  subtitle: 'What came in, what sells, what is owed',
+                  screen: const ReportsScreen(),
                 ),
                 Divider(height: 1, color: context.colors.ruleSoft),
                 _Link(

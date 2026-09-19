@@ -4,6 +4,7 @@ import '../domain/customers/repository.dart';
 import '../domain/invoicing/repository.dart';
 import '../domain/menu/repository.dart';
 import '../domain/orders/repository.dart';
+import '../domain/reporting/repository.dart';
 import '../domain/stock/repository.dart';
 import '../platform/storage/database.dart';
 import '../platform/sync/mutations.dart';
@@ -24,7 +25,9 @@ class AppServices {
         orders = OrderRepository(db, mutations),
         stock = StockRepository(db, mutations),
         invoices = InvoiceRepository(db, mutations),
-        sync = SyncService(db: db, mutations: mutations, deviceId: deviceId);
+        sync = SyncService(db: db, mutations: mutations, deviceId: deviceId) {
+    reports = ReportRepository(db, orders);
+  }
 
   final AppDatabase db;
   final String deviceId;
@@ -35,6 +38,11 @@ class AppServices {
   final OrderRepository orders;
   final StockRepository stock;
   final InvoiceRepository invoices;
+
+  /// Built after the field initialisers because it reads through
+  /// [orders] rather than the database directly — one definition of a
+  /// total, not two.
+  late final ReportRepository reports;
   final SyncService sync;
 
   Future<Setting> settings() => db.select(db.settings).getSingle();

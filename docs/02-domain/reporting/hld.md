@@ -1,8 +1,17 @@
 # Reporting — HLD
 
 
-> **Not built.** None of the views or queries below exist in the app, and
-> there is no reports screen. What follows is the design.
+Built — `lib/domain/reporting/repository.dart` and **More › Reports**, ten
+tests.
+
+**Deviation from the design below, deliberately.** It called for a
+`v_order_totals` view as "the single definition of a total". The app already
+has one — `OrderTotals` in Dart — and every screen reads it. A SQL copy would
+be a *second* definition, and the two would drift the first time a rule changed:
+cancelled items leaving the total, credit, a discount resolved at invoice. So
+the reports compute in Dart over the same object the screens use. At a bakery's
+volumes that costs nothing; two definitions would cost a report that disagrees
+with the order screen.
 
 ## Purpose
 Answer the handful of questions the owner actually asks, and export everything for the

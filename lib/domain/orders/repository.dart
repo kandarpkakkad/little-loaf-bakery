@@ -334,6 +334,7 @@ class OrderRepository {
           pinLng: i.pinLng,
           pinUrl: i.pinUrl,
           trackingUrl: i.trackingUrl,
+          deliveredAt: i.deliveredAt,
           qty: i.qty,
           basePrice: Money(i.basePrice),
           note: i.note,

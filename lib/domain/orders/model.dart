@@ -261,6 +261,7 @@ class OrderLine {
     this.pinLng,
     this.pinUrl,
     this.trackingUrl,
+    this.deliveredAt,
   });
 
   /// Null for a line that has not been saved yet.
@@ -285,6 +286,10 @@ class OrderLine {
   final double? pinLng;
   final String? pinUrl;
   final String? trackingUrl;
+
+  /// When this item actually went. Reporting dates a sale by this rather
+  /// than by when it was promised.
+  final int? deliveredAt;
 
   bool get isLive => status.isLive;
   bool get hasPin => pinLat != null && pinLng != null;
