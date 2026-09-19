@@ -12,6 +12,7 @@ import '../theme/format.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../widgets/forms.dart';
+import '../widgets/sync_refresh.dart';
 import '../widgets/primitives.dart';
 import 'orders/order_card.dart';
 import 'stock/stock_screen.dart';
@@ -46,12 +47,13 @@ class TodayScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<List<OrderView>>(
+      body: SyncRefresh(
+        child: StreamBuilder<List<OrderView>>(
         stream: app.orders.watchOrders(),
         builder: (context, snap) {
           final all = snap.data;
           if (all == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Pullable(child: CircularProgressIndicator());
           }
 
           final live = all.where((o) => !o.isCancelled).toList();
@@ -159,7 +161,7 @@ class TodayScreen extends StatelessWidget {
           ),
           );
         },
-      ),
+      )),
     );
   }
 }

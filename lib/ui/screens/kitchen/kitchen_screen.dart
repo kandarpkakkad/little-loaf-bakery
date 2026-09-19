@@ -7,6 +7,7 @@ import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/sync_refresh.dart';
 import '../../widgets/primitives.dart';
 import '../orders/order_card.dart';
 
@@ -74,27 +75,28 @@ class _KitchenScreenState extends State<KitchenScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List<OrderView>>(
+      body: SyncRefresh(
+        child: StreamBuilder<List<OrderView>>(
         stream: context.app.orders.watchOrders(statuses: _active),
         builder: (context, snap) {
           final all = snap.data;
           if (all == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Pullable(child: CircularProgressIndicator());
           }
           final due =
               all.where((o) => o.order.deliveryDate < horizon).toList();
 
           if (due.isEmpty) {
-            return EmptyState(
+            return Pullable(child: EmptyState(
               icon: Icons.bakery_dining_outlined,
               message: _days == 1
                   ? 'Nothing to bake today.'
                   : 'Nothing to bake in the next $_days days.',
-            );
+            ));
           }
           return _view == 0 ? _Board(orders: due) : _BakeSheet(orders: due);
         },
-      ),
+      )),
     );
   }
 }

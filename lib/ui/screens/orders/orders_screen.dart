@@ -8,6 +8,7 @@ import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/primitives.dart';
+import '../../widgets/sync_refresh.dart';
 import 'order_card.dart';
 import 'order_detail_screen.dart';
 
@@ -92,7 +93,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List<OrderView>>(
+      body: SyncRefresh(
+        child: StreamBuilder<List<OrderView>>(
         // Every tab reads forward — delivery date, then time, then when the
         // order was taken. The earliest deliverable order is always the one to
         // see first, and a list that changes direction with the tab is harder
@@ -101,7 +103,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         builder: (context, snap) {
           final all = snap.data;
           if (all == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Pullable(child: CircularProgressIndicator());
           }
           // Numbers are stored unspaced but shown grouped, so a search typed
           // either way has to match: both sides are reduced to digits.
@@ -118,7 +120,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 }).toList();
 
           if (orders.isEmpty) {
-            return EmptyState(
+            return Pullable(child: EmptyState(
               icon: Icons.receipt_long_outlined,
               message: _query.isNotEmpty
                   ? 'Nothing matches "$_query".'
@@ -128,7 +130,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       'cancelled' => 'No cancelled orders.',
                       _ => 'No orders yet.',
                     },
-            );
+            ));
           }
 
           final twoPane = context.window.usesRail;
@@ -184,7 +186,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ],
           );
         },
-      ),
+      )),
     );
   }
 }
