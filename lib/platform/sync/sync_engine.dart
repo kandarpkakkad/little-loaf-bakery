@@ -16,13 +16,27 @@ class SyncReport {
     this.uploaded = 0,
     this.applied = 0,
     this.peersRead = 0,
+    this.peersSeen = 0,
     this.peersNeedingUpgrade = const [],
+    this.peerErrors = const {},
     this.error,
   });
 
   final int uploaded;
   final int applied;
   final int peersRead;
+
+  /// Other devices with a journal folder in the shared Drive folder.
+  ///
+  /// Zero while another device is definitely syncing is the single most useful
+  /// number here: it means this install cannot *see* the other one's folder, so
+  /// the problem is which account or which app is asking, not the merge.
+  final int peersSeen;
+
+  /// Why a peer could not be read. Previously these were swallowed and the run
+  /// still reported success, so a device that had synced nothing for weeks
+  /// looked identical to one that was up to date.
+  final Map<String, Object> peerErrors;
 
   /// Peers writing a journal this build is too old to read. Listed rather than
   /// thrown: one peer ahead of us must not stop the others syncing.
@@ -32,9 +46,15 @@ class SyncReport {
 
   bool get ok => error == null;
 
+  /// True when the run finished but nothing could be read from anyone.
+  bool get isolated => ok && peersSeen == 0;
+
+  bool get hadPeerTrouble => peerErrors.isNotEmpty;
+
   @override
   String toString() => ok
-      ? 'synced: $uploaded up, $applied applied, $peersRead peers'
+      ? 'synced: $uploaded up, $applied applied, $peersRead/$peersSeen peers'
+          '${peerErrors.isEmpty ? '' : ', ${peerErrors.length} unreadable'}'
       : 'sync failed: $error';
 }
 
@@ -75,7 +95,9 @@ class SyncEngine {
         uploaded: uploaded,
         applied: pull.applied,
         peersRead: pull.peers,
+        peersSeen: pull.seen,
         peersNeedingUpgrade: pull.needUpgrade,
+        peerErrors: pull.errors,
       );
     } catch (e) {
       return SyncReport(error: e);
@@ -150,14 +172,21 @@ class SyncEngine {
 
   // ──────────────────────────────── pull ─────────────────────────────────
 
-  Future<({int applied, int peers, List<String> needUpgrade})>
-      _pullAll() async {
+  Future<
+      ({
+        int applied,
+        int peers,
+        int seen,
+        List<String> needUpgrade,
+        Map<String, Object> errors,
+      })> _pullAll() async {
     final devices = await store.listDevices();
-    final peers = devices.where((d) => d != deviceId);
+    final peers = devices.where((d) => d != deviceId).toList();
 
     var applied = 0;
     var read = 0;
     final needUpgrade = <String>[];
+    final errors = <String, Object>{};
 
     for (final peer in peers) {
       try {
@@ -168,13 +197,21 @@ class SyncEngine {
         } else {
           read++;
         }
-      } catch (_) {
-        // One unreadable peer must not stop the rest. The cursor is untouched,
-        // so the next run retries this peer from where it left off.
-        continue;
+      } catch (e) {
+        // One unreadable peer must not stop the rest, and the cursor is
+        // untouched so the next run retries it. But it is *recorded* now:
+        // silently continuing is how a device syncs nothing for a month while
+        // reporting success after every run.
+        errors[peer] = e;
       }
     }
-    return (applied: applied, peers: read, needUpgrade: needUpgrade);
+    return (
+      applied: applied,
+      peers: read,
+      seen: peers.length,
+      needUpgrade: needUpgrade,
+      errors: errors,
+    );
   }
 
   Future<({int applied, bool tooNew})> _pullOne(String peer) async {

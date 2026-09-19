@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
+import '../../../platform/sync/sync_engine.dart';
 import '../../../platform/sync/sync_service.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
@@ -34,9 +35,16 @@ class _SyncScreenState extends State<SyncScreen> {
     final report = await _sync.syncNow();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(report.ok
-          ? 'Synced — ${report.uploaded} sent, ${report.applied} received'
-          : 'Sync failed. It will try again on its own.'),
+      content: Text(switch (report) {
+        final r when !r.ok => 'Sync failed. It will try again on its own.',
+        // The state that used to read as success while nothing arrived.
+        final r when r.isolated =>
+          'Synced, but no other device was found in this Drive folder.',
+        final r when r.hadPeerTrouble =>
+          'Synced — ${r.uploaded} sent, ${r.applied} received. '
+              '${r.peerErrors.length} device(s) could not be read.',
+        final r => 'Synced — ${r.uploaded} sent, ${r.applied} received',
+      }),
     ));
   }
 
@@ -110,6 +118,7 @@ class _SyncScreenState extends State<SyncScreen> {
                 ],
 
                 const SizedBox(height: Space.xl),
+                if (s.lastReport != null) _PeerFacts(report: s.lastReport!),
                 StreamBuilder<int>(
                   stream: context.app.mutations.watchPending(),
                   builder: (context, snap) => _Fact(
@@ -235,4 +244,45 @@ class _Fact extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// What the last run actually saw. Exists because "0 received" answers none of
+/// the questions you have when another device's orders are not arriving.
+class _PeerFacts extends StatelessWidget {
+  const _PeerFacts({required this.report});
+
+  final SyncReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Fact('Other devices found', '${report.peersSeen}'),
+        if (report.peersSeen > 0)
+          _Fact('Read successfully', '${report.peersRead}'),
+        if (report.isolated)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: Text(
+              'This device sees its own folder and nobody else\'s. If another '
+              'device is syncing, the two are not looking at the same place. '
+              'Check both are signed in to the same Google account — and that '
+              'both run the same build: a debug build and a release build are '
+              "different apps to Google Drive and cannot see each other's files.",
+              style: context.text.bodySmall!.copyWith(color: c.warn),
+            ),
+          ),
+        for (final e in report.peerErrors.entries)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: Text(
+              'Could not read ${e.key.substring(0, 8)}…: ${e.value}',
+              style: context.text.bodySmall!.copyWith(color: c.warn),
+            ),
+          ),
+      ],
+    );
+  }
 }
