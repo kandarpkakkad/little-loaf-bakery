@@ -12,7 +12,11 @@ Tables: `orders`, `order_items`, `order_item_addons`, `order_status_events`, `at
 Money lineTotal(OrderItem i) =>
     i.basePrice.times(i.qty) + i.addons.fold(Money.zero, (a, x) => a + x.price);
 
-Money subtotal(Order o) => o.items.fold(Money.zero, (a, i) => a + lineTotal(i));
+// NOT BUILT (D27): a cancelled line leaves the total entirely. Excluding it
+// here is what can put a paid-up order into credit -- see §4.4.
+Money subtotal(Order o) => o.items
+    .where((i) => i.status != cancelled)
+    .fold(Money.zero, (a, i) => a + lineTotal(i));
 
 Money discountOf(Order o) => switch (o.discountType) {
   null      => Money.zero,
@@ -23,6 +27,9 @@ Money discountOf(Order o) => switch (o.discountType) {
 Money total(Order o)      => subtotal(o) - discountOf(o) + Money(o.deliveryCharge);
 Money paid(Order o)       => o.payments.fold(Money.zero, (a, p) => a + p.amount);
 Money balanceDue(Order o) => total(o) - paid(o);
+// Negative balance is not a balance. NOT BUILT (D27):
+bool  inCredit(Order o)     => balanceDue(o).paise < 0;
+Money creditDue(Order o)    => inCredit(o) ? -balanceDue(o) : Money.zero;
 ```
 
 **The percentage applies to the subtotal, never to delivery.** Nobody intends "10% off" to
@@ -44,46 +51,146 @@ number unique regardless (D8). The number is **not** the primary key.
 
 ## 4. State machine
 
+> **Not built** (D25, D26). The app today has one status on the order and one
+> delivery date on the order. What follows replaces both. Everything in §4.1–4.4
+> is design.
+
+### 4.1 The line is the thing that moves
+
+A line is what gets made and handed over, so the line has the status:
+
 ```dart
-const allowed = {
-  created:       {confirmed, cancelled},
-  confirmed:     {in_production, cancelled},
+const lineAllowed = {
   in_production: {ready, cancelled},
-  ready:         {out, cancelled},
+  ready:         {out, delivered, cancelled},   // pickup skips 'out'
   out:           {delivered, cancelled},
-  delivered:     {completed},          // no cancel after handover
-  completed:     {},                   // terminal
+  delivered:     {},                            // terminal; no cancel after handover
   cancelled:     {},
 };
 ```
 
-```dart
-Future<void> transition(Order o, Status to, {String? reason}) async {
-  require(allowed[o.status]!.contains(to), 'illegal transition');
-  if (to == confirmed)  requireConfirmable(o);
-  if (to == cancelled)  require(reason != null, 'cancellation needs a reason');
-  if (to == completed)  require(balanceDue(o).isZero, 'balance still outstanding');
+`ready → delivered` without passing `out` is legal and is the **pickup** path:
+nothing goes out for delivery when the customer collects it. A line whose
+`fulfilment` is `pickup` may not enter `out` at all.
 
-  await mutate('order', o.id, (b) {
-    b.update(orders, status: to);
-    b.insert(orderStatusEvents, from: o.status, to: to, reason: reason, at: now);
-    if (to == delivered) Invoicing.issue(o);       // domain event, not a direct call
+### 4.2 The order's status is read, not written
+
+```dart
+Status orderStatus(Order o) {
+  final live = o.items.where((i) => i.status != cancelled);
+
+  if (live.isEmpty)                       return cancelled;   // every line gone
+  if (o.confirmedAt == null)              return created;
+  if (live.every((i) => i.status == delivered))
+                                          return o.completedAt != null
+                                            ? completed
+                                            : delivered;
+  if (live.any((i) => i.status != in_production) || o.startedAt != null)
+                                          return in_production;
+  return confirmed;
+}
+```
+
+Only three moments are written by a person, and they are the three that are not
+facts about lines:
+
+| Written | Why it cannot be derived |
+|---|---|
+| `confirmed_at` | a conversation with the customer, not a state of the cakes |
+| `completed_at` | deliberate, and still requires a zero balance |
+| `cancelled` (all lines) | needs a reason, and the reason belongs to the order |
+
+The order's **due date** is derived the same way — the earliest line still
+outstanding, which is the honest answer to "when does this order next need me":
+
+```dart
+int? dueAt(Order o) => o.items
+    .where((i) => i.status != delivered && i.status != cancelled)
+    .map((i) => i.deliveryDate)
+    .fold(null, (a, b) => a == null || b < a ? b : a);
+```
+
+Today, Kitchen and the Orders sort all read `dueAt`. An order with a cake on
+Friday and a snack box on Sunday appears on Friday, and again on Sunday once
+Friday's line is delivered.
+
+### 4.3 Moving several lines at once
+
+Deriving the order status costs the one-tap "the whole order is ready" move, so
+the UI keeps it as a bulk action over lines rather than a status on the order:
+
+```dart
+Future<void> advanceAll(Order o, LineStatus to) async {
+  final movable = o.items.where((i) => lineAllowed[i.status]!.contains(to));
+  for (final line in movable) await transitionLine(line, to);
+  // Lines that cannot legally reach `to` are skipped in silence: the intent is
+  // "catch everything up", and refusing the whole batch because one line is
+  // already delivered would be a worse reading of that intent.
+}
+```
+
+### 4.4 Cancelling one line
+
+A cancelled line leaves the totals (§2), which is the part that surprises:
+
+```dart
+Future<void> cancelLine(OrderItem i, String reason) async {
+  require(i.status != delivered, 'delivered lines cannot be cancelled');
+  // The order total drops. If payments already cover more than the new total,
+  // the order is in **credit** -- surfaced as such, not as a negative balance,
+  // and settled by recording a refund payment.
+}
+```
+
+If every line is cancelled the order is cancelled, and the reason shown is the
+last line's.
+
+### 4.5 Writing a move
+
+```dart
+Future<void> transitionLine(OrderItem i, LineStatus to, {String? reason}) async {
+  require(lineAllowed[i.status]!.contains(to), 'illegal transition');
+  require(to != out || i.fulfilment == delivery, 'a pickup never goes out');
+  if (to == cancelled) require(reason != null, 'cancellation needs a reason');
+
+  await mutate('order_item', i.id, (b) {
+    b.update(orderItems, status: to, deliveredAt: to == delivered ? now : null);
+    b.insert(orderItemStatusEvents, from: i.status, to: to, reason: reason, at: now);
+    // The order's own status is derived, so there is nothing to update on it.
+    // The invoice is the exception: it is issued once, when the LAST live line
+    // is delivered, because an invoice covers the order and not the line.
+    if (to == delivered && everyLiveLineDelivered(i.order)) Invoicing.issue(i.order);
   });
-  // The UI then OFFERS the next thing. Nothing here moves the order again. (D15)
+  // The UI then OFFERS the next thing. Nothing here moves anything again. (D15)
+}
+
+/// Only the three order-level moments (§4.2).
+Future<void> confirmOrder(Order o) async {
+  requireConfirmable(o);
+  await mutate('order', o.id, (b) {
+    b.update(orders, confirmedAt: now);
+    b.insert(orderStatusEvents, from: created, to: confirmed, at: now);
+  });
 }
 
 void requireConfirmable(Order o) {
-  require(o.items.isNotEmpty,            'at least one line');
-  require(o.customer.phoneE164 != null,  'a valid WhatsApp number');
-  require(o.deliveryDate != null,        'a delivery date');
+  require(o.items.isNotEmpty,                  'at least one line');
+  require(o.customer.phoneE164 != null,        'a valid WhatsApp number');
+  require(o.items.every((i) => i.deliveryDate != null),
+                                               'every line needs a date');
   // NO advance requirement (D9)
 }
 ```
 
 **`completed` requires a zero balance** — it is the one guarded transition, because it means
-"the money is in".
+"the money is in". It is refused while the order is in credit too: a refund is owed, and
+"completed" would bury it.
 
 ## 5. Sort order
+
+Every list reads the same way — earliest first, in one direction. A list that
+changes direction with the tab is harder to read than one that never does, so
+Delivered and Cancelled sort forward alongside Open.
 
 ```sql
 ORDER BY delivery_date ASC,
@@ -91,6 +198,27 @@ ORDER BY delivery_date ASC,
          delivery_time ASC,
          created_at ASC               -- breaks every tie, including among untimed
 ```
+
+**NOT BUILT (D25).** Once lines carry the date, the order list sorts by the
+derived `dueAt` (§4.2) rather than a column, so the same ordering has to be
+expressed over the lines:
+
+```sql
+-- the order's position is its earliest outstanding line
+LEFT JOIN (
+  SELECT order_id,
+         MIN(delivery_date) AS due_date,
+         MIN(delivery_time) AS due_time      -- of that date's lines
+  FROM   order_items
+  WHERE  deleted_at IS NULL
+    AND  status NOT IN ('delivered','cancelled')
+  GROUP BY order_id
+) due ON due.order_id = o.id
+ORDER BY due.due_date ASC, due.due_time IS NULL ASC, due.due_time ASC, o.created_at ASC
+```
+
+An order with every line delivered has no `due_date` and sorts last — which is
+right, because it is waiting on money rather than on the kitchen.
 Untimed orders gather at the end of their day under *Any time*, ordered among themselves by
 creation. Stable — it never rearranges itself.
 

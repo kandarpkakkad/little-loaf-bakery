@@ -63,9 +63,20 @@ String _delivery(Order o) {
   ].join('\n');
 }
 
-String _paymentReceived(Order o) =>
-  'Hi ${o.customer.firstName}, we have received your payment. Thank you!\n\n'
-  '— ${config.businessName}';
+// NOT BUILT: offered after EVERY payment, including a partial one, and it says
+// what is still owed. A receipt that does not state the balance invites the
+// follow-up question it was meant to prevent.
+String _paymentReceived(Order o, Payment p) {
+  final owed = balanceDue(o);
+  return [
+    'Hi ${o.customer.firstName}, we have received ${money(p.amount)}. Thank you!', '',
+    'Order: ${o.orderNo}',
+    if (owed.isPositive)  'Still to pay: ${money(owed)}',
+    if (owed.isZero)      'That settles it — paid in full.',
+    if (inCredit(o))      'That leaves ${money(creditDue(o))} to refund to you.',
+    '', '— ${config.businessName}',
+  ].join('\n');
+}
 ```
 
 **`_delivery` is one function with two shapes, not two messages.** The money lines are simply
@@ -84,6 +95,21 @@ void onTransition(Order o, Status to) => switch (to) {
   _         => null,
 };
 
+// NOT BUILT. Recording money is its own trigger, and the only one that fires on
+// a partial payment -- which is the case the status-driven rule above misses
+// entirely, because a part-paid order sits at the same status before and after.
+void onPaymentRecorded(Order o, Payment p) => offer(o, paymentReceived, p);
+
+// NOT BUILT (D25). 'out' and 'delivered' are now facts about a LINE, so these
+// two are offered when a line moves, and name the line:
+void onLineMoved(OrderItem i, LineStatus to) => switch (to) {
+  out       => i.trackingUrl != null ? offer(i.order, outForDelivery, i) : null,
+  // Only once, when the last live line lands -- a message per line would be
+  // three "your order has been delivered" texts for one order.
+  delivered => everyLiveLineDelivered(i.order) ? offer(i.order, delivery) : null,
+  _         => null,
+};
+
 // The tracking message is also available as an action on order detail whenever
 // trackingUrl != null and status is out-or-earlier — because the link is often
 // pasted in after the order has already left.
@@ -92,6 +118,12 @@ bool canSendTracking(Order o) =>
 ```
 `hadBalanceBeforePayment` reads the payment history, not the current balance — by the time
 Completed is reached the balance is zero by definition.
+
+**NOT BUILT:** `onPaymentRecorded` supersedes that rule. Every payment gets a
+receipt, partial or final, because the moment money changes hands is the moment
+the customer wants it acknowledged — and a part payment is precisely when they
+are least sure what is still owed. The `completed` branch above then stops
+offering anything, since the last payment already did.
 
 **Offer, never send.** The transition completes whether or not the message goes.
 

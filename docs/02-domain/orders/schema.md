@@ -18,6 +18,11 @@ CREATE TABLE orders (
   pin_lat                 REAL,
   pin_lng                 REAL,
   pin_url                 TEXT,                           -- the link as shared; often resolves better than coords
+  -- NOT BUILT (D25): once a line carries its own schedule, these stop being
+  -- facts about the order and become the **defaults a new line copies** --
+  -- which is what makes "same as the one above" a copy rather than a link.
+  -- Nothing reads them to answer "when is this order due"; that is derived
+  -- from the lines. See lld.md §4.2.
   tracking_url            TEXT,
   discount_type           TEXT,                           -- percent|amount|NULL
   discount_value          INTEGER,                        -- basis points if percent, paise if amount
@@ -33,7 +38,8 @@ CREATE TABLE orders (
   cancel_reason           TEXT,
   delivered_at            INTEGER,
   -- common columns
-  CHECK (status IN ('created','confirmed','in_production','ready','out','delivered','completed','cancelled')),
+  CHECK (status IN ('created','confirmed','in_production','delivered','completed','cancelled'))
+  -- NOT BUILT (D26): 'ready' and 'out' move down to the line,
   CHECK (fulfilment IN ('delivery','pickup')),
   CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation')),
   CHECK (discount_type IS NULL OR discount_type IN ('percent','amount')),
@@ -79,6 +85,24 @@ CREATE TABLE order_items (
   flavour            TEXT,               -- free text
   weight_value       REAL,               -- number and unit, so a bake sheet can total it
   weight_unit        TEXT,               -- g|kg|pcs|dozen
+
+  -- ── the line's own schedule (D25) ── NOT BUILT ──
+  -- Migration: 01-platform/storage/lld.md §5b (v9 → v10).
+  -- A line is what gets made and handed over, so it carries the when, the
+  -- where and the how. Nullable only so an existing row can be backfilled;
+  -- once built, delivery_date is required.
+  status             TEXT NOT NULL DEFAULT 'in_production',
+  delivery_date      INTEGER,            -- local midnight, epoch ms
+  delivery_time      INTEGER,            -- minutes from midnight; NULL = any time
+  fulfilment         TEXT,               -- delivery|pickup
+  delivery_type      TEXT,               -- local|outstation; NULL for pickup
+  address_text       TEXT,
+  pin_lat            REAL,
+  pin_lng            REAL,
+  pin_url            TEXT,
+  tracking_url       TEXT,
+  delivered_at       INTEGER,
+  cancel_reason      TEXT,               -- required when status = 'cancelled'
   qty                INTEGER NOT NULL DEFAULT 1,
   base_price         INTEGER NOT NULL,   -- paise, per unit
   note               TEXT,
@@ -87,9 +111,23 @@ CREATE TABLE order_items (
   CHECK (qty > 0),
   CHECK ((weight_value IS NULL) = (weight_unit IS NULL)),
   CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen')),
-  CHECK (weight_value IS NULL OR weight_value > 0)
+  CHECK (weight_value IS NULL OR weight_value > 0),
+  -- NOT BUILT, with the rest of D25:
+  CHECK (status IN ('in_production','ready','out','delivered','cancelled')),
+  CHECK (fulfilment IS NULL OR fulfilment IN ('delivery','pickup')),
+  CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation')),
+  -- a pickup goes nowhere, so it carries no delivery type and no tracking link
+  CHECK (fulfilment IS NULL OR fulfilment = 'delivery'
+         OR (delivery_type IS NULL AND tracking_url IS NULL)),
+  CHECK ((pin_lat IS NULL) = (pin_lng IS NULL)),
+  CHECK ((status = 'cancelled') = (cancel_reason IS NOT NULL)),
+  CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))
 );
 CREATE INDEX ix_items_order ON order_items(order_id, position);
+-- NOT BUILT (D25): the app's main sort moves here from orders, because the
+-- question "what is due next" is now a question about lines.
+CREATE INDEX ix_items_due ON order_items(delivery_date, delivery_time)
+  WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled');
 CREATE INDEX ix_items_menu  ON order_items(menu_item_id);   -- price history + sales by product
 ```
 
@@ -121,6 +159,27 @@ CREATE TABLE order_status_events (
   -- common columns
 );
 CREATE INDEX ix_status_order ON order_status_events(order_id, at);
+```
+
+## order_item_status_events
+
+> **Not built** (D25).
+
+```sql
+-- Same shape as order_status_events, one level down. The order's own history
+-- keeps only what a person did to the order -- confirmed, completed, cancelled
+-- -- because everything between those is now derived from lines and recording
+-- it twice would make the two disagree.
+CREATE TABLE order_item_status_events (
+  id            TEXT NOT NULL PRIMARY KEY,
+  order_item_id TEXT NOT NULL REFERENCES order_items(id),
+  from_status   TEXT,
+  to_status     TEXT NOT NULL,
+  reason        TEXT,
+  at            INTEGER NOT NULL
+  -- common columns
+);
+CREATE INDEX ix_item_status ON order_item_status_events(order_item_id, at);
 ```
 
 **No UPDATE path exists.** Every transition is an insert, so two devices moving the same order

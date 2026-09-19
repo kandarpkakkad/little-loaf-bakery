@@ -43,6 +43,8 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | invoicing | **not built** — the columns exist, nothing writes them |
 | reporting | **not built** — no queries, no screen |
 | menu — seasonality (`season_from`/`season_to`) | **not built** — columns exist, nothing reads them; only the manual `active` flag works |
+| orders — per-line delivery date, status, address (D25/D26/D27) | **not built** — design only. Today the order carries one date and one status |
+| messaging — receipt after every payment, per-line delivery messages | **not built** — design only |
 | security — app lock | **not built** — `settings.app_lock_enabled` exists and nothing reads it |
 | versioning — app.json version gate | **not built**. (`min_reader_version` in the sync journal is a different, working mechanism) |
 

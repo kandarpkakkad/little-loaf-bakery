@@ -149,3 +149,36 @@ darkened 3% for body text and kept exact on the app bar.
 **Because:** a Drive download URL contains the file id, and the URL is baked into the build —
 so a new file each release would need the address of an APK that does not exist yet.
 **Bonus:** Drive keeps 30 days of prior versions, which is a free rollback.
+
+### D25 · A line is scheduled, not the order
+> **Not built.** Design only — see [orders/lld.md](../02-domain/orders/lld.md) §4.
+
+**Chose:** delivery date, time, type, address and status move **down to `order_items`**.
+One order can put a cake at the house on Friday and a snack box at the office on Sunday.
+**Because:** the old model forced one date per order, so a customer wanting two dates had to
+place two orders — which split the total, the discount and the payment across records that
+were really one sale.
+**Cost:** almost every read that used to ask an order for its date now has to ask its lines.
+Today, Kitchen and the Orders sort all key off a **derived** order date — the earliest line
+still outstanding — rather than a stored column.
+
+### D26 · The order's status is computed, never typed
+> **Not built.** Design only.
+
+**Chose:** you move **lines**; the order follows. `in_progress` once any line is in
+production, `delivered` only when every live line is delivered.
+**Because:** two hand-maintained statuses disagree eventually, and the disagreement is
+invisible until someone reads an order marked delivered while a cake is still in the oven.
+**Kept manual:** `confirmed` (a conversation with the customer, not a fact about lines) and
+`completed` (deliberate, and still requires a zero balance).
+**Cost:** you can no longer drag the whole order forward in one tap when every line moves
+together. §4.3 keeps a bulk action for exactly that.
+
+### D27 · Money stays on the order
+**Chose:** payments, discount and delivery charge stay order-level even though lines are
+scheduled separately. One sale, one balance, one invoice.
+**Because:** a customer pays for an order, not for a line. Splitting the balance per line
+would make "what do they owe?" a sum across rows that are delivered on different days.
+**Consequence:** a cancelled line leaves the total — so cancelling a line after payment can
+put the order in credit, which §2 makes explicit rather than letting it read as a negative
+balance.

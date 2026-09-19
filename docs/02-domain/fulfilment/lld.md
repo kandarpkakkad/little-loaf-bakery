@@ -20,6 +20,26 @@ ORDER BY o.delivery_date, o.delivery_time IS NULL, o.delivery_time, o.created_at
 Columns are the four in-flight statuses. Dragging a card calls `Orders.transition`, which is
 the same guarded path as everywhere else.
 
+> **NOT BUILT (D25, D26).** Both queries above filter on `o.delivery_date` and
+> `o.status`. Once a line carries its own date and status, the board is a board
+> **of lines**, not of orders, and every predicate moves one level down:
+>
+> ```sql
+> WHERE oi.delivery_date BETWEEN :from AND :to
+>   AND oi.status IN ('in_production','ready','out')
+>   AND oi.deleted_at IS NULL AND o.deleted_at IS NULL
+> ORDER BY oi.delivery_date, oi.delivery_time IS NULL, oi.delivery_time, oi.position;
+> ```
+>
+> This is the change the kitchen actually feels. An order with a cake on Friday
+> and a snack box on Sunday currently appears whole on one day or the other;
+> afterwards each line appears on its own day, which is the only version a baker
+> can work from. Dragging a card calls `transitionLine`.
+>
+> The order's `confirmed` state still gates the board — an unconfirmed order's
+> lines are not work yet — but it is read through `orderStatus(o)` rather than a
+> stored column.
+
 ## 2. Daily production sheet
 
 ```sql
@@ -37,6 +57,10 @@ GROUP BY oi.menu_item_id, oi.weight_value, oi.weight_unit
 ORDER BY oi.item_name_snapshot;
 ```
 Requirements are concatenated **in full**. If they are long, the row grows — nothing is elided.
+
+**NOT BUILT (D25):** `WHERE oi.delivery_date = :day AND oi.status = 'in_production'`,
+so a day's sheet lists what is due *that* day rather than every line of every
+order that has a line due that day.
 
 ## 3. Delivery run
 

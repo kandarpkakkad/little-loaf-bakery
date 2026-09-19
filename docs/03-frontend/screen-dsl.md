@@ -132,7 +132,24 @@ screen OrderEdit
         Repeat @item.addons as a
           Row Field @a.name | NumField @a.price prefix=₹
         Row strong "Line total" | Money @item.lineTotal
-    Button ghost "+ Add another item"
+
+        # ── NOT BUILT (D25): each line carries its own when and where ──
+        Micro "WHEN AND WHERE"
+        when i > 0
+          # The whole point of the affordance: most multi-line orders go to one
+          # place on one day, and re-entering that per line is the tax D25 would
+          # otherwise impose. Copies the values; it is not a link, so changing
+          # line 1 afterwards leaves line 2 alone.
+          Button ghost "Same as item @{i-1}" -> copySchedule(from: i-1)
+        Row      DateField "Delivery date *" | TimeField "Time"
+        Segmented fulfilment [ Delivery, Pickup ]
+        when @item.fulfilment == Delivery
+          Segmented deliveryType [ Local, Outstation ]
+          AddressRow @item.address -> pickAddress(@customer)
+        when @item.status                       # editing an existing order
+          Row Micro "STATUS" | Chip @item.status
+
+    Button ghost "+ Add another item"          # a new line copies the one above
 
     Micro "SPECIAL REQUIREMENTS"
     TextArea @order.requirements
