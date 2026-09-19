@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 
-// Schema is defined in docs/02-domain/*/schema.md and
-// docs/01-platform/*/schema.md. This file is the executable form of those
-// documents; if the two disagree, the document is right.
+// This file is the schema. docs/02-domain/*/schema.md and
+// docs/01-platform/*/schema.md describe it; if the two disagree, **this file is
+// right** and the document is stale — fix the document.
 
 /// Columns every replicated table carries. Not optional.
 mixin Common on Table {

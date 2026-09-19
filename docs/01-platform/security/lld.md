@@ -16,11 +16,52 @@ Future<Uint8List> dbKey() async {
 // drift: NativeDatabase(file, setup: (db) => db.execute("PRAGMA key = \"x'$hex'\""))
 ```
 
+**`PRAGMA key` alone is not encryption, and its failure is silent.** On a plain
+SQLite build the pragma is an unrecognised no-op: the database opens, reads back
+perfectly, and is written in cleartext. This shipped once — see below.
+
+Two things are required together:
+
+1. **Select the SQLCipher build.** In `sqlite3` 3.x that is a build hook in
+   `pubspec.yaml`, not a package:
+
+   ```yaml
+   hooks:
+     user_defines:
+       sqlite3:
+         source: sqlcipher
+   ```
+
+   The old route — adding `sqlite3_flutter_libs` and `sqlcipher_flutter_libs` —
+   is worse than useless now. Both install a native library called
+   `libsqlite3.so`, one silently overwrites the other, and the plain build wins.
+   `sqlcipher_flutter_libs` 0.7.0+eol does nothing at all; its own source says so.
+
+2. **Assert it loaded, at open time.**
+
+   ```dart
+   final v = db.select('PRAGMA cipher_version');
+   if (v.isEmpty || '${v.first.values.first}'.trim().isEmpty) {
+     throw StateError('SQLCipher is not loaded — the database would be cleartext.');
+   }
+   ```
+
+   `cipher_version` returns nothing on plain SQLite, and it is the **only** cheap
+   check that separates the two. `SELECT count(*) FROM sqlite_master` cannot: an
+   unencrypted file answers it happily.
+
+   Failing loudly is the point. An app that will not start is recoverable; a
+   cleartext customer database that looks fine is not.
+
 **`userAuthenticationRequired: false` is deliberate.** Tying the DB key to biometrics would
 make the app unopenable after a fingerprint reset, and the background sync worker could not
 run at 00:02 with the screen locked.
 
 ## 2. App lock
+
+> **Not built.** `settings.app_lock_enabled` exists as a column and nothing
+> reads it; there is no lock screen and `local_auth` is not a dependency. What
+> follows is the design.
 
 | | |
 |---|---|

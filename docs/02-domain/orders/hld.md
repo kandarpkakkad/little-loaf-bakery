@@ -35,7 +35,7 @@ for on Monday sits at Delivered all weekend, which is exactly where the outstand
 should find it.
 
 ## Key decisions
-- **Items come from the menu** (D16). `menu_item_id` is not null; **+ New item** in the picker
+- **Items come from the menu** (D16). `menu_item_id` is not null and the picker
   creates a real menu entry rather than a one-off string.
 - **The line stores a copy of the item name**, so renaming a menu item never rewrites history.
 - **Prices are typed**, with the last three shown as hints (D17). There is no price on a menu

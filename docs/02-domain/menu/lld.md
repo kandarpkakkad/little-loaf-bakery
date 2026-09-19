@@ -10,6 +10,11 @@ Tables: `menu_items`
 
 ## 2. Availability
 
+> **Not built.** `season_from` / `season_to` exist as columns and nothing
+> reads them; no code computes availability from a date. The only
+> availability the app has is the manual `active` flag, toggled in Config.
+> What follows is the design.
+
 ```dart
 bool availableOn(MenuItem m, Date d) {
   if (!m.active || m.deletedAt != null) return false;
@@ -25,14 +30,17 @@ The wrapping case is the one that matters — plum cake runs November to January
 ## 3. The picker
 
 ```
-Grouped by category, whole list on screen — no search-first.
-Unavailable items are shown greyed with the reason ("Out of season until Nov"),
-not hidden: knowing it exists and is unavailable beats wondering where it went.
-Last row: [ + New item ]
+A flat list, whole thing on screen — no search-first, and no grouping: the
+item *is* the category ("Cake", "Croissant", "Focaccia"), so there is no second
+level to group by.
+Inactive items are **excluded**, not greyed — the picker asks for
+`list(activeOnly: true)`. (The design below wanted them shown with a reason;
+that is not what was built.)
 ```
 
-**+ New item** opens a minimal form — name and category only, the rest defaulted — creates the
-row, and returns it selected. Lead time and photo can be filled in later from Config.
+The picker creates nothing. An item that is not on the menu is added under
+*More › Menu items* first — see D16 for why that cost was accepted. With an empty
+menu the picker does not open at all; it says so and points at Config.
 
 ## 4. Flavour suggestions
 
@@ -60,16 +68,14 @@ accident.
 
 | Case | Handling |
 |---|---|
-| Two items with the same name | Allowed. The picker shows category to disambiguate; merging is a human decision |
+| Two items with the same name | Allowed, and indistinguishable in the picker — there is no category to tell them apart. Merging is a human decision in Config |
 | Item deleted with open orders | Tombstoned. Lines keep `item_name_snapshot`; reports group by `menu_item_id`, so history stays intact |
-| Season crossing new year | Handled by the wrap branch in §2 |
+| Season crossing new year | Handled by the wrap branch in §2 — **not built** |
 | `lead_days` changed after an order exists | Only affects new orders; the rush warning is computed at edit time |
-| + New item created offline | Fine — it is a normal row with an op, and replicates like anything else |
+| Menu item created offline | Fine — it is a normal row with an op, and replicates like anything else |
 
 ## 7. What to test
 
-- Season wrap: Nov→Jan availability on 15 Dec and on 15 Jun.
 - Picker excludes deleted, includes inactive-but-visible with a reason.
-- `+ New item` returns the created item selected, and the row carries an op.
 - Price hints put the customer's own last price first.
 - Deleting an item leaves existing order lines readable and reports correct.

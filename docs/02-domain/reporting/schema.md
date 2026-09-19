@@ -96,6 +96,7 @@ where the notch lands hard at the right edge (D18).
 - **Revenue counts `completed` orders only.** Delivered-but-unpaid is outstanding, not revenue.
 - **Voided invoices are excluded** from revenue and listed separately.
 - **Group by `menu_item_id`, never by name** — renaming an item must not split its history.
-- **Price-over-time groups by weight as well**, because a 1 kg and a 2 kg cake are different
+- **Price-over-time groups by weight as well** — on `weight_value` *and* `weight_unit`,
+  since weight is a number plus a unit rather than a string — because a 1 kg and a 2 kg cake are different
   prices for the same item and averaging them says nothing.
 - **Material spend counts stock-ins with an amount** only.

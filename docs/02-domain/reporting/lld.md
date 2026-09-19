@@ -37,11 +37,13 @@ SELECT oi.menu_item_id, MAX(oi.item_name_snapshot) name,
        AVG(oi.base_price) avg, COUNT(*) n
 FROM order_items oi JOIN orders o ON o.id=oi.order_id
 WHERE oi.deleted_at IS NULL AND o.deleted_at IS NULL
-GROUP BY oi.menu_item_id, oi.weight, month
+GROUP BY oi.menu_item_id, oi.weight_value, oi.weight_unit, month
 ORDER BY name, month;
 ```
 Grouped by **weight as well**, because a 1 kg and a 2 kg cake are different prices for the
-same item and averaging them together would say nothing.
+same item and averaging them together would say nothing. Weight is a number and a
+unit (`weight_value`, `weight_unit`), not a typed string, so both columns are in
+the grouping — "1 kg" and "1000 g" would otherwise be two different groups.
 
 ## 4. Stock reports
 

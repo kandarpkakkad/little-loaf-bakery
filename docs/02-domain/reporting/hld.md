@@ -1,5 +1,9 @@
 # Reporting — HLD
 
+
+> **Not built.** None of the views or queries below exist in the app, and
+> there is no reports screen. What follows is the design.
+
 ## Purpose
 Answer the handful of questions the owner actually asks, and export everything for the
 accountant.

@@ -8,7 +8,8 @@ Common columns: [`01-platform/storage/schema.md`](../../01-platform/storage/sche
 CREATE TABLE customers (
   id           TEXT NOT NULL PRIMARY KEY,
   name         TEXT NOT NULL,
-  phone_e164   TEXT NOT NULL,     -- +919876543210 — the dedupe key
+  country_code TEXT NOT NULL DEFAULT '+91',   -- dialling code, entered separately
+  phone_e164   TEXT NOT NULL,     -- +919876543210 — code + national, the dedupe key
   alt_phone    TEXT,
   allergy_note TEXT,              -- pulled forward onto every order they place
   notes        TEXT,
@@ -42,6 +43,13 @@ One person orders to several places, so the address book lives here (D20, amende
 an address later must never rewrite where a delivered order actually went.
 
 A new order's address field still starts empty — a saved address is *offered*, never inherited.
+
+`country_code` and the national part are entered in separate boxes — a customer
+changing city keeps their number, and hand-concatenating the two is how
+"+9198765 43210" and "+919876543210" become two different people. The national
+part is digits only. **Uniqueness still lives on the composed `phone_e164`**, so
+the split protects the dedupe key rather than threatening it: `country_code` is
+only what the form shows in its own box.
 
 The partial unique index is what makes offline dedupe work: two devices can both create the
 same person, and the second op to arrive triggers the merge — older UUID wins, deterministically,

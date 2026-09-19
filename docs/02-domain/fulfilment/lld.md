@@ -3,7 +3,7 @@
 ## 1. Production board
 
 ```sql
-SELECT o.id, o.order_no, c.name, oi.item_name_snapshot, oi.flavour, oi.weight,
+SELECT o.id, o.order_no, c.name, oi.item_name_snapshot, oi.flavour, oi.weight_value, oi.weight_unit,
        o.delivery_time, o.dietary_flags, o.requirements, o.item_message,
        (o.requirements_changed_at IS NOT NULL AND
         (o.requirements_ack_at IS NULL OR o.requirements_ack_at < o.requirements_changed_at)) AS flagged
@@ -23,7 +23,7 @@ the same guarded path as everywhere else.
 ## 2. Daily production sheet
 
 ```sql
-SELECT oi.menu_item_id, oi.item_name_snapshot, oi.weight,
+SELECT oi.menu_item_id, oi.item_name_snapshot, oi.weight_value, oi.weight_unit,
        SUM(oi.qty) AS total_qty,
        SUM(CASE WHEN o.dietary_flags & 1 THEN oi.qty ELSE 0 END) AS eggless,
        SUM(CASE WHEN o.dietary_flags & 2 THEN oi.qty ELSE 0 END) AS nut_free,
@@ -33,7 +33,7 @@ FROM order_items oi
 JOIN orders o ON o.id=oi.order_id JOIN customers c ON c.id=o.customer_id
 WHERE o.delivery_date = :day AND o.status IN ('confirmed','in_production')
   AND o.deleted_at IS NULL
-GROUP BY oi.menu_item_id, oi.weight
+GROUP BY oi.menu_item_id, oi.weight_value, oi.weight_unit
 ORDER BY oi.item_name_snapshot;
 ```
 Requirements are concatenated **in full**. If they are long, the row grows — nothing is elided.

@@ -122,7 +122,7 @@ screen OrderEdit
     Repeat @order.items as item, index i          # one or more lines
       Micro "ITEM @i" action=remove
       Card
-        ItemPicker "Item *" source=menu grouped=category createInline="+ New item"
+        ItemPicker "Item *" source=menu           # dropdown only, no inline create
         Field    "Flavour"  suggestions=@menu.flavourHistory
         Row      Field "Weight" | NumField "Qty *" default=1
         NumField "Base price *" prefix=₹
@@ -136,7 +136,7 @@ screen OrderEdit
 
     Micro "SPECIAL REQUIREMENTS"
     TextArea @order.requirements
-    Field    "Message on cake"
+    Field    "Message on the item"
     Chips    dietary [ Eggless, Nut-free, Gluten-free, Sugar-free ]
     Photos   @order.attachments max=5
 
@@ -453,8 +453,8 @@ screen CustomerDetail                      # S07
 
 screen Menu                      # S08
   route /more/config/menu   tab More
-  body  Chips category ; List @menu.items: Row strong @m.name | caption @m.category
-                                          | when !@m.available: Chip "Out of season"
+  body  List @menu.items: Row strong @m.name | Switch @m.active
+                          | when !@m.active: strikethrough
   actions Button primary "+ New item"
 
 screen MenuItemEdit                      # S09
@@ -571,7 +571,7 @@ Every branch above, in one place — so none is discovered during build.
 | 6 | Delivery charge | zero → ∅ · non-zero → row · editable until Delivered |
 | 7 | Advance | zero → "+ Record advance" · non-zero → row |
 | 8 | Price hints | this customer's last · recent three · none |
-| 9 | Item picker | on menu · not on menu → **+ New item** |
+| 9 | Item picker | menu empty → "add them under More › Menu items" · one item · many |
 | 10 | Requirements | none → ∅ · present → card above the money · ⚑ changed after confirm |
 | 11 | Order status | 7 states + cancelled; each gates different actions on S05 |
 | 12 | Completed | offered only when balance is zero |

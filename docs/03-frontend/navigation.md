@@ -104,6 +104,6 @@ app, because nothing external knows it exists.
 - **The order is the hub.** Payment, invoice, location, share and customer are all reached
   from it; none of them is a destination in its own right.
 - **Config is never linked to from a working screen** — no "edit this menu item" shortcut from
-  the order form. The one exception is **+ New item** inside the picker, which returns
+  the order form. There is no exception: an item that is not on the menu is added in
   immediately with the item selected rather than navigating away (D16).
 - **Kitchen screens never link to money.** No path from a board card to an invoice.

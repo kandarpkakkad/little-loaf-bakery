@@ -1,5 +1,10 @@
 # Invoicing — HLD
 
+
+> **Not built.** The `invoices` table and its GST columns exist in the
+> schema, but nothing writes them and there is no invoice screen. What
+> follows is the design.
+
 ## Purpose
 Produce a bill of supply that is numbered, immutable and readable in a WhatsApp message.
 

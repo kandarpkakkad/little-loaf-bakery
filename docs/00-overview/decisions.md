@@ -96,9 +96,14 @@ weekend in the outstanding report.
 share, or the delivery date.
 
 ### D16 · Order items come from the menu
-**Chose:** `menu_item_id` not null; **+ New item** in the picker creates a real menu entry.
+**Chose:** `menu_item_id` not null. The order line picker is a dropdown of existing
+menu items — nothing else.
 **Reversed:** free-typed item names, which made "sales by product" a spelling survey.
 **Kept:** the line stores a copy of the name, so renaming a menu item never rewrites history.
+**Cost:** an item that is not on the menu means leaving the order form for
+*More › Menu items* and coming back. Accepted deliberately — the menu is short and
+changes rarely, and an inline create inside the picker was judged not worth the
+second way to write a menu row.
 
 ### D17 · Prices live in history, not on records
 **Chose:** no price on a menu item, no price on a material. Both are typed at the moment, with

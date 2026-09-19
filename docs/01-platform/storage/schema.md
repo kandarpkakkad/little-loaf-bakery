@@ -4,7 +4,7 @@
 schema file follows.** Module schemas live beside their module; nothing is duplicated in an
 HLD or LLD.
 
-Current schema version: **8**
+Current schema version: **9**
 
 ---
 

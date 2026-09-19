@@ -260,7 +260,7 @@ number rather than a spelling survey.
 - Maintained in **Config** (§11).
 
 **For something not on the menu yet: add it from the picker.** The item picker has a
-**+ New item** that creates a proper menu entry and selects it, without leaving the order.
+Items come from the menu only. One that is not there is added under *More › Menu items*.
 Nobody has to abandon a half-typed order and go to Config mid-phone-call — but what gets
 created is a real menu item, not a one-off string.
 
@@ -297,7 +297,7 @@ payment, not on a share, not on the delivery date. It offers; it does not move.
 
 | Field | | |
 |---|---|---|
-| **Item** * | | **From the menu.** Not typed. *+ New item* in the picker adds one inline |
+| **Item** * | | **From the menu.** Not typed, and not created here — the menu is maintained in Config |
 | **Flavour** | free text | Past flavours suggested |
 | **Weight** | | Blank for anything not sold by weight |
 | **Quantity** * | | Defaults to 1 |
@@ -354,7 +354,8 @@ created time. Created time breaks every tie.
 Custom orders are the business, so this is a first-class field, not a note at the bottom.
 
 - **Special requirements** — free text, any length.
-- **Cake message** — stored separately so it can be proofread on its own.
+- **Message on the item** — stored separately (`orders.item_message`) so it can be
+  proofread on its own. Not only cakes carry one.
 - **Dietary flags** — eggless, nut-free, gluten-free, sugar-free. Chips, so they're filterable.
 - **Allergy note** — pulled forward automatically from the customer onto every order.
 - **Reference photos** — what the customer sent.
@@ -393,7 +394,7 @@ To: Meera Shah
 Chocolate Truffle
 Belgian dark · 1 kg
   1 x 1,450         1,450
-  + Message on cake    50
+  + Message on item    50
   + Candles            30
 Sourdough loaf
   2 x   180           360
@@ -792,9 +793,9 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 >
 > Order: LLB-0148-K7QP
 > Chocolate Truffle · Belgian dark · 1 kg × 1
->   + Message on cake, Candles
+>   + Message on item, Candles
 > Sourdough loaf × 2
-> Message on cake: "Happy 40th Aarav"
+> Message on item: "Happy 40th Aarav"
 > Notes: gold lettering, pastel blue rosettes, no fondant figures
 >
 > Delivery: Sat 29 Aug, 4:00 pm

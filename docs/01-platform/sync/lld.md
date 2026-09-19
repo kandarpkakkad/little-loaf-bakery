@@ -76,6 +76,15 @@ only, so an op either introduces a row or is a duplicate to ignore.
 
 ## 6. Compaction
 
+> **Not built.** The engine writes `compacted_through_seq: -1` on every upload,
+> meaning nothing has been dropped: the journal is still the only copy of every
+> op. It cannot compact until snapshots exist, because the second guard below
+> has nothing to read. The rules here are implemented and unit-tested in
+> `merge.dart` (`compactThroughSeq`, `isLivePeer`) — only the caller is missing.
+>
+> Consequence: journals grow without bound. At bakery volumes that is a long way
+> off, but it is not zero.
+
 Runs after a successful pull, when peer cursors have advanced.
 
 ```

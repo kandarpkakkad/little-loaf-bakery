@@ -22,7 +22,8 @@ storage, sync. Orders depends on menu; menu depends on nothing in the domain.
 - **No flavour list.** Flavour is free text on the line; past flavours for that item are
   offered as suggestions.
 - **Items are never typed onto an order** (D16). `menu_item_id` is not null.
-- **+ New item lives in the picker**, so nobody abandons a half-entered order to go to Config
+- **The menu is maintained in Config, not mid-order.** The order picker only lists what
+  exists; adding an item means leaving the order form for *More › Menu items*
   mid-phone-call. What it creates is a real menu entry, not a string.
 - **Maintained in Config** (D22) — nothing here is touched during a working day.
 

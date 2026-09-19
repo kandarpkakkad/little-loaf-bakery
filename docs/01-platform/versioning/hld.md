@@ -1,5 +1,11 @@
 # Versioning & distribution — HLD
 
+
+> **Not built.** There is no `app.json`, no version gate and no update
+> prompt. (`min_reader_version` in the sync journal is a separate mechanism
+> that *is* built — it makes one peer skip another's journal, nothing more.)
+> What follows is the design.
+
 ## Purpose
 Let devices run different versions safely, force an upgrade when they cannot, and get the APK
 onto a phone without a store.

@@ -103,7 +103,7 @@ Drive journals (peers)
 | Migration fails | Snapshot was taken first; restore from it | storage |
 | Clock skew between devices | HLC preserves causality regardless | sync |
 | Two devices edit the same field | Last-writer-wins by HLC; overwrite recorded | sync |
-| WhatsApp missing or changed | Generic share sheet; content survives unformatted | messaging |
+| WhatsApp missing or changed | The launch returns false and `share_log.shared_at` stays null, so it shows as unsent. **No share-sheet fallback is built** — the message text is composed and visible in the app either way | messaging |
 
 ## 7. Concurrency and threading
 
@@ -112,7 +112,7 @@ Drive journals (peers)
   app resume so Doze is never the only path.
 - **Only one sync run at a time**, guarded by a local lock. A second trigger is dropped, not
   queued — the next scheduled tick will pick up anything missed.
-- **Snapshot writing** is its own worker, and never overlaps a sync run.
+- **Snapshot writing** is its own worker, and never overlaps a sync run. **Not built** — see [backup](../01-platform/backup/hld.md).
 
 ## 8. What is deliberately absent
 

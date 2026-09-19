@@ -24,12 +24,34 @@ docs/
     navigation.md            shell, tabs, routes, deep links
 ```
 
+## The code is the source of truth
+
+These documents **describe** what is built; they do not define it. Where a
+document and the code disagree, the code is right and the document is stale —
+fix the document. The schema in particular lives in
+`lib/platform/storage/tables.dart`; the `schema.md` files describe it.
+
+Some of what follows is design for work that has not been done. Anything
+unbuilt is marked **Not built** where it is described, and summarised here:
+
+| Area | State |
+|---|---|
+| storage, sync, security (encryption) | built |
+| orders, menu, customers, stock, payments, messaging, fulfilment | built |
+| sync — journal compaction | **not built** — rules exist and are tested in `merge.dart`, nothing calls them; journals grow unbounded |
+| backup — snapshots, restore | **not built** — no code at all. Compaction is blocked on this |
+| invoicing | **not built** — the columns exist, nothing writes them |
+| reporting | **not built** — no queries, no screen |
+| menu — seasonality (`season_from`/`season_to`) | **not built** — columns exist, nothing reads them; only the manual `active` flag works |
+| security — app lock | **not built** — `settings.app_lock_enabled` exists and nothing reads it |
+| versioning — app.json version gate | **not built**. (`min_reader_version` in the sync journal is a different, working mechanism) |
+
 ## What each document type contains
 
 | | |
 |---|---|
 | **HLD** | Purpose · responsibilities · what it owns · what it depends on · key decisions · failure modes · explicit non-goals |
-| **schema** | **The source of truth for tables, views and stored file shapes.** DDL, constraints, indexes, and what is deliberately *not* stored. Never duplicated in an HLD or LLD |
+| **schema** | Tables, views and stored file shapes as they exist in code: DDL, constraints, indexes, and what is deliberately *not* stored. Never duplicated in an HLD or LLD |
 | **LLD** | Algorithms in pseudocode · function contracts · state transitions · validation rules · edge cases · what to test. **References `schema.md`; never restates it** |
 | **DSL** | Design tokens · primitives · components · composition rules · every screen expressed declaratively |
 
