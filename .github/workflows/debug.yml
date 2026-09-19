@@ -41,17 +41,24 @@ jobs:
       - name: Test
         run: flutter test
 
-      # arm64 only. A universal debug APK is ~170 MB and the other ABIs are not
-      # what anyone installs to try a change.
+      # --split-per-abi, not --target-platform. The latter only filters
+      # Flutter's own libraries: SQLCipher arrives from package:sqlite3's build
+      # hook, which emits all three ABIs regardless, so --target-platform still
+      # ships x86_64 and armeabi-v7a copies of libsqlcipher.so — measured at
+      # ~9.6 MB of dead weight. --split-per-abi filters correctly.
       - name: Build
-        run: flutter build apk --debug --target-platform android-arm64
+        run: flutter build apk --debug --split-per-abi
 
-      - name: Name it after the commit
+      # arm64 for real phones and tablets, x86_64 for the emulators. A universal
+      # debug APK is ~170 MB and nobody installs the 32-bit one.
+      - name: Name them after the commit
         id: stage
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-debug.apk \
-             "dist/little-loaf-debug-${GITHUB_SHA::7}.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
+             "dist/little-loaf-debug-${GITHUB_SHA::7}-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-debug.apk \
+             "dist/little-loaf-debug-${GITHUB_SHA::7}-x86_64.apk"
           echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
