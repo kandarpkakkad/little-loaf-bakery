@@ -73,6 +73,30 @@ install.
 
 ## 4b. The Drive credential, once
 
+**The pipeline never asks anyone for consent, and cannot.** There is no browser on a runner
+and nobody watching it. The two halves happen at different times, and only one of them
+involves a person:
+
+| | Who | How often | What comes out |
+|---|---|---|---|
+| **Consent** | you, in a browser on your Mac | once | a refresh token |
+| **Exchange** | the runner, machine to machine | every release | an access token, good for an hour |
+
+A refresh token *is* the durable receipt of that one consent — that is the entire purpose of
+asking for `access_type=offline`. The runner posts it to Google with `grant_type=refresh_token`
+and gets back a short-lived access token. No browser, no prompt, nothing interactive.
+
+So the answer to "shouldn't that be automatic?" is: it is, after one human act — the same
+shape as the signing keystore, which you also produced once and handed to CI as a secret.
+
+**The one thing that breaks the "once".** While the OAuth consent screen is in **Testing**,
+Google expires refresh tokens after seven days, which would turn a one-time act into a weekly
+chore. Setting the consent screen to **In production** stops it. Because `drive.file` is a
+non-sensitive scope, publishing needs no verification review from Google — the app already
+depends on that being true for its own sign-in. Publishing fixes both at once: the pipeline's
+credential, and the devices' `silentToken()` dropping out every seven days.
+
+
 The release runner has no Google account of its own, so it borrows one. Three repository
 secrets, all from the **same Cloud project as the app** — `drive.file` grants access to files
 the *app* created, and the app is the project rather than any one client in it, which is the
