@@ -1,0 +1,40 @@
+name: Site
+
+# The homepage and privacy policy Google's OAuth consent screen points at.
+#
+# Deployed from site/ rather than served straight from a branch, because Pages
+# can only serve a branch's root or /docs — and /docs here is the design
+# documentation, which is written for people reading the repository, not for
+# the public web.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# One deployment at a time, and never cancel one halfway: a half-published
+# privacy policy is a consent screen pointing at a 404.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
