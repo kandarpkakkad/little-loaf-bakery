@@ -218,25 +218,19 @@ tool/mint_refresh_token.py
 Without them the announcement step skips with a notice and the first device to
 install the new build announces it instead.
 
-### The push token
+### Who can push to main
 
-`main` is protected, and GitHub will not let a user-owned repository grant the
-Actions bot a rule bypass — so the bot's own identity cannot push the version
-bump once the strict rules are on. Both pipelines therefore check out with
-`RELEASE_TOKEN`, a **fine-grained personal access token** acting as the repo
-admin, falling back to the built-in token only while that secret is absent.
+Only this account. `main` is protected against force-pushes and deletion, and
+the built-in Actions token — which is what commits the version bump — is scoped
+to this repository and expires with the job. The bump step runs on `push`
+events only, and a pull request from a fork gets a read-only token, no secrets,
+and needs approval before it runs at all.
 
-Create it at **Settings → Developer settings → Personal access tokens →
-Fine-grained tokens**:
-
-| | |
-|---|---|
-| Repository access | Only select repositories → `little-loaf-bakery` |
-| Permissions | Repository permissions → **Contents: Read and write** |
-| Expiry | Your call. It must be rotated when it lapses, or releases stop |
-
-Then `gh secret set RELEASE_TOKEN`. Nothing else needs that token, and it
-reaches one repository and one permission.
+There is deliberately **no long-lived credential** in the repository's secrets
+for pushing. One would be strictly worse than the ephemeral token already doing
+the job, and it would buy nothing: the only thing it enables is a
+require-approval rule, and with a single collaborator there is nobody for that
+rule to stop.
 
 Releases are consumed on-device by [Obtainium](https://github.com/ImranR98/Obtainium),
 which watches the repo and offers each new tag.
