@@ -481,14 +481,23 @@ Future<void> moveDrop(
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final orders = context.app.orders;
+
+  // Only what actually moved. A drop can hold an item that is already
+  // delivered, or cancelled, and naming those in the message would tell the
+  // customer a box just arrived that arrived last Tuesday — or one that was
+  // called off.
+  final moved = <OrderLine>[];
   try {
     for (final line in drop.lines) {
-      if (line.status.canGoTo(to)) await orders.moveLine(line.id!, to);
+      if (!line.status.canGoTo(to)) continue;
+      await orders.moveLine(line.id!, to);
+      moved.add(line);
     }
   } on StateError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
     return;
   }
+  if (moved.isEmpty) return;
   if (!context.mounted) return;
 
   final kind = switch (to) {
@@ -502,7 +511,7 @@ Future<void> moveDrop(
   // is never told "your order has been delivered" while a box is outstanding.
   final fresh = await orders.watchOrder(view.order.id).first;
   if (fresh == null || !context.mounted) return;
-  await _offerMessage(context, fresh, kind, dropLines: drop.lines);
+  await _offerMessage(context, fresh, kind, dropLines: moved);
 }
 
 /// The one step this item can take next, as a button.

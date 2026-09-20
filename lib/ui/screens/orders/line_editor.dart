@@ -143,6 +143,12 @@ class _LineSheetState extends State<_LineSheet> {
   /// journey takes that journey's figure and adds nothing to the order.
   late Money? _charge = _seed?.deliveryCharge;
 
+  /// What this trip costs, as typed. Prefilled from the journey being joined,
+  /// or from the default for the delivery type when this item is opening one.
+  late final _chargeField = TextEditingController(
+      text: _charge == null ? '' : moneyToField(_charge!));
+  bool _defaultLoaded = false;
+
   // ── what this item is for ──
   // On the item rather than the order: one cake is piped, the box of buns
   // beside it is not, and one may be eggless while the other is not.
@@ -160,6 +166,32 @@ class _LineSheetState extends State<_LineSheet> {
           pinLng: _seed!.pinLng,
           pinUrl: _seed!.pinUrl,
         );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_defaultLoaded) return;
+    _defaultLoaded = true;
+    _seedDefaultCharge();
+  }
+
+  /// A new journey starts at the bakery's usual charge for that distance.
+  ///
+  /// Only when nothing is set: an item joining an existing journey already
+  /// carries that journey's figure, and an item being edited keeps its own.
+  /// Without this the field opened empty, every item saved zero, and no order
+  /// ever cost anything to deliver — the settings were never read at all.
+  Future<void> _seedDefaultCharge() async {
+    if (_charge != null || _fulfilment != Fulfilment.delivery) return;
+    final s = await context.app.settings();
+    if (!mounted) return;
+    setState(() {
+      _charge = Money(_deliveryType == DeliveryType.local
+          ? s.deliveryChargeLocal
+          : s.deliveryChargeOutstation);
+      _chargeField.text = moneyToField(_charge!);
+    });
+  }
 
   /// Joins a journey: takes a copy of when and where it goes, rather than
   /// linking to it, so editing one of its items afterwards leaves this alone.
@@ -179,6 +211,7 @@ class _LineSheetState extends State<_LineSheet> {
       _fulfilment = o.fulfilment ?? Fulfilment.delivery;
       _deliveryType = o.deliveryType ?? DeliveryType.local;
       _charge = dropCharge(drop);
+      _chargeField.text = moneyToField(_charge!);
       _address = o.addressText == null
           ? null
           : AddressDraft(
@@ -227,6 +260,7 @@ class _LineSheetState extends State<_LineSheet> {
   void dispose() {
     for (final c in [
       _flavour, _weight, _price, _note, _itemMessage, _requirements,
+      _chargeField,
     ]) {
       c.dispose();
     }
@@ -510,10 +544,14 @@ class _LineSheetState extends State<_LineSheet> {
                   title: 'A different date or place',
                   onTap: _locked
                       ? null
-                      : () => setState(() {
+                      : () {
+                          setState(() {
                             _journey = null;
                             _charge = null;
-                          }),
+                            _chargeField.text = '';
+                          });
+                          _seedDefaultCharge();
+                        },
                 ),
                 const SizedBox(height: Space.sm),
               ],
@@ -560,14 +598,32 @@ class _LineSheetState extends State<_LineSheet> {
                       ButtonSegment(value: d, label: Text(d.label)),
                   ],
                   selected: {_deliveryType},
-                  onSelectionChanged: (v) =>
-                      setState(() => _deliveryType = v.first),
+                  onSelectionChanged: (v) {
+                    setState(() => _deliveryType = v.first);
+                    // Only for a trip of its own: joining a journey means
+                    // sharing its charge, whatever this item's distance says.
+                    if (_journey == null) {
+                      _charge = null;
+                      _seedDefaultCharge();
+                    }
+                  },
                 ),
                 const SizedBox(height: Space.md),
                 _LineAddress(
                   address: _address,
                   onChoose: _pickAddress,
                   onClear: () => setState(() => _address = null),
+                ),
+                const SizedBox(height: Space.md),
+                LoafField(
+                  label: 'Delivery charge',
+                  controller: _chargeField,
+                  prefix: '₹ ',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: rupeeInput,
+                  hint: 'For the whole trip — items going out together share it',
+                  onChanged: (v) =>
+                      setState(() => _charge = moneyFromField(v)),
                 ),
               ],
               const SizedBox(height: Space.md),

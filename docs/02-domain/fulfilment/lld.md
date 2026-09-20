@@ -26,10 +26,17 @@ the same guarded path as everywhere else.
 >
 > ```sql
 > WHERE oi.delivery_date BETWEEN :from AND :to
->   AND oi.status IN ('in_production','ready','out')
+>   AND oi.status IN ('confirmed','in_production','ready','out')
 >   AND oi.deleted_at IS NULL AND o.deleted_at IS NULL
 > ORDER BY oi.delivery_date, oi.delivery_time IS NULL, oi.delivery_time, oi.position;
 > ```
+>
+>
+> **The board starts at `confirmed`, not `in_production`.** Confirming an order
+> is what hands its items to the kitchen; before that it is still a
+> conversation with the customer. Starting at `in_production` meant work only
+> appeared once somebody had already begun it, so the board showed what was
+> under way and never what was coming — which is the half a kitchen needs.
 >
 > This is the change the kitchen actually feels. An order with a cake on Friday
 > and a snack box on Sunday currently appears whole on one day or the other;

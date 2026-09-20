@@ -189,6 +189,15 @@ deliberately. Existing tests that encode behaviour you are removing should be
 
 ## 5. Verifying, and what you may claim
 
+**Verify locally. Do not watch CI.** `flutter analyze` and `flutter test` are
+the bar — they run the same suite the pipeline does, in seconds rather than
+minutes. Pushing and then waiting on a run tells you nothing the local suite
+did not already, and it spends the owner's time watching a progress bar.
+
+Do not trigger a pipeline by hand to check your work, and do not block on one
+after pushing. Look at a run only when something has actually failed, or when
+the change is *to* the pipeline itself and the local suite cannot exercise it.
+
 - `flutter analyze` clean, `flutter test` passing — say the number.
 - If something is verified only by tests and CI, **say so**. Nothing in this
   app is proven until it has run on a phone.

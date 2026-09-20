@@ -98,8 +98,11 @@ class _KitchenScreenState extends State<KitchenScreen> {
           // sitting unconfirmed has items due and none of them started, and
           // asking `due.isEmpty` there rendered a blank screen with no
           // explanation at all.
-          final started = due.where((w) => w.line.status.hasStarted).toList();
-          final boardIsEmpty = _view == 0 ? started.isEmpty : due.isEmpty;
+          // Work reaches the kitchen when the order is confirmed, so anything
+          // still merely created is not theirs yet.
+          final onBoard =
+              due.where((w) => w.line.status != LineStatus.created).toList();
+          final boardIsEmpty = _view == 0 ? onBoard.isEmpty : due.isEmpty;
 
           if (boardIsEmpty) {
             return Pullable(child: EmptyState(
@@ -108,9 +111,8 @@ class _KitchenScreenState extends State<KitchenScreen> {
                   ? (_days == 1
                       ? 'Nothing to bake today.'
                       : 'Nothing to bake in the next $_days days.')
-                  : 'Nothing has been started yet.\n'
-                      'Confirm an order and move an item to In production '
-                      'to send it here.',
+                  : 'Nothing confirmed yet.\n'
+                      'Confirming an order sends its items here.',
             ));
           }
           return _view == 0 ? _Board(work: due) : _BakeSheet(work: due);
@@ -152,7 +154,13 @@ class _Board extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(
             Space.lg, Space.md, Space.lg, Space.xxl * 2),
         children: [
+          // Confirmed first: an order that has been agreed with the customer
+          // is the kitchen's to do, and the board is where they see it. It
+          // used to start at "in production", which meant work only appeared
+          // once somebody had already started it — so the board showed what
+          // was under way and never what was coming.
           for (final status in [
+            LineStatus.confirmed,
             LineStatus.inProduction,
             LineStatus.ready,
             LineStatus.out,

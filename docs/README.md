@@ -49,6 +49,7 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | versioning — the update gate | built — GitHub Releases for what exists, peers' `device.json` for the floor; unreadable never blocks |
 | orders — fulfilment, message, requirements and delivery charge per item | built — schema v11; the charge is counted once per journey |
 | orders grouped by the day they are next needed; Today removed | built — Kitchen is the day's view; the alerts moved to Orders |
+| kitchen board starts at **confirmed** | built — confirming an order is what hands its items to the kitchen |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
 | Today and Kitchen reading line dates | built — Today counts orders with a line due that day; Kitchen is a board of lines |
 | invoicing — GST columns and a separate invoice screen | **not built** — the bill itself is issued and rendered; GST stays behind `gst_enabled` |
