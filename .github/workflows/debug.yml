@@ -109,8 +109,9 @@ jobs:
       # arm64 for real phones and tablets, x86_64 for the emulators. A universal
       # debug APK is ~170 MB and nobody installs the 32-bit one.
       #
-      # Named for the version, with the sha kept on the end: the version says
-      # which build is newer, the sha says exactly which commit it was.
+      # Named for the version and nothing else. Every push to main moves it, so
+      # the version already identifies the build — and it is the one thing you
+      # can compare between two files sitting in a downloads folder.
       - name: Name them
         id: stage
         env:
@@ -118,13 +119,13 @@ jobs:
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
-             "dist/little-loaf-debug-$V-${GITHUB_SHA::7}-arm64.apk"
+             "dist/little-loaf-debug-$V-arm64.apk"
           cp build/app/outputs/flutter-apk/app-x86_64-debug.apk \
-             "dist/little-loaf-debug-$V-${GITHUB_SHA::7}-x86_64.apk"
+             "dist/little-loaf-debug-$V-x86_64.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: little-loaf-debug-${{ steps.version.outputs.version }}-${{ github.run_number }}
+          name: little-loaf-debug-${{ steps.version.outputs.version }}
           path: dist/*.apk
           # Debug APKs are large and only interesting while the change is fresh.
           retention-days: 14
