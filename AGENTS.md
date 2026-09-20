@@ -118,6 +118,19 @@ signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
 build**. Test Drive on a locally built debug APK or on a release APK. This is
 not a bug to fix in Dart.
 
+### Compose a message from state read *after* the write
+
+Every customer-facing message is built from a snapshot, and taking it at the
+wrong moment is this codebase's most repeated bug. The receipt said "we have
+received ₹1,600" and then "Still to pay: ₹1,600", because the screen passed
+the `OrderView` it was already holding instead of re-reading after
+`addPayment`.
+
+Re-read, then compose. Where something genuinely must be captured beforehand —
+the lines a delivery message is about, which are `delivered` by the time it is
+composed — capture it explicitly and **match it by id**, never by object
+identity: the re-read returns equal objects, not the same ones.
+
 ### Derived values are never read back from their cache
 
 Several columns exist only because they are NOT NULL and an older peer still

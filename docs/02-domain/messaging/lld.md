@@ -44,28 +44,61 @@ String _onItsWay(Order o) =>
   '— ${config.businessName}';
 // Bare on purpose. WhatsApp linkifies the URL itself; no shortening, no wrapping.
 
+// Three openings and three endings, chosen by two questions: is anything still
+// outstanding, and did the customer come and fetch this one?
 String _delivery(Order o) {
   final owed = balanceDue(o);
+  final owes = owed.isPositive && !isPartialDrop;
   return [
-    'Hi ${o.customer.firstName}, your order has been delivered 🎂', '',
-    'Order: ${o.orderNo}', ...itemLines(o), '',
-    if (!owed.isZero) ...[
+    if (isPartialDrop)
+      'Hi ${o.customer.firstName}, part of your order has '
+      '${isPickup ? "been collected" : "arrived"} 🎂'
+    else if (isPickup)
+      'Hi ${o.customer.firstName}, your order has been collected 🎂'
+    else
+      'Hi ${o.customer.firstName}, your order has been delivered 🎂', '',
+    'Order: ${o.orderNo}', ...itemLines(o),
+    if (isPartialDrop) ...['', 'Still to come: ${stillToCome(o)}'],
+    '',
+    if (owes) ...[
       'Total ${inr(total(o))} · Paid ${inr(paid(o))}',
       '*Balance due ${inr(owed)}*', '',
       ...payLines(config),                  // omitted entirely if neither UPI nor phone set
       '',
-    ],
-    if (owed.isZero)
-      'Thank you for ordering from Little Loaf Bakery. We hope you enjoyed it — '
-      'we would love to bake for you again.'
-    else
       'Thank you for ordering from Little Loaf Bakery',
+    ] else if (isPartialDrop)
+      'We will let you know when the rest is on its way. Thank you for '
+      'ordering from Little Loaf Bakery.'
+    else
+      'Thank you for ordering from Little Loaf Bakery. We hope you enjoyed it — '
+      'we would love to bake for you again.',
   ].join('\n');
 }
+
+// "We hope you enjoyed it" is the ending for a FINISHED order. It went out on
+// every partial drop for as long as the sign-off had only two branches, because
+// a partial drop never owes money and so always fell through to the else.
+
+// What is still to come is a question about STATUS, not a count: every line
+// neither handed over, nor cancelled, nor on this message. Two earlier mistakes
+// lived here. Subtracting only the current drop listed Friday's delivered cakes
+// as still to come on Sunday; and `drop.length < order.lines.length` announced
+// the last cake of three as "part of your order has arrived". Lines are matched
+// by **id** — the order is re-read after the move, so the objects differ.
+//
+// Each one is named the way itemLines names it. Three outstanding cakes read
+// "Cake, Cake, Cake" while the same three were "Cake · Chocolate · 500 g"
+// eight lines above.
+List<OrderItem> outstanding(Order o) => o.lines.where((l) =>
+    l.status != delivered && l.status != cancelled && !onThisMessage(l));
 
 // Offered after EVERY payment, including a partial one, and it says what is
 // still owed. A receipt that omits the balance invites the follow-up question
 // it was meant to prevent.
+//
+// `o` is re-read AFTER the payment is recorded. Composing from the snapshot the
+// screen was already holding quoted the balance from before the money arrived:
+// "we have received ₹1,600 ... Still to pay: ₹1,600".
 String _paymentReceived(Order o, Payment p) {
   final owed = balanceDue(o);
   return [
@@ -112,9 +145,11 @@ void onPaymentRecorded(Order o, Payment p) => offer(o, paymentReceived, p);
 // D25. 'out' and 'delivered' are facts about a LINE, so these two are offered
 // when a DROP moves -- the lines sharing a day, a time and a destination.
 // One journey, one message: two cakes to the same house at 4pm is one
-// doorbell, and saying so twice is noise. A drop that is not the last one says
-// "part of your order has arrived" and names what is still to come, because
-// "your order has been delivered" would be a lie about the box on Sunday.
+// doorbell, and saying so twice is noise. A drop with anything still
+// outstanding says "part of your order has arrived" and names what is still to
+// come, because "your order has been delivered" would be a lie about the box on
+// Sunday. A drop the customer collected says "collected" rather than "arrived"
+// — nothing arrives when they drove to the bakery for it.
 //
 // Money is quoted only on the final drop: asking for the balance while
 // something is still outstanding reads as a demand for an undelivered item.

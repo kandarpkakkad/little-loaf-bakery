@@ -22,6 +22,7 @@ class MessageContext {
     this.hadBalance = false,
     this.lastPayment,
     this.dropLines = const [],
+    this.isPickup = false,
     this.isUpdate = false,
     this.invoiceNo,
     this.voidedReason,
@@ -51,6 +52,10 @@ class MessageContext {
   /// order, which is what a single-drop order always is.
   final List<OrderLine> dropLines;
 
+  /// Whether this handover was collected rather than delivered. Nothing
+  /// "arrives" when the customer drove to the bakery for it.
+  final bool isPickup;
+
   /// The order already existed and has changed — an item added, usually.
   /// The same listing, opening with what happened rather than pretending it is
   /// the first time the customer has seen it.
@@ -65,9 +70,29 @@ class MessageContext {
   /// so rather than looking current.
   final String? voidedReason;
 
-  /// True when this message covers only part of the order.
-  bool get isPartialDrop =>
-      dropLines.isNotEmpty && dropLines.length < lines.length;
+  /// What the customer is still waiting for after this message: every line
+  /// that is neither already handed over, nor cancelled, nor on this message.
+  ///
+  /// It is a question about **status**, not a count. Comparing the size of the
+  /// drop against the size of the order announced the last cake of three as
+  /// "part of your order has arrived", and subtracting only the current drop
+  /// listed the two delivered on Friday as still to come on Sunday.
+  List<OrderLine> get outstanding {
+    // By id: the order is re-read after the move, so the lines on this message
+    // are equal to those in `lines` but are not the same objects.
+    final onThisMessage =
+        dropLines.map((l) => l.id).whereType<String>().toSet();
+    return [
+      for (final l in lines)
+        if (l.status != LineStatus.delivered &&
+            l.status != LineStatus.cancelled &&
+            !onThisMessage.contains(l.id))
+          l,
+    ];
+  }
+
+  /// True when something is still to come after this message.
+  bool get isPartialDrop => dropLines.isNotEmpty && outstanding.isNotEmpty;
 }
 
 /// Whether a message is offered at all. Two of the four are conditional.
@@ -97,12 +122,19 @@ String compose(MessageKind kind, MessageContext c) => switch (kind) {
 List<OrderLine> _subject(MessageContext c) =>
     c.dropLines.isEmpty ? c.lines : c.dropLines;
 
+/// What an item is called, in one line. Shared with `_itemLines` so a cake
+/// cannot be "Cake · Chocolate · 500 g" in one part of a message and a bare
+/// "Cake" in the next — three outstanding cakes read "Cake, Cake, Cake" and
+/// told the customer nothing.
+String _itemLabel(OrderLine l) => [
+      l.itemName,
+      if (l.flavour != null) l.flavour!,
+      if (l.weight != null) l.weight!.label,
+    ].join(' · ');
+
 /// The rest of the order, named so the customer knows nothing was forgotten.
-String _stillToCome(MessageContext c) {
-  final dropped = _subject(c).toSet();
-  final rest = c.lines.where((l) => !dropped.contains(l)).map((l) => l.itemName);
-  return rest.join(', ');
-}
+String _stillToCome(MessageContext c) =>
+    c.outstanding.map(_itemLabel).join(', ');
 
 /// Each item, and what is particular to it.
 ///
@@ -112,11 +144,7 @@ String _stillToCome(MessageContext c) {
 /// left the customer to guess which one it was for.
 List<String> _itemLines(MessageContext c) => [
       for (final l in _subject(c)) ...[
-        '${[
-          l.itemName,
-          if (l.flavour != null) l.flavour!,
-          if (l.weight != null) l.weight!.label,
-        ].join(' · ')} × ${l.qty}',
+        '${_itemLabel(l)} × ${l.qty}',
         if (l.addons.isNotEmpty)
           '  + ${l.addons.map((a) => a.name).join(', ')}',
         if (l.itemMessage != null) '  Piped: "${l.itemMessage}"',
@@ -198,9 +226,13 @@ String _delivery(MessageContext c) {
   // arrived. Asking for the balance while a box is still to come reads as a
   // demand for something not yet delivered.
   final owes = owed.paise > 0 && !c.isPartialDrop;
+  // Nothing "arrives" when the customer came and fetched it.
+  final landed = c.isPickup ? 'been collected' : 'arrived';
   return [
     if (c.isPartialDrop)
-      'Hi ${c.customerFirstName}, part of your order has arrived 🎂'
+      'Hi ${c.customerFirstName}, part of your order has $landed 🎂'
+    else if (c.isPickup)
+      'Hi ${c.customerFirstName}, your order has been collected 🎂'
     else
       'Hi ${c.customerFirstName}, your order has been delivered 🎂',
     '',
@@ -221,7 +253,10 @@ String _delivery(MessageContext c) {
       ..._payLines(c),
       if (_payLines(c).isNotEmpty) '',
       'Thank you for ordering from ${c.businessName}',
-    ] else
+    ] else if (c.isPartialDrop)
+      'We will let you know when the rest is on its way. Thank you for '
+          'ordering from ${c.businessName}.'
+    else
       'Thank you for ordering from ${c.businessName}. We hope you enjoyed it — '
           'we would love to bake for you again.',
   ].join('\n');

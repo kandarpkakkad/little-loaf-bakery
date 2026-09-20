@@ -478,6 +478,22 @@ class OrderLine {
   Money get total =>
       basePrice.times(qty) +
       addons.fold(Money.zero, (a, x) => a + x.price);
+  /// Two rows with the same id are the same item, even when they are different
+  /// objects — which they routinely are, because a screen re-reads the order
+  /// after a move and then compares the result against lines it captured
+  /// before it. Identity comparison quietly failed there and the customer was
+  /// told that what had just been handed to them was still to come.
+  ///
+  /// A line with no id has not been saved, so there is nothing to match on and
+  /// only the object itself will do.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OrderLine && id != null && other.id == id);
+
+  @override
+  int get hashCode => id?.hashCode ?? identityHashCode(this);
+
 }
 
 class OrderTotals {

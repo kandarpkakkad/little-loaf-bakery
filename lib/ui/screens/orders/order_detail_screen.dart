@@ -615,7 +615,8 @@ class SubOrderNextStep extends StatelessWidget {
     // never told "your order has been delivered" while a box is outstanding.
     final fresh = await orders.watchOrder(view.order.id).first;
     if (fresh == null || !context.mounted) return;
-    await _offerMessage(context, fresh, kind, dropLines: moving);
+    await _offerMessage(context, fresh, kind,
+        dropLines: moving, isPickup: sub.isPickup);
   }
 }
 
@@ -886,7 +887,9 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
     // The button already refuses this, but the value is re-checked here so no
     // other route into this code can record more than is owed.
     if (value.paise > 0 && value <= due) {
-      await context.app.orders.addPayment(
+      // Resolved before the awaits below, not reached for across them.
+      final orders = context.app.orders;
+      await orders.addPayment(
         orderId: view.order.id,
         amount: value,
         kind: view.totals.paid.isZero ? 'advance' : 'balance',
@@ -895,8 +898,13 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
       // Every payment earns a receipt, partial or final. Recording money is
       // its own trigger: a part-paid order sits at the same status before and
       // after, so nothing status-driven would ever fire for it.
-      if (context.mounted) {
-        await _offerMessage(context, view, MessageKind.paymentReceived,
+      //
+      // Re-read first. `view` was captured before addPayment, so its totals
+      // still show the old balance — the receipt said "we have received
+      // ₹1,600" and then asked for ₹1,600.
+      final fresh = await orders.watchOrder(view.order.id).first;
+      if (fresh != null && context.mounted) {
+        await _offerMessage(context, fresh, MessageKind.paymentReceived,
             justPaid: value);
       }
     }
@@ -908,6 +916,7 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
 Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
+    bool? isPickup,
     bool isUpdate = false}) async {
   // Both resolved before either await: reaching through context afterwards is
   // what the async-gap lint is about.
@@ -933,6 +942,9 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     hadBalance: view.totals.hasBalance,
     lastPayment: justPaid,
     dropLines: dropLines,
+    // A message about one journey takes that journey's word for it; a message
+    // about the whole order takes the one that finishes it.
+    isPickup: isPickup ?? finishingSubOrder(view.subOrders)?.isPickup ?? false,
     isUpdate: isUpdate,
     invoiceNo: invoice?.invoiceNo,
     voidedReason: invoice?.voidReason,
@@ -947,9 +959,13 @@ Future<void> _offerMessage(
     BuildContext context, OrderView view, MessageKind kind,
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
+    bool? isPickup,
     bool isUpdate = false}) async {
   final ctx = await _messageContext(context, view,
-      justPaid: justPaid, dropLines: dropLines, isUpdate: isUpdate);
+      justPaid: justPaid,
+      dropLines: dropLines,
+      isPickup: isPickup,
+      isUpdate: isUpdate);
   if (!context.mounted || !isOffered(kind, ctx)) return;
   final text = compose(kind, ctx);
 
