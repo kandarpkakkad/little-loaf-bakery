@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Little Loaf Bakery</title>
+<style>
+  :root {
+    --paper: #FDFBF6;
+    --ink:   #2A2724;
+    --ink2:  #5A544E;
+    --ink3:  #857D75;
+    --slate: #507991;
+    --cream: #F8F0D8;
+    --rule:  #E8E1D4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 17px/1.65 ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header { border-bottom: 2px solid var(--slate); padding-bottom: 1.5rem; margin-bottom: 2.5rem; }
+  .app { font-size: .82rem; letter-spacing: .04em; color: var(--slate); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0 0 .4rem; }
+  h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 .5rem; font-weight: 600; }
+  .updated { color: var(--ink3); font-size: .9rem; margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+  h2 { font-size: 1.2rem; margin: 2.75rem 0 .75rem; font-weight: 600; }
+  p, li { color: var(--ink2); }
+  ul { padding-left: 1.2rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--ink); font-weight: 600; }
+  .lead {
+    background: var(--cream);
+    border-left: 3px solid var(--slate);
+    padding: 1.1rem 1.3rem;
+    margin: 0 0 1rem;
+    color: var(--ink);
+  }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: ui-sans-serif, system-ui, sans-serif; font-size: .8rem; letter-spacing: .03em; color: var(--ink3); font-weight: 600; }
+  a { color: var(--slate); }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--ink3); font-size: .9rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+  @media (max-width: 30rem) { .wrap { padding: 2.5rem 1.25rem 4rem; } h1 { font-size: 1.6rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="app">Little Loaf Bakery</p>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated 20 September 2026</p>
+</header>
+
+<p class="lead">Little Loaf Bakery is a private tool for running one bakery. It has
+no server. Nothing it records is sent to us, because there is no “us” to send it
+to — the bakery’s records stay on the bakery’s own devices and in the bakery’s
+own Google Drive.</p>
+
+<h2>Who this is for</h2>
+<p>The app is used by the owner and staff of a single bakery to take orders, track
+stock and send invoices. It is not a customer-facing app, and it is not
+distributed publicly.</p>
+
+<h2>What the app stores</h2>
+<p>All of this is entered by the bakery, on the bakery’s own device:</p>
+
+<table>
+  <tr><th>Kind</th><th>What</th></tr>
+  <tr><td>Customers</td><td>Name, phone number, delivery addresses, and an optional map link for an address</td></tr>
+  <tr><td>Orders</td><td>Items, weights, flavours, prices, delivery dates, notes and status</td></tr>
+  <tr><td>Money</td><td>Payments, discounts, delivery charges and invoices</td></tr>
+  <tr><td>Stock</td><td>Materials, quantities and what they cost</td></tr>
+  <tr><td>Technical</td><td>An identifier for each installation, used to keep devices in sync</td></tr>
+</table>
+
+<h2>Where it is kept</h2>
+<ul>
+  <li><strong>On the device</strong>, in the app’s private storage, in a database
+      encrypted with SQLCipher. Other apps on the phone cannot read it.</li>
+  <li><strong>In the bakery’s own Google Drive</strong>, if Drive sync is switched
+      on. This is how two devices — say a kitchen phone and a counter tablet —
+      show the same orders, and it is also the backup.</li>
+</ul>
+
+<h2>What we access in Google Drive</h2>
+<p>The app requests a single permission,
+<strong><code>drive.file</code></strong>. That permission grants access
+<em>only to files the app itself created</em>. The app creates one folder, named
+“Little Loaf Bakery”, and works inside it.</p>
+<p>Everything else in the Google account — documents, photos, other folders — is
+invisible to the app. It is not that we choose not to look; the permission does
+not allow it.</p>
+<p>The app does not request, and cannot obtain, access to Gmail, Contacts,
+Calendar, Photos, or any other Google service.</p>
+
+<h2>What leaves the device</h2>
+<p>Only two things, and both go where the bakery sends them:</p>
+<ul>
+  <li><strong>To the bakery’s Google Drive</strong> — the records above, so that
+      the bakery’s own devices stay in step and the data survives a lost phone.</li>
+  <li><strong>To WhatsApp, Maps or a dialler, when a person taps a button</strong> —
+      the app opens the other app with a message or an address already filled in.
+      It never sends anything by itself; the person taps Send in WhatsApp.</li>
+</ul>
+<p>There is no analytics, no telemetry, no crash reporting, no advertising and no
+tracking of any kind. No third party receives this data. It is never sold, and
+there is nobody to sell it to.</p>
+
+<h2>Location</h2>
+<p>The app does not read the device’s location. Where a delivery address has a map
+link, that link was pasted or picked by the bakery when the address was saved,
+and it is stored with the address and deleted with it.</p>
+
+<h2>How long it is kept</h2>
+<p>For as long as the bakery keeps it. Records stay until they are deleted in the
+app. Backups in Drive are kept for the last fourteen days, and older ones are
+removed automatically.</p>
+
+<h2>Deleting everything</h2>
+<ul>
+  <li><strong>On a device:</strong> uninstall the app. Its private storage, and the
+      encryption key with it, are removed by Android.</li>
+  <li><strong>In Drive:</strong> delete the “Little Loaf Bakery” folder, and
+      remove the app’s access at
+      <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+</ul>
+<p>Because there is no server, that is genuinely all of it. Nothing is left behind
+anywhere else.</p>
+
+<h2>Children</h2>
+<p>The app is a business tool for bakery staff and is not directed at children.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the date at the top changes with it.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy, or about data the app holds:
+<a href="mailto:litle.loaf.bakery@gmail.com">litle.loaf.bakery@gmail.com</a></p>
+
+<footer>
+  Little Loaf Bakery · <a href="./">Home</a>
+</footer>
+
+</div>
+</body>
+</html>

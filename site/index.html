@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Little Loaf Bakery</title>
+<style>
+  :root {
+    --paper: #FDFBF6;
+    --ink:   #2A2724;
+    --ink2:  #5A544E;
+    --ink3:  #857D75;
+    --slate: #507991;
+    --cream: #F8F0D8;
+    --rule:  #E8E1D4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 17px/1.65 ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 5rem 1.5rem 6rem; }
+  h1 { font-size: 2.4rem; line-height: 1.1; margin: 0 0 .75rem; font-weight: 600; }
+  .tag { color: var(--slate); font-family: ui-sans-serif, system-ui, sans-serif;
+         font-size: .85rem; letter-spacing: .05em; margin: 0 0 1.75rem; }
+  .lead { font-size: 1.15rem; color: var(--ink2); margin: 0 0 2.5rem; }
+  h2 { font-size: 1.15rem; margin: 2.5rem 0 .6rem; font-weight: 600; }
+  p, li { color: var(--ink2); }
+  ul { padding-left: 1.2rem; }
+  li { margin: .3rem 0; }
+  .note {
+    background: var(--cream);
+    border-left: 3px solid var(--slate);
+    padding: 1rem 1.25rem;
+    color: var(--ink);
+    margin: 2rem 0;
+  }
+  a { color: var(--slate); }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule);
+           color: var(--ink3); font-size: .9rem;
+           font-family: ui-sans-serif, system-ui, sans-serif; }
+  @media (max-width: 30rem) { .wrap { padding: 3rem 1.25rem 4rem; } h1 { font-size: 1.9rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Little Loaf Bakery</h1>
+  <p class="tag">Order book, kitchen board and stock ledger for one bakery</p>
+
+  <p class="lead">A private Android app for running a small bakery: taking
+  orders, keeping track of what is due when, and sending the customer a
+  message about it.</p>
+
+  <h2>What it does</h2>
+  <ul>
+    <li>Takes orders with their own delivery date, time and address per item</li>
+    <li>Shows the kitchen what is due today, and what is in the oven</li>
+    <li>Records payments, issues an invoice, and messages it over WhatsApp</li>
+    <li>Tracks materials and what they cost</li>
+    <li>Keeps two devices in step through the bakery’s own Google Drive</li>
+  </ul>
+
+  <div class="note">
+    <strong>No server, and no account with us.</strong> Everything lives on the
+    bakery’s own devices and in the bakery’s own Google Drive. The app asks for
+    one Google permission — <code>drive.file</code> — which reaches only the
+    folder it created itself, and nothing else in the account.
+  </div>
+
+  <h2>Who it is for</h2>
+  <p>The owner and staff of one bakery. It is not on the Play Store and is not
+  offered to the public.</p>
+
+  <h2>Privacy</h2>
+  <p>The short version is above. The full policy is here:
+  <a href="privacy.html">Privacy Policy</a>.</p>
+
+  <h2>Contact</h2>
+  <p><a href="mailto:litle.loaf.bakery@gmail.com">litle.loaf.bakery@gmail.com</a></p>
+
+  <footer>
+    Little Loaf Bakery · <a href="privacy.html">Privacy Policy</a>
+  </footer>
+
+</div>
+</body>
+</html>
