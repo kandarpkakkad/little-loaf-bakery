@@ -42,9 +42,12 @@ coordination.
 
 ## 4. Derived values
 
+Shown as SQL for the shape; computed in Dart by summing `OrderTotals` over the customer's
+orders, so it cannot disagree with what the order screen shows.
+
 ```sql
 -- lifetime value: completed orders only
-SELECT SUM(total) FROM v_order_totals t JOIN orders o ON o.id = t.order_id
+SELECT SUM(total) FROM <order totals> t JOIN orders o ON o.id = t.order_id
 WHERE o.customer_id = ? AND o.status = 'completed' AND o.deleted_at IS NULL;
 
 -- outstanding: delivered, not yet completed

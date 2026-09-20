@@ -2,9 +2,11 @@
 
 ## 1. Views
 
-**Source of truth: [`schema.md`](schema.md).** `v_order_totals`, `v_material_levels`, `v_material_last_rate`, `v_material_reference`.
+**Source of truth: the code** — `lib/domain/reporting/repository.dart`, over `OrderTotals`.
+[`schema.md`](schema.md) states the shape of each answer as SQL; the views it describes were
+not built, and where the two disagree the code is right.
 
-`v_order_totals` is the single definition of a total — the order screen, the invoice and every report read it, so they cannot disagree.
+`OrderTotals` is the single definition of a total — the order screen, the invoice and every report read it, so they cannot disagree.
 
 ## 2. Sales
 
@@ -12,7 +14,7 @@
 -- by period; revenue = completed only
 SELECT strftime('%Y-%m', o.delivery_date/1000, 'unixepoch') AS month,
        COUNT(*) AS orders, SUM(t.total) AS revenue
-FROM orders o JOIN v_order_totals t ON t.order_id=o.id
+FROM orders o JOIN <order totals> t ON t.order_id=o.id
 WHERE o.status='completed' AND o.deleted_at IS NULL
   AND NOT EXISTS (SELECT 1 FROM invoices i
                   WHERE i.order_id=o.id AND i.voided_at IS NOT NULL)
@@ -103,7 +105,8 @@ integers. Everywhere else it stays paise.
 
 ## 8. What to test
 
-- `v_order_totals` matches the domain functions on 1,000 random orders — property test.
+- Reporting agrees with the order screen, because both read `OrderTotals`. There is nothing to
+  cross-check, which was the point of not writing it twice.
 - Revenue excludes non-completed and voided.
 - Price-over-time separates weights of the same item.
 - CSV round-trip: export, re-import into a scratch DB, assert equality.

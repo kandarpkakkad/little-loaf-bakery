@@ -14,12 +14,19 @@ onChange → debounce 5s → uploadWorker:
    body  = header + retainedOps + ops        // retainedOps = not yet compactable
    PUT journal/<me>/ops.jsonl                // whole file, atomic in Drive
    mark ops uploaded
-   PUT journal/<me>/device.json              // cursors + last_seen_at
+   ... pull every peer ...
+   PUT journal/<me>/device.json              // cursors, heartbeat, version
    unlock
 ```
 
 **Why the whole file is safe:** Drive replaces a file atomically. A reader sees either the
 previous revision or the new one — never a half-written splice.
+
+**`device.json` goes out after the pull, not with the upload**, and on every run rather than
+only on runs that had something to send. It is how peers learn how far we have read, so
+writing it first would always be one run behind — a read-only device would advertise no
+progress at all — and it is how they learn we are alive, so a device that syncs without
+writing must still publish it or it ages out of the live set in 30 days.
 
 ## 4. Pull
 

@@ -108,9 +108,21 @@ skew survivable.
 ## Drive file: `journal/<device-id>/device.json`
 
 ```jsonc
-{ "device_id": "0192f3…", "name": "Kitchen", "app_version": 14,
-  "last_seen_at": 1756300812345,
-  "cursors": { "0192f4…7b02": 812, "0192f5…2e19": 47 } }
+{ "device_id":     "0192f3…",
+  "last_seen_at":  1756300812345,
+  "cursors":       { "0192f4…7b02": 812, "0192f5…2e19": 47 },
+  "app_version":   "0.1.13",
+  "min_supported": "0.1.0" }
 ```
 
-`cursors` is what every other device reads to know what it may compact.
+| Field | Read by |
+|---|---|
+| `cursors` | Every other device, to know what it may compact |
+| `last_seen_at` | Compaction, to decide whether this peer is still live (30 days) |
+| `app_version` | The version gate, and the Sync screen, which names what each device is on |
+| `min_supported` | The version gate. **The strictest any peer asks for is the floor**, so a newer build propagates its own requirement by syncing once |
+
+Written **after the pull, on every run** — including runs that uploaded nothing. Publishing it
+during the upload, as an earlier version did, made it permanently one run stale: a device that
+only ever read never advertised any progress, so nothing could compact behind it, and it
+stopped looking alive after 30 days despite syncing all along.

@@ -74,7 +74,8 @@ nor a tracking link.**
 ### Not stored
 
 `subtotal`, `total`, `balance_due`, payment status. **All derived** — see
-[`reporting/schema.md`](../reporting/schema.md) for `v_order_totals`. Two devices cannot
+[`reporting/schema.md`](../reporting/schema.md) for the shape of an order's totals — computed
+by `OrderTotals` in Dart, not by a view. Two devices cannot
 disagree about a number neither one holds.
 
 ## order_items

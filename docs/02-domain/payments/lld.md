@@ -50,7 +50,7 @@ If `upiId` is unset, the QR block is absent from the sheet. Cash and transfer st
 SELECT o.id, o.order_no, c.name, t.total - COALESCE(p.paid,0) AS due,
        julianday('now') - julianday(o.delivered_at/1000,'unixepoch') AS age_days
 FROM orders o
-JOIN v_order_totals t ON t.order_id = o.id
+JOIN <order totals> t ON t.order_id = o.id      -- OrderTotals, in Dart
 LEFT JOIN (SELECT order_id, SUM(amount) paid FROM payments
            WHERE deleted_at IS NULL GROUP BY order_id) p ON p.order_id = o.id
 WHERE o.status = 'delivered' AND o.deleted_at IS NULL AND due > 0

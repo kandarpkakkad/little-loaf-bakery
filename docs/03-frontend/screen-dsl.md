@@ -506,73 +506,110 @@ screen MaterialEdit                      # S16
   notes  Four fields, and two facts it works out for itself.
 ```
 
-### S23 · S24 · Reports · Config
+### S23 · S24 · Reports · Business
 ```
 screen Reports                      # S23
-  route /more/reports   tab More
-  body  List of report keys -> /more/reports/:key
-        Button ghost "Export everything as CSV" -> share
-
-screen Config                      # S24
-  route /more/config   tab More
-  appbar title="Config"
+  route  More > Reports
+  appbar title="Reports"
   body
-    Group "Lists"    -> Menu · Raw materials
-    Group "Business" -> Profile · Payment details · Default delivery charge
-    Group "App"      -> gst_enabled · App lock · This device
-  notes  Nothing here is touched during a working day.
+    when @reports.empty  Empty "Nothing to report yet. Deliver an order and it appears here."
+    Section "Money"                   -> Still to collect · To refund
+    Section "By month"                -> month | orders · outstanding | revenue
+    Section "What sells"              -> item | qty sold | revenue     (by revenue, desc)
+    Section "What the shelf is worth" -> material | on hand | value at last price paid
+  notes  Four questions, in the order they get asked. A material never bought at a
+         known price reads "price unknown", never zero — zero says worthless.
+
+screen Business                     # S24
+  route  More > Business
+  appbar title="Business" action="Save"
+  body
+    Section "Identity"                -> name* · phone · address
+    Section "Payments"                -> UPI ID · invoice footer line
+    Section "Default delivery charge" -> inside city · out of city
+    Section "This device"             -> device name · device id
+    Section "Lock"                    -> Switch "Ask before opening"
+  notes  Nothing here is touched during a working day. The lock switch saves on
+         the switch, not on Save: a lock that needs a second button is a lock
+         that is off.
 ```
+
+**More is a flat list, not a Config screen**: Customers · Menu items · Materials · Business ·
+Reports · Google Drive sync. There is no `gst_enabled` toggle — GST is out of scope for v1
+and the column stays unread.
 
 ### S25 · S26 · Sync & backup · Restore
 ```
 screen Sync                      # S25
-  route /more/sync   tab More
-  appbar title="Sync & backup" back
+  route  More > Google Drive sync
+  appbar title="Google Drive sync" back
   body
-    when @sync.ok       Alert good "All changes backed up · last sync @sync.lastAt"
-    when @sync.stale    Alert warn "Not synced since @sync.lastAt" action="Retry"
-    Card Row "Google account" | @auth.email
-    Card
-      Row "This device" | "@device.name · @device.id.short"
-      Repeat @peers as p
-        Row @p.name | caption "seen @p.lastSeen"
-        when @p.needsUpgrade  Chip warn "on a newer version"
-    Divider
-    Row "Pending uploads" | @sync.pending
-    Row "Journal"         | @sync.journalSize
-    Row "Drive folder"    | @drive.used
-    Row "Snapshots"       | when @snapshot.isMine: "this device" else: @snapshot.ownerName
-    Row "Last snapshot"   | @snapshot.lastAt
-    when @snapshot.staleDays >= 3
-      Alert warn "No snapshot since @snapshot.lastAt. @snapshot.ownerName is the snapshot device.
-                  If that phone is gone, delete snapshot/owner.json in Drive."
-  actions
-    Button ghost "Snapshots" · Button primary "Back up now"
-    Button text  "Conflict log (@conflicts.count)" · Button text "Restore from backup"
+    Card status
+      when busy            "Syncing…"
+      when needsReconnect  warn "Reconnect needed" + why, action="Reconnect"
+      when !connected      "Not connected" + what connecting buys
+      when lastRunFailed   warn "Last sync failed · it will try again on its own"
+      else                 "Connected" | @auth.email | "Last synced @sync.ago"
 
-screen Restore                      # S26
-  route /more/sync/restore
-  body  List @drive.snapshots newestFirst -> pick
-        Progress stages=[ "Downloading", "Migrating", "Replaying journals", "Verifying" ]
-  notes  Never resumable by accident. Writes to a temp DB and swaps at the end.
+    when !connected  Button primary "Connect Google Drive"
+    else             Button outline "Sync now" · Button text "Disconnect"
+
+    Section "Backup"                     # only when connected
+      Row "Last backup" | @owner.lastSnapshotAt else "never"
+      Row "Taken by"    | when mine: "this device" else @owner.deviceId.short
+                          else "nobody yet"
+      when @owner.staleAt(now)
+        Alert warn "No backup since @owner.lastSnapshotAt. @who is the backup device.
+                    If that phone is gone, delete snapshot/owner.json in the Little Loaf
+                    Bakery folder in Drive, and the next device to try will take over."
+      Button outline "Back up now" · Button outline "Restore"
+
+    Row "Other devices found" | @report.peersSeen
+    Row "Read successfully"   | @report.peersRead
+    Repeat @report.peerVersions as p
+      Row "@p.id.short… is on" | @p.version
+    when @report.isolated
+      Alert warn "sees its own folder and nobody else's" + same-account, same-build advice
+    Repeat @report.peerErrors as e
+      Alert warn "Could not read @e.id.short…: @e.error"
+
+    Row "Waiting to upload" | @mutations.pending
+    Row "This device"       | @device.id
+    Row "Version"           | "@app.version (@app.build)"
+  notes  Sync is invisible by design, so this screen exists for the two moments it
+         is not: setting it up, and working out why it has stopped. Peer versions
+         are here because a tablet three versions behind looks exactly like a
+         tablet that is not syncing.
+
+flow Restore                     # S26 — a sheet and a dialog, not a screen
+  sheet  List @drive.snapshots newestFirst, first marked "Most recent" -> pick
+  dialog "Restore this backup?"
+         "Everything on this device is replaced with the backup from @date, and
+          anything since then that has not reached Drive is lost.
+          The backup is downloaded now and put in place the next time the app starts."
+  then   Snackbar "Downloaded. Close and reopen the app to finish."
+  notes  Staged, not live: downloaded and checked now, swapped in at the next
+         open before anything holds the old database. A refusal — damaged file,
+         or a snapshot from a newer app — leaves the device with what it had.
 ```
 
-### S29 · Update required
+### S29 · Update to carry on
 ```
 screen Blocked
-  route /blocked   tab —          # no shell, no back, no way past
+  route —                         # a cover above the navigator, no back, no way past
   body
-    Logo
-    Text title  "Update required"
-    Text body   "This device is running v@app.version. Another device is on
-                 v@remote.latest, which needs at least v@remote.minSupported."
-    Alert good  "Everything you had waiting has already been uploaded. Nothing is lost."
-    when @remote.apkUrl
-      Button primary "Download v@remote.latest" -> browser
-    else
-      Text body "Install the latest version from the file you were sent."
-    Button text "Restore from backup" -> /more/sync/restore
-  notes  The outbox is flushed BEFORE this renders.
+    Icon system_update warn
+    Text title "Update to carry on"
+    Text body  "This device is on @app.version, and the bakery has moved to
+                @remote.latest. An older build can no longer read what the others
+                write, so it stops here rather than showing you a half-picture.
+
+                Everything on this device has already been sent to Drive."
+    Button primary "Download the update" -> browser
+    Text caption "Install it over this one — your orders stay where they are."
+  notes  The outbox is flushed BEFORE this renders. The download button is always
+         present, falling back to the releases page: a build that set the floor
+         too high would otherwise strand every device with no way forward.
 ```
 
 ---

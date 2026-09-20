@@ -8,32 +8,43 @@ Tables: `materials`, `stock_transactions` — including what `qty` means per kin
 
 ## 2. Current level
 
-```sql
--- everything since the most recent count, on top of that count
-WITH last_count AS (
-  SELECT material_id, MAX(at) AS at FROM stock_transactions
-  WHERE kind='count' AND deleted_at IS NULL GROUP BY material_id)
-SELECT m.id,
-  COALESCE((SELECT qty FROM stock_transactions
-            WHERE material_id=m.id AND kind='count' AND at=lc.at), 0)
-  + COALESCE((SELECT SUM(CASE kind WHEN 'in' THEN qty ELSE -qty END)
-              FROM stock_transactions
-              WHERE material_id=m.id AND kind<>'count'
-                AND at > COALESCE(lc.at, 0) AND deleted_at IS NULL), 0) AS level
-FROM materials m LEFT JOIN last_count lc ON lc.material_id = m.id;
+`levelOf` in `domain/stock/model.dart` — Dart, not SQL. The whole movement list for a material
+is already in memory for the bar and the history, so a second definition in SQL would be a
+second thing to keep right.
+
+```dart
+// everything since the most recent count, on top of that count
+sorted     = movements sorted by (at, id)
+lastCount  = the LAST INDEX where kind == count          // position, not timestamp
+level      = lastCount < 0 ? 0 : sorted[lastCount].qty
+for m in sorted after lastCount:
+    level += m.kind == stockIn ? m.qty : -m.qty
 ```
+
 A stock count is a **reset point**, which is what makes it a correction rather than another
 guess.
 
+**Two movements can share a millisecond**, and counting the shelf then recording the delivery
+that just arrived does exactly that. So two things matter:
+
+- **The tie is broken by `id`**, which is UUID v7 and therefore ordered by the moment the row
+  was made. Without it the sort is arbitrary and the answer changes run to run.
+- **The last count is found by position, not by comparing `at`.** An earlier version asked
+  "is this movement later than the count?" and a same-millisecond purchase answered no, so it
+  was dropped: three kilos counted plus two bought read as three. CI caught it; the local
+  suite never did, because the two writes happened to land in different milliseconds here.
+
 ## 3. The reference
 
-```sql
--- the level immediately AFTER the most recent stock-in
-SELECT level_at(material_id, (SELECT MAX(at) FROM stock_transactions
-                              WHERE material_id=? AND kind='in' AND deleted_at IS NULL))
+The level immediately **after** the most recent stock-in — the bar's full mark.
+
+```dart
+lastIn = the LAST INDEX where kind == stockIn
+return levelOf(sorted.sublist(0, lastIn + 1));      // sliced by position
 ```
-Computed once per material for the list and cached in memory for the session — it only
-changes when a stock-in happens.
+
+Sliced by position for the same reason as above: a count sharing the stock-in's millisecond
+must not be dragged in or left out by luck.
 
 ```dart
 double barScale(Material m) => max(reference(m), m.thresholdQty);   // §HLD, the two cases

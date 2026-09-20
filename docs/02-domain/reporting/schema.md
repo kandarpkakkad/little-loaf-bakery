@@ -1,13 +1,23 @@
 # Reporting — schema
 
-**Views only.** Reporting owns no tables and writes nothing, ever.
+**No tables, and — as built — no views either.** Reporting writes nothing, ever.
+
+> **The views below were not built.** The single definition of a total is `OrderTotals` in
+> `lib/domain/orders/model.dart`, and every screen, the invoice and every report read it. A
+> SQL copy would be a *second* definition, and the two would drift the first time a rule
+> changed: a cancelled item leaving the total, credit, a percentage discount resolved at
+> invoice. At a bakery's volumes computing in Dart costs nothing; two definitions would cost a
+> report that disagrees with the order screen.
+>
+> The SQL here is kept because it states the **shape** of each answer precisely, which is
+> useful when reading the Dart. It is a specification, not an artefact. Where it disagrees
+> with the code, the code is right.
 
 Common columns: [`01-platform/storage/schema.md`](../../01-platform/storage/schema.md)
 
-## v_order_totals
+## v_order_totals — as specification
 
-**The single definition of a total.** The order screen, the invoice and every report read this
-view, so they cannot disagree with each other.
+**The single definition of a total**, which in the built app is `OrderTotals`.
 
 ```sql
 CREATE VIEW v_order_totals AS
