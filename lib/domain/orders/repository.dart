@@ -152,6 +152,7 @@ class DraftLine {
     this.fulfilment,
     this.deliveryType,
     this.addressText,
+    this.addressLabel,
     this.pinLat,
     this.pinLng,
     this.pinUrl,
@@ -176,6 +177,12 @@ class DraftLine {
   Fulfilment? fulfilment;
   DeliveryType? deliveryType;
   String? addressText;
+
+  /// "Home", "Office" — what the customer calls this door. Carried so that an
+  /// address typed while taking an order can be kept against the customer
+  /// under the name they gave it.
+  String? addressLabel;
+
   double? pinLat;
   double? pinLng;
   String? pinUrl;
@@ -198,6 +205,7 @@ class DraftLine {
     fulfilment = other.fulfilment;
     deliveryType = other.deliveryType;
     addressText = other.addressText;
+    addressLabel = other.addressLabel;
     pinLat = other.pinLat;
     pinLng = other.pinLng;
     // Same journey, so the same charge — and the order counts it once.
@@ -806,7 +814,72 @@ class OrderRepository {
       'pin_url': isPickup ? null : l.pinUrl,
       'delivery_charge': charge,
     });
+
+    // A door the bakery has now actually delivered to is worth keeping.
+    if (!isPickup) await _rememberAddress(orderId, l, now, hlc);
     return id;
+  }
+
+  /// Keep an address typed while taking an order against the customer.
+  ///
+  /// The picker offers a customer's saved addresses and lets a new one be
+  /// typed, but nothing ever wrote the new one back — it went onto the journey
+  /// and no further, so the next order for the same person offered an empty
+  /// list and the customer screen showed no addresses at all. Only the
+  /// Customers screen's own button reached `customer_addresses`.
+  ///
+  /// Saved here rather than when it is typed, because an order that is
+  /// abandoned should not leave an address behind.
+  Future<void> _rememberAddress(
+      String orderId, DraftLine l, int now, String hlc) async {
+    final text = l.addressText?.trim();
+    if (text == null || text.isEmpty) return;
+
+    final order = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+        .getSingleOrNull();
+    if (order == null) return;
+
+    final saved = await (db.select(db.customerAddresses)
+          ..where((t) =>
+              t.customerId.equals(order.customerId) & t.deletedAt.isNull()))
+        .get();
+
+    // The same door typed twice, with different spacing or capitals, is one
+    // address — not a second one cluttering the picker.
+    String norm(String v) => v.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (saved.any((a) => norm(a.addressText) == norm(text))) return;
+
+    final id = Uuid7.generate();
+    final label = (l.addressLabel?.trim().isNotEmpty ?? false)
+        ? l.addressLabel!.trim()
+        : 'Home';
+    // The first address a customer has is the one to offer first next time.
+    final isDefault = saved.isEmpty;
+
+    await db.into(db.customerAddresses).insert(
+          CustomerAddressesCompanion.insert(
+            id: id,
+            deviceId: mutations.deviceId,
+            createdAt: now,
+            updatedAtHlc: hlc,
+            customerId: order.customerId,
+            label: label,
+            addressText: text,
+            pinLat: Value(l.pinLat),
+            pinLng: Value(l.pinLng),
+            pinUrl: Value(l.pinUrl),
+            isDefault: Value(isDefault),
+          ),
+        );
+    await mutations.record('customer_addresses', id, OpKind.upsert, {
+      'customer_id': order.customerId,
+      'label': label,
+      'address_text': text,
+      'pin_lat': l.pinLat,
+      'pin_lng': l.pinLng,
+      'pin_url': l.pinUrl,
+      'is_default': isDefault,
+    });
   }
 
   /// Removes journeys nothing is travelling on any more.

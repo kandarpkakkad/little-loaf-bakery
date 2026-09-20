@@ -168,7 +168,9 @@ class _LineSheetState extends State<_LineSheet> {
   late AddressDraft? _address = _seed?.addressText == null
       ? null
       : AddressDraft(
-          label: 'Delivery',
+          // The name the customer gave this door, not a placeholder — it is
+          // what the address is saved and listed under.
+          label: _seed!.addressLabel ?? 'Home',
           addressText: _seed!.addressText!,
           pinLat: _seed!.pinLat,
           pinLng: _seed!.pinLng,
@@ -704,6 +706,9 @@ class _LineSheetState extends State<_LineSheet> {
                           ? null
                           : _deliveryType,
                       addressText: _address?.addressText,
+                      // Carried so a new address can be kept against the
+                      // customer under the name they gave it.
+                      addressLabel: _address?.label,
                       pinLat: _address?.pinLat,
                       pinLng: _address?.pinLng,
                       pinUrl: _address?.pinUrl,

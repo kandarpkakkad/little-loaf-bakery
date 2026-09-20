@@ -59,6 +59,45 @@ WHERE customer_id = ? AND address_text IS NOT NULL AND deleted_at IS NULL
 ORDER BY created_at DESC LIMIT 1;
 ```
 
+## 4b. Addresses are learned from orders
+
+A customer's addresses come from two places, and for a long time only one of
+them worked.
+
+```dart
+// in OrderRepository._subOrderFor -- the single point at which a journey, and
+// therefore an address, comes into existence
+if (!isPickup) await rememberAddress(orderId, line);
+
+Future<void> rememberAddress(String orderId, DraftLine l) async {
+  if (l.addressText.isNullOrBlank) return;
+  final saved = await addresses(order.customerId);
+  // the same door typed twice, with different spacing or capitals, is one
+  // address -- not a second one cluttering the picker
+  if (saved.any((a) => norm(a.addressText) == norm(l.addressText))) return;
+  insert(customerAddresses,
+    label: l.addressLabel ?? 'Home',
+    isDefault: saved.isEmpty);          // the first one leads the list
+}
+```
+
+**Why it was missing.** `pickAddress` offers the saved addresses and lets a new
+one be typed, and the typed one went onto the journey and no further —
+`address_picker.dart` even said so ("has not been saved against the customer
+yet") and nothing finished the sentence. Only the Customers screen's own button
+reached `customer_addresses`, so a customer who had only ever been given an
+address while ordering showed none on their page and got an empty picker on
+their next order.
+
+**Saved on order write, not on typing**, so an abandoned order leaves nothing
+behind. **Pickups save nothing** — there is no door. **The label travels with
+the draft** (`DraftLine.addressLabel`); it used to be dropped between the picker
+and the line, so the name the customer gave a door was lost even where one was
+stored.
+
+Addresses from orders placed **before this existed are not backfilled** — the
+journeys kept their text, and the customer's list starts from the next order.
+
 ## 5. Allergy pull-forward
 
 ```dart
