@@ -204,7 +204,11 @@ Future<void> _addStock(BuildContext context, StockLevel level) async {
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: useLastPrice,
-                    title: Text('Use last price — ${money(rate)}/${level.material.unit}',
+                    title: Text(
+                        // showZero: money() returns null at zero, and a
+                        // material last bought for nothing printed "null/kg".
+                        'Use last price — ${money(rate, showZero: true)}'
+                        '/${level.material.unit}',
                         style: sheetContext.text.bodySmall),
                     onChanged: (v) => setSheetState(() {
                       useLastPrice = v ?? false;

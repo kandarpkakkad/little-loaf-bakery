@@ -1445,29 +1445,29 @@ class OrderRepository {
     });
   }
 
-  Future<void> setDeliveryCharge(String orderId, Money amount) async {
+  /// The courier link for one journey.
+  ///
+  /// On the journey, never on the order: `orders.tracking_url` is a cache of
+  /// whichever journey finishes the order, so writing it here meant the link
+  /// survived only until the next `_refreshOrderCache` and a two-trip order
+  /// could hold just one. Refreshing afterwards keeps the cache in step for
+  /// the peers that still read it.
+  Future<void> setTrackingUrl(String subOrderId, String url) async {
+    final hlc = mutations.lastHlc.toString();
     await db.transaction(() async {
-      await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
-        OrdersCompanion(
-          deliveryCharge: Value(amount.paise),
-          updatedAtHlc: Value(mutations.lastHlc.toString()),
-        ),
-      );
-      await mutations.record(
-          'orders', orderId, OpKind.upsert, {'delivery_charge': amount.paise});
-    });
-  }
+      final row = await (db.select(db.subOrders)
+            ..where((t) => t.id.equals(subOrderId)))
+          .getSingleOrNull();
+      if (row == null) return;
 
-  Future<void> setTrackingUrl(String orderId, String url) async {
-    await db.transaction(() async {
-      await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
-        OrdersCompanion(
-          trackingUrl: Value(url),
-          updatedAtHlc: Value(mutations.lastHlc.toString()),
-        ),
-      );
+      await (db.update(db.subOrders)..where((t) => t.id.equals(subOrderId)))
+          .write(SubOrdersCompanion(
+        trackingUrl: Value(url),
+        updatedAtHlc: Value(hlc),
+      ));
       await mutations
-          .record('orders', orderId, OpKind.upsert, {'tracking_url': url});
+          .record('sub_orders', subOrderId, OpKind.upsert, {'tracking_url': url});
+      await _refreshOrderCache(row.orderId, hlc);
     });
   }
 

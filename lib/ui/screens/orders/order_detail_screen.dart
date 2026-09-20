@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/scope.dart';
 import '../../../common/money.dart';
 import '../../../common/phone.dart';
+import '../../../domain/invoicing/model.dart';
 import '../../../domain/messaging/compose.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
@@ -124,35 +127,6 @@ class _Detail extends StatelessWidget {
             ),
           ),
 
-          const SectionLabel('Delivery'),
-          LoafCard(
-            child: Column(
-              children: [
-                _Fact(
-                    'When',
-                    '${_dateLabel(DateTime.fromMillisecondsSinceEpoch(o.deliveryDate))}'
-                        ' · ${timeLabel(o.deliveryTime)}'),
-                _Fact(
-                    'How',
-                    o.fulfilment == 'pickup'
-                        ? 'Pickup'
-                        : 'Delivery · ${o.deliveryType == 'outstation' ? 'Out of city' : 'Inside city'}'),
-                if (o.fulfilment == 'delivery')
-                  _Fact('Tracking', o.trackingUrl ?? 'Not added',
-                      onTap: () async {
-                    final url = await promptText(context,
-                        title: 'Tracking link',
-                        initial: o.trackingUrl,
-                        hint: 'https://…',
-                        keyboardType: TextInputType.url);
-                    if (url != null && context.mounted) {
-                      await context.app.orders.setTrackingUrl(o.id, url);
-                    }
-                  }),
-              ],
-            ),
-          ),
-
           // Grouped into the journeys they travel on (D28). An order of a
           // cake on Friday and a box on Sunday is two trips, and reading it as
           // one flat list left no way to see which was which — or to say the
@@ -188,6 +162,20 @@ class _Detail extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // The courier link belongs to this trip. A pickup has none,
+                  // and a two-journey order has two.
+                  if (!sub.isPickup)
+                    _Fact('Tracking', sub.trackingUrl ?? 'Not added',
+                        onTap: () async {
+                      final url = await promptText(context,
+                          title: 'Tracking link',
+                          initial: sub.trackingUrl,
+                          hint: 'https://…',
+                          keyboardType: TextInputType.url);
+                      if (url != null && context.mounted) {
+                        await context.app.orders.setTrackingUrl(sub.id, url);
+                      }
+                    }),
                 for (final l in sub.lines) ...[
                   InkWell(
                     onTap: () => _editItem(context, view, l),
@@ -318,26 +306,13 @@ class _Detail extends StatelessWidget {
                 if (t.hasBalance)
                   MoneyRow('Balance due', t.balanceDue, strong: true),
                 const SizedBox(height: Space.sm),
+                // No delivery charge button here. A charge belongs to a
+                // journey, not to an order (D28) — this one wrote
+                // `orders.delivery_charge`, which `_refreshOrderCache`
+                // recomputes from the journeys and no view reads. It is set on
+                // the item, in the line editor.
                 Row(
                   children: [
-                    if (o.fulfilment == 'delivery')
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final v = await promptText(context,
-                                title: 'Delivery charge',
-                                initial: moneyToField(Money(o.deliveryCharge)),
-                                keyboardType: TextInputType.number);
-                            if (v != null && context.mounted) {
-                              await context.app.orders
-                                  .setDeliveryCharge(o.id, moneyFromField(v));
-                            }
-                          },
-                          child: const Text('Delivery charge'),
-                        ),
-                      ),
-                    if (o.fulfilment == 'delivery' && t.hasBalance)
-                      const SizedBox(width: Space.md),
                     if (t.hasBalance)
                       Expanded(
                         child: FilledButton(
@@ -675,12 +650,11 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
   final added = await editLine(
     context,
     // Every item already on the order, so the new one can join any journey
-    // they are on rather than only the most recent.
-    // Every item already on the order, so the new one can be given the same
-    // date and place as any of them rather than only the most recent.
+    // they are on rather than only the most recent. Cancelled items are not
+    // offered as something to be "same as".
     siblings: [
       for (final sub in view.subOrders)
-        for (final l in sub.lines) _draftOf(l, sub),
+        for (final l in sub.liveLines) _draftOf(l, sub),
     ],
     customerId: view.customer.id,
   );
@@ -955,6 +929,10 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     isPickup: isPickup ?? finishingSubOrder(view.subOrders)?.isPickup ?? false,
     isUpdate: isUpdate,
     invoiceNo: invoice?.invoiceNo,
+    frozen: invoice == null
+        ? null
+        : FrozenTotals.fromJson(
+            jsonDecode(invoice.frozenTotalsJson) as Map<String, Object?>),
     voidedReason: invoice?.voidReason,
   );
 }

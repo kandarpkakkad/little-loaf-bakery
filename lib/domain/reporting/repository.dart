@@ -128,11 +128,15 @@ class ReportRepository {
     ]..sort((a, b) => b.revenue.paise.compareTo(a.revenue.paise));
   }
 
-  /// Every order due in one month, newest first.
+  /// Every order that landed in one month, newest first.
   ///
-  /// Dated by **when it is due**, not when it was taken: "September's orders"
-  /// means the ones September has to bake, which is the question someone
-  /// looking back at a month is actually asking.
+  /// Dated by [_soldOn] — when the last item actually went, falling back to
+  /// the order's own date for anything still outstanding. The same rule the
+  /// chart and the top-items list use.
+  ///
+  /// It used to read `order.deliveryDate`, which is a cache of the *promised*
+  /// date, so the list and the chart above it could disagree about which
+  /// orders September contained.
   ///
   /// Includes orders that have not gone out yet — for the current month that
   /// is most of them — and excludes cancelled ones, which were never trade.
@@ -143,11 +147,8 @@ class ReportRepository {
     final all = await orders.watchOrders().first;
     return [
       for (final v in all)
-        if (!v.isCancelled &&
-            v.order.deliveryDate >= from &&
-            v.order.deliveryDate < to)
-          v,
-    ]..sort((a, b) => b.order.deliveryDate.compareTo(a.order.deliveryDate));
+        if (!v.isCancelled && _soldOn(v) >= from && _soldOn(v) < to) v,
+    ]..sort((a, b) => _soldOn(b).compareTo(_soldOn(a)));
   }
 
   /// The month of the earliest order there is, so a picker knows how far back
@@ -155,9 +156,7 @@ class ReportRepository {
   Future<DateTime?> firstMonth() async {
     final all = await orders.watchOrders().first;
     if (all.isEmpty) return null;
-    final earliest = all
-        .map((v) => v.order.deliveryDate)
-        .reduce((a, b) => a < b ? a : b);
+    final earliest = all.map(_soldOn).reduce((a, b) => a < b ? a : b);
     final d = DateTime.fromMillisecondsSinceEpoch(earliest);
     return DateTime(d.year, d.month);
   }

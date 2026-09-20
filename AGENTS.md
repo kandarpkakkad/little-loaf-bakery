@@ -161,6 +161,14 @@ someone to record a video.
 If a value is derived: compute it, cache it in one place
 (`_refreshOrderCache`), and make every reader use the derivation.
 
+**The check that catches this:** for every column `_refreshOrderCache` writes,
+grep for a setter and for a reader outside it. Both should come back empty.
+Three did not, and each was a feature that silently did nothing —
+`setDeliveryCharge` wrote a column `OrderTotals` does not read, so the button
+never moved the total; `setTrackingUrl` wrote one that reverts at the next
+refresh; and the order screen's Delivery card showed the *finishing* journey's
+date and address labelled as the order's.
+
 ### One entry point per state transition
 
 `moveTo()` dispatches to `confirm()` / `complete()` / `_cancel()`. There is no

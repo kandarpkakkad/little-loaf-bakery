@@ -111,3 +111,20 @@ integers. Everywhere else it stays paise.
 - Price-over-time separates weights of the same item.
 - CSV round-trip: export, re-import into a scratch DB, assert equality.
 - A 3-year range over 30,000 orders returns in under a second on a mid-range phone.
+
+## Which month a sale belongs to
+
+**One rule, used by every figure on the screen: `_soldOn`** — when the last
+item actually went, falling back to the order's own date for anything still
+outstanding.
+
+The monthly chart and the top-items list already used it; the month's order
+list filtered and sorted on `orders.delivery_date` instead. That column is a
+cache of the *promised* date (and, once nothing is outstanding, of the last
+journey's), so "September" meant two different sets of orders depending on
+which half of the screen you read.
+
+A split order still counts once, in the month its **last** journey lands. That
+is a deliberate simplification: an order is the unit being counted, and
+splitting its value across months would make the order count and the value
+disagree about what they are counting.

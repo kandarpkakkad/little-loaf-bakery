@@ -48,6 +48,23 @@ String render(Invoice inv, Order o, Config c) => [
 ].where((l) => l != null).join('\n');
 ```
 
+**Rendered from `inv.frozen`, never from live rows.** This is the whole point of
+freezing, and the code did not do it: the WhatsApp invoice rebuilt itself from
+the current lines and totals, so cancelling an item after issue silently
+rewrote a document the customer was already holding — under its original
+number. `frozen_totals_json` was written on issue and read by nothing but
+tests. Correcting an issued invoice means **voiding and reissuing**, which is
+why `voided_at` exists.
+
+**Payments are deliberately NOT frozen.** Money that arrives after the bill was
+issued is real, so `Advance paid` and `BALANCE DUE` are computed live against
+the frozen total. A balance quoted from the snapshot would ask the customer to
+pay what they have already paid.
+
+**`FrozenTotals` and `FrozenLine` live in `domain/invoicing/model.dart`**, not
+the repository, so the pure composition layer can render an invoice without
+importing the database.
+
 ### The monospace block
 
 ```

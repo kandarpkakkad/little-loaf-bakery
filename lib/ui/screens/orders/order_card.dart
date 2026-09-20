@@ -75,7 +75,10 @@ class OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
+              // Live only: the amount beside this line excludes cancelled
+              // items, so naming them here made the two disagree.
               view.lines
+                  .where((l) => l.isLive)
                   .map((l) => '${l.itemName}${l.qty > 1 ? ' ×${l.qty}' : ''}')
                   .join(', '),
               maxLines: 2,

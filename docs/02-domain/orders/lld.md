@@ -305,10 +305,22 @@ Money defaultCharge(DeliveryType t) => switch (t) {
 // Changing the type re-applies its default ONLY if the charge is still untouched.
 // Once someone has typed a number, the type no longer overwrites it.
 
-Future<void> setTracking(Order o, String url) {
-  require(o.status.index < Status.delivered.index, 'already delivered');
+// BOTH OF THESE BELONG TO A JOURNEY, NOT TO AN ORDER (D28).
+// `orders.delivery_charge` and `orders.tracking_url` are caches that
+// _refreshOrderCache recomputes from the journeys -- the charge as the sum over
+// them, the link from whichever one FINISHES the order. Setters that wrote
+// those columns therefore did nothing that lasted: the charge never reached
+// OrderTotals (which sums the journeys) so the order total did not move at all,
+// and the link reverted at the next refresh. Both order-level setters are gone.
+
+Future<void> setTracking(SubOrder j, String url) {
+  require(!j.isPickup, 'nothing to track');            // delivery_type is NULL
+  require(j.status != delivered, 'already delivered');
   require(isHttpUrl(url), 'not a link');
-  return mutate('order', o.id, (b) => b.update(orders, trackingUrl: url));
+  return mutate('sub_order', j.id, (b) async {
+    b.update(subOrders, trackingUrl: url);
+    await refreshOrderCache(j.orderId);                // keep the cache in step
+  });
 }
 ```
 

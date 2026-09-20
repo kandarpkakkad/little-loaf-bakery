@@ -1,5 +1,6 @@
 import '../../common/money.dart';
 import '../../ui/theme/format.dart';
+import '../invoicing/model.dart';
 import '../orders/model.dart';
 
 enum MessageKind { confirmation, outForDelivery, delivery, paymentReceived, invoice }
@@ -25,6 +26,7 @@ class MessageContext {
     this.isPickup = false,
     this.isUpdate = false,
     this.invoiceNo,
+    this.frozen,
     this.voidedReason,
   });
 
@@ -69,6 +71,12 @@ class MessageContext {
   /// quoted against the order number — it is a statement of what is owed, not
   /// yet a bill.
   final String? invoiceNo;
+
+  /// The totals as they stood when the invoice was issued, once one has been.
+  ///
+  /// Null until then, and the document renders from live rows — at that point
+  /// it is a statement of what is owed, not yet a bill.
+  final FrozenTotals? frozen;
 
   /// Set when the invoice has been voided, so a copy resent by accident says
   /// so rather than looking current.
@@ -365,42 +373,72 @@ String _row(String label, Money amount, {String? suffix}) {
 
 String _invoice(MessageContext c) {
   final t = c.totals;
+  final f = c.frozen;
   final mono = <String>[];
 
-  // Live lines only. `OrderTotals` has always excluded cancelled ones, so
-  // itemising them here put two ₹800 rows above an ₹800 subtotal.
-  for (final l in c.lines.where((l) => l.isLive)) {
-    mono.add(l.itemName); // own line — may wrap harmlessly
-    final sub = [
-      if (l.flavour != null) l.flavour!,
-      if (l.weight != null) l.weight!.label,
-    ];
-    if (sub.isNotEmpty) mono.add(sub.join(' · '));
-    mono.add(_row('  ${l.qty} x ${moneyPlain(l.basePrice)}', l.basePrice.times(l.qty)));
-    for (final a in l.addons) {
-      mono.add(_row('  + ${a.name}', a.price));
+  // An invoice is a statement about a moment. Once issued it renders from the
+  // snapshot taken then, so cancelling an item or editing a price cannot
+  // rewrite a document the customer is already holding — which is what this
+  // function did for as long as it read live rows, under the original number.
+  // The snapshot was being written on issue and read by nothing but tests.
+  // docs/02-domain/invoicing/lld.md §3.
+  if (f != null) {
+    for (final l in f.lines) {
+      mono.add(l.name); // own line — may wrap harmlessly
+      if (l.detail != null) mono.add(l.detail!);
+      mono.add(_row('  ${l.qty} x ${moneyPlain(l.unitPrice)}', l.total));
+      for (final a in l.addons) {
+        mono.add(_row('  + ${a.name}', a.price));
+      }
+    }
+  } else {
+    // No invoice yet: the same layout, showing what is currently owed. Live
+    // lines only — `OrderTotals` has always excluded cancelled ones, so
+    // itemising them here put two ₹800 rows above an ₹800 subtotal.
+    for (final l in c.lines.where((l) => l.isLive)) {
+      mono.add(l.itemName);
+      final sub = [
+        if (l.flavour != null) l.flavour!,
+        if (l.weight != null) l.weight!.label,
+      ];
+      if (sub.isNotEmpty) mono.add(sub.join(' · '));
+      mono.add(
+          _row('  ${l.qty} x ${moneyPlain(l.basePrice)}', l.basePrice.times(l.qty)));
+      for (final a in l.addons) {
+        mono.add(_row('  + ${a.name}', a.price));
+      }
     }
   }
 
-  mono.add('-' * kMonoWidth);
-  mono.add(_row('Subtotal', t.subtotal));
-  // a zero row is absent, never printed as zero
-  if (!t.discount.isZero) {
-    final label = t.discountType == DiscountType.percent
-        ? 'Discount ${t.discountValue ~/ 100}%'
-        : 'Discount';
-    mono.add(_row(label, -t.discount));
-  }
-  if (!t.deliveryCharge.isZero) mono.add(_row('Delivery', t.deliveryCharge));
-  mono.add(_row('TOTAL', t.total));
+  final discount = f?.discount ?? t.discount;
+  final delivery = f?.delivery ?? t.deliveryCharge;
+  final total = f?.total ?? t.total;
+  // Payments are deliberately NOT frozen. Money that arrived after the bill
+  // was issued is real, and a balance quoted from the snapshot would ask the
+  // customer to pay what they have already paid.
+  final balance = total - t.paid;
 
-  if (t.balanceDue.isZero) {
+  mono.add('-' * kMonoWidth);
+  mono.add(_row('Subtotal', f?.subtotal ?? t.subtotal));
+  // a zero row is absent, never printed as zero
+  if (!discount.isZero) {
+    mono.add(_row(
+        f?.discountLabel ??
+            (t.discountType == DiscountType.percent
+                ? 'Discount ${t.discountValue ~/ 100}%'
+                : 'Discount'),
+        -discount));
+  }
+  if (!delivery.isZero) mono.add(_row('Delivery', delivery));
+  mono.add(_row('TOTAL', total));
+
+  if (balance.isZero) {
     mono.add(_row('PAID · thank you', Money.zero, suffix: ''));
   } else if (!t.paid.isZero) {
     mono.add(_row('Advance paid', t.paid));
-    mono.add(_row('BALANCE DUE', t.balanceDue));
+    mono.add(_row('BALANCE DUE', balance));
   } else {
-    mono.add(_row('AMOUNT DUE', t.balanceDue));
+    mono.add(_row('AMOUNT DUE', balance));
   }
 
   return [
