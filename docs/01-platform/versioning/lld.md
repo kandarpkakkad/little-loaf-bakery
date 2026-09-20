@@ -48,13 +48,26 @@ Our own uploads continue throughout, so the other device keeps receiving our wor
 
 ## 4. Publishing an update
 
-1. Bump `kAppVersion`. Bump `kMinSupported` **only** if genuinely breaking.
-2. Build a signed release APK **with the same keystore as always**.
-3. In Drive: right-click `releases/little-loaf.apk` → **Manage versions → Upload new version**.
-   Never "upload a new file" — a new file gets a new id and the baked-in URL breaks.
-4. Install on one device (it writes `app.json`), then the rest.
+Actions → **Release** → *Run workflow*, level `minor`. That is the whole of it.
 
-Android asks once to allow installs from the browser. One toggle, persists.
+The workflow bumps the version with `tool/bump_version.sh`, commits it, tags it, and builds
+that one number twice — a debug APK and the signed release APK — so what you try and what you
+ship are the same build. Bump `kMinSupported` **by hand, in a normal commit, only** if the
+change is genuinely breaking; nothing moves it automatically, because it locks devices out.
+
+Install on one device: it finds itself newer than `app.json` and writes the new floor there,
+which is how the rest of the fleet learns. Android asks once to allow installs from the
+browser; one toggle, and it persists.
+
+**Every push to main bumps the patch**, so a debug APK always carries a version higher than
+the last one. The bump commit is pushed with `GITHUB_TOKEN`, which by design does not trigger
+another workflow run — and carries `[skip ci]` as well, so the loop is closed twice.
+
+**The version lives in two files** — `pubspec.yaml` and `version.dart` — and a test fails the
+build if they drift. `tool/bump_version.sh` moves both, verifies both took the edit, and only
+ever increases the build number: Android refuses an APK whose `versionCode` is not higher than
+the installed one, so a build number that went backwards would be an update nobody can
+install.
 
 ## 5. Edge cases
 

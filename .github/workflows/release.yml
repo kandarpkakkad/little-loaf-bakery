@@ -1,16 +1,26 @@
 name: Release
 
-# Tag-driven: pushing v0.1.1 builds and publishes v0.1.1, so the tag is the
-# single source of truth for what a release contains. The manual trigger is for
-# re-running a failed publish without moving the tag.
+# Two ways in, and both end at the same place: one version, built twice — a
+# debug APK to try it on and a signed release APK to install.
+#
+#   Run workflow (minor)   bumps 0.1.7 -> 0.2.0, commits, tags v0.2.0, builds
+#   git push v0.2.0        builds the tag exactly as it stands, no bump
+#
+# The first is the normal path. The second is for re-running a publish that
+# failed after the tag was already cut.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Existing tag to build and publish (e.g. v0.1.1)'
-        required: true
+      level:
+        description: 'How far to move the version'
+        type: choice
+        options: [minor, patch, major]
+        default: minor
+      version:
+        description: 'Or an exact version, e.g. 0.3.0 (overrides the level)'
+        required: false
+  push:
+    tags: ['v*']
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,12 +30,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # needed to create the release
+      contents: write        # the release, the tag, and the version bump
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          # A dispatch works on main, because it is going to commit the bump
+          # there. A tag build checks out the tag and changes nothing.
+          ref: ${{ github.event_name == 'push' && github.ref || 'main' }}
 
       - uses: actions/setup-java@v4
         with:
@@ -40,6 +52,45 @@ jobs:
 
       - run: flutter --version
 
+      # One number for the whole job. Everything after this — both builds, the
+      # file names, the tag and the release — reads it from here, so the debug
+      # APK and the signed APK can never be different versions.
+      - name: Version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Building an existing tag. The tag is the claim; pubspec has to
+            # back it up, or the app would report a version nobody released.
+            V="${GITHUB_REF_NAME#v}"
+            IN_PUBSPEC="$(grep -E '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//; s/\+.*//')"
+            if [ "$V" != "$IN_PUBSPEC" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match pubspec ($IN_PUBSPEC). Cut the tag from a commit where they agree."
+              exit 1
+            fi
+          else
+            if [ -n "${{ github.event.inputs.version }}" ]; then
+              V="$(tool/bump_version.sh set '${{ github.event.inputs.version }}')"
+            else
+              V="$(tool/bump_version.sh '${{ github.event.inputs.level }}')"
+            fi
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pubspec.yaml lib/platform/versioning/version.dart
+            git commit -m "v$V [skip ci]"
+            git pull --rebase --autostash
+            git push
+            # Pushed with GITHUB_TOKEN, which deliberately does not trigger
+            # another workflow run — so this does not start a second build of
+            # itself. [skip ci] above says the same thing out loud.
+            git tag "v$V"
+            git push origin "v$V"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building v$V"
+
       - name: Dependencies
         run: flutter pub get
 
@@ -50,6 +101,29 @@ jobs:
       # a release someone installs.
       - name: Test
         run: flutter test
+
+      # --split-per-abi, not --target-platform. The latter only filters
+      # Flutter's own libraries: SQLCipher arrives from package:sqlite3's build
+      # hook, which emits all three ABIs regardless.
+      #
+      # The debug build first and unsigned, so a signing problem cannot stop
+      # you getting a build of this exact version onto a phone to look at.
+      - name: Build debug
+        run: |
+          flutter build apk --debug --split-per-abi
+          mkdir -p dist/debug
+          V="${{ steps.version.outputs.version }}"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
+             "dist/debug/little-loaf-debug-$V-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-debug.apk \
+             "dist/debug/little-loaf-debug-$V-x86_64.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: little-loaf-debug-${{ steps.version.outputs.version }}
+          path: dist/debug/*.apk
+          retention-days: 14
+          compression-level: 0    # an APK is already a zip
 
       # The keystore never lives in the repository. It arrives as a base64
       # secret, is written for the length of this job, and is removed at the end
@@ -73,7 +147,7 @@ jobs:
           storeFile=upload-keystore.jks
           EOF
 
-      - name: Build
+      - name: Build release
         run: flutter build apk --release --split-per-abi
 
       # Proves the artefact is signed by the real key rather than the debug
@@ -93,19 +167,19 @@ jobs:
           fi
 
       - name: Name the artefacts
-        id: stage
         run: |
-          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          V="${{ steps.version.outputs.version }}"
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   "dist/little-loaf-$VERSION-arm64.apk"
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/little-loaf-$VERSION-arm32.apk"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   "dist/little-loaf-v$V-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/little-loaf-v$V-arm32.apk"
 
+      # The update banner and the block screen link to the arm64 asset by name,
+      # so the name matters as much as the file.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V="${{ steps.stage.outputs.version }}"
+          V="v${{ steps.version.outputs.version }}"
           gh release view "$V" >/dev/null 2>&1 \
             && gh release upload "$V" dist/*.apk --clobber \
             || gh release create "$V" dist/*.apk --title "$V" --generate-notes

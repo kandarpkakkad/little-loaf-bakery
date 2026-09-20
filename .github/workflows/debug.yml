@@ -3,12 +3,21 @@ name: Debug build
 # Every push to main, and on demand. This is the build you install to try
 # something out — no signing key involved, so it never needs the secrets and a
 # failure here can never affect a release.
+#
+# A push to main bumps the patch version first, so every debug APK carries a
+# version that is higher than the last one and the app agrees with its own file
+# name. A pull request builds without bumping: the version belongs to main, not
+# to a branch that may never land.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Build at this exact version instead of bumping (e.g. 0.2.0)'
+        required: false
 
 concurrency:
   group: debug-${{ github.ref }}
@@ -17,9 +26,43 @@ concurrency:
 jobs:
   debug:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write        # to push the version bump back to main
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The default checkout is a detached HEAD at the pushed sha, which
+          # cannot be pushed from. The branch is needed to commit the bump.
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      # Bumps the patch and commits it. [skip ci] keeps this from triggering
+      # another run of this same workflow, which would bump again, forever.
+      #
+      # A release calls this workflow with an explicit version instead, so the
+      # debug APK and the signed release APK are the same number.
+      - name: Version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+            echo "building at requested version $V"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            V="$(tool/bump_version.sh patch)"
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pubspec.yaml lib/platform/versioning/version.dart
+            git commit -m "v$V [skip ci]"
+            # Another push may have landed while this job was building. Rebase
+            # rather than fail: the bump is a one-line change to two files and
+            # never conflicts with anything but another bump.
+            git pull --rebase --autostash
+            git push
+          else
+            # A pull request: read what is there, change nothing.
+            V="$(grep -E '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//; s/\+.*//')"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
@@ -51,19 +94,23 @@ jobs:
 
       # arm64 for real phones and tablets, x86_64 for the emulators. A universal
       # debug APK is ~170 MB and nobody installs the 32-bit one.
-      - name: Name them after the commit
+      #
+      # Named for the version, with the sha kept on the end: the version says
+      # which build is newer, the sha says exactly which commit it was.
+      - name: Name them
         id: stage
+        env:
+          V: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
-             "dist/little-loaf-debug-${GITHUB_SHA::7}-arm64.apk"
+             "dist/little-loaf-debug-$V-${GITHUB_SHA::7}-arm64.apk"
           cp build/app/outputs/flutter-apk/app-x86_64-debug.apk \
-             "dist/little-loaf-debug-${GITHUB_SHA::7}-x86_64.apk"
-          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+             "dist/little-loaf-debug-$V-${GITHUB_SHA::7}-x86_64.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: little-loaf-debug-${{ steps.stage.outputs.sha }}
+          name: little-loaf-debug-${{ steps.version.outputs.version }}-${{ github.run_number }}
           path: dist/*.apk
           # Debug APKs are large and only interesting while the change is fresh.
           retention-days: 14

@@ -169,18 +169,36 @@ in *Testing*, Google expires the grant every seven days and the app shows
 Signing is not in this repository. `android/key.properties` and
 `upload-keystore.jks` are ignored, and CI restores them from encrypted secrets.
 
-```bash
-# bump `version:` in pubspec.yaml, then
-git tag v0.1.2 && git push origin v0.1.2
-```
+**Run the Release workflow** — Actions → Release → *Run workflow*, level
+`minor`. It bumps the version, commits it, tags it, and builds that one number
+twice: a debug APK to try it on, and the signed release APK to install. Nothing
+to remember and nothing to type.
 
-Pushing a `v*` tag runs [`release.yml`](.github/workflows/release.yml): analyze,
-test, restore the keystore, build, **verify the signature is not the debug
-fallback**, publish the APKs to a GitHub release, and shred the key even if the
-build failed.
+[`release.yml`](.github/workflows/release.yml) then analyzes, tests, builds the
+debug APK, restores the keystore, builds the release APK, **verifies the
+signature is not the debug fallback**, publishes to a GitHub release, and
+shreds the key even if the build failed.
+
+Pushing a `v*` tag by hand still works, for re-running a publish that failed
+after the tag was cut. It builds the tag exactly as it stands and refuses if
+the tag and `pubspec.yaml` disagree.
 
 Every push to `main` runs [`debug.yml`](.github/workflows/debug.yml), which
-builds an arm64 debug APK and uploads it as an artifact.
+**bumps the patch version**, commits it back with `[skip ci]`, and uploads
+arm64 and x86_64 debug APKs named for that version. So the version always goes
+up, and the app agrees with its own file name.
+
+The version lives in two files that must never disagree — `pubspec.yaml` and
+`lib/platform/versioning/version.dart`, because the update gate compares
+against the constant. Move them with the script, never by hand:
+
+```bash
+tool/bump_version.sh patch      # 0.1.1+2 -> 0.1.2+3
+tool/bump_version.sh minor      # 0.1.1+2 -> 0.2.0+3
+tool/bump_version.sh set 0.3.0  # 0.1.1+2 -> 0.3.0+3
+```
+
+A test fails the build if the two ever drift.
 
 Releases are consumed on-device by [Obtainium](https://github.com/ImranR98/Obtainium),
 which watches the repo and offers each new tag.
