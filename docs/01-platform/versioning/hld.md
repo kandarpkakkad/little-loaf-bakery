@@ -20,6 +20,19 @@ the same thing to the comparator.
 `app.json` sits at the **root** of the shared folder, beside `journal/` and
 `snapshot/`: it is a fact about the app, not about one device's ops.
 
+**Somebody has to go first.** When no source answers — no `app.json` yet, and a
+GitHub source that cannot answer — this build counts as the newest by default
+and writes `app.json` itself. Without that the file is never created, so it
+never answers, so nothing ever finds itself newer than it: a closed loop with
+no floor anywhere in it.
+
+**While the repository is private the GitHub source never answers**, because an
+unauthenticated call to a private repo's release API is a 404 and a 404 is "no
+answer". The gate still works — `app.json` carries both numbers — but `latest`
+then tracks *the newest installed device*, not the newest published release,
+and the download link on the block screen asks for a GitHub sign-in. Making the
+repository public is what turns the second source on.
+
 ## Purpose
 Let devices run different versions safely, force an upgrade when they cannot, and get the APK
 onto a phone without a store.

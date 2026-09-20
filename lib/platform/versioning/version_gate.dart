@@ -205,15 +205,20 @@ class VersionGate {
       // that has been told to upgrade should stay told, even on a tunnel.
       known = await _cached();
     }
-    if (known == null) return const GateResult(GateVerdict.ok);
-
     // This build is ahead of everything published, so it says so — that is how
     // app.json is written, and nobody edits JSON in Drive by hand.
-    if (isOlder(known.latest, _appVersion)) {
+    //
+    // `known == null` counts as ahead: nobody knows anything, so this build is
+    // the newest by default and has to be the one that goes first. Without
+    // that, app.json is never created — so it never answers, so nothing ever
+    // finds itself newer than it, so it is never created. A closed loop with
+    // no floor anywhere in it, and on a private repo, where the GitHub source
+    // never answers either, that is every install's first launch.
+    if (known == null || isOlder(known.latest, _appVersion)) {
       await publishTo?.write(ReleaseInfo(
         latest: _appVersion,
         minSupported: _minSupported,
-        apkUrl: known.apkUrl ?? kReleasesPage,
+        apkUrl: known?.apkUrl ?? kReleasesPage,
         publishedAt: DateTime.now().toUtc().toIso8601String(),
       ));
       return const GateResult(GateVerdict.ok);

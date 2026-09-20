@@ -179,6 +179,36 @@ void main() {
       expect(written['min_supported_version'], '0.1.5');
     });
 
+    test('the very first install creates app.json', () async {
+      // Nothing has ever written it, and on a private repo GitHub never
+      // answers either — so no source knows anything. This is the first
+      // launch of the first device, and it has to be the one that says what
+      // the fleet is on. Otherwise app.json is never created, never answers,
+      // and therefore never gets created: a closed loop with no floor in it.
+      final store = _ConfigStore(null);
+      final drive = DriveAppConfig(store);
+
+      final r = await gate(
+        [_Source(null), drive],
+        app: '0.1.3',
+        minSupported: '0.1.0',
+        publish: drive,
+      ).check();
+
+      expect(r.verdict, GateVerdict.ok);
+      expect(store.text, isNotNull,
+          reason: 'somebody has to go first');
+      final written = jsonDecode(store.text!) as Map<String, Object?>;
+      expect(written['latest_version'], '0.1.3');
+      expect(written['min_supported_version'], '0.1.0');
+    });
+
+    test('with nowhere to publish it simply carries on', () async {
+      final r = await gate([_Source(null)], app: '0.1.3').check();
+      expect(r.verdict, GateVerdict.ok,
+          reason: 'Drive not connected is not a reason to stop');
+    });
+
     test('a build that is merely current writes nothing', () async {
       final store = _ConfigStore(
           jsonEncode(const ReleaseInfo(latest: '0.2.0').toJson()));
