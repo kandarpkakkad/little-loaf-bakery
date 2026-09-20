@@ -28,7 +28,10 @@ guess.
 that just arrived does exactly that. So two things matter:
 
 - **The tie is broken by `id`**, which is UUID v7 and therefore ordered by the moment the row
-  was made. Without it the sort is arbitrary and the answer changes run to run.
+  was made — *including within one millisecond*, which took a second fix to be true. The
+  generator now carries a counter in the 12 bits after the version nibble (RFC 9562 method 1);
+  before that everything after the timestamp was random, so same-millisecond ids sorted by a
+  coin flip and this answer changed run to run.
 - **The last count is found by position, not by comparing `at`.** An earlier version asked
   "is this movement later than the count?" and a same-millisecond purchase answered no, so it
   was dropped: three kilos counted plus two bought read as three. CI caught it; the local

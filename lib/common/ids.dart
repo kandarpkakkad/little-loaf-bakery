@@ -10,8 +10,34 @@ import 'package:crypto/crypto.dart';
 class Uuid7 {
   static final _rng = Random.secure();
 
+  /// The last millisecond an id was made in, and how many have been made in
+  /// it. Together they are RFC 9562's method 1: the 12 bits after the version
+  /// nibble hold a counter instead of noise.
+  ///
+  /// Without this, ids made inside one millisecond sort in a **random** order,
+  /// because everything after the 48-bit timestamp is random — so "uuid v7
+  /// sorts by creation" was true between milliseconds and a coin flip within
+  /// one. That is not an abstract worry: counting a shelf and recording the
+  /// delivery that just arrived happens inside one millisecond on a quick
+  /// machine, and whichever way the coin fell decided the stock level.
+  static int _lastMs = 0;
+  static int _counter = 0;
+
   static String generate([DateTime? at]) {
     final ms = (at ?? DateTime.now()).millisecondsSinceEpoch;
+
+    if (ms == _lastMs) {
+      // Wraps after 4096 in one millisecond. Nothing here writes at that rate,
+      // and wrapping loses ordering rather than producing a duplicate.
+      _counter = (_counter + 1) & 0x0fff;
+    } else {
+      _lastMs = ms;
+      // Starts low so there is room to count up without wrapping, and stays
+      // random so ids from two devices in the same millisecond do not collide
+      // on a predictable value.
+      _counter = _rng.nextInt(0x800);
+    }
+
     final b = Uint8List(16);
 
     // 48-bit big-endian timestamp
@@ -26,7 +52,9 @@ class Uuid7 {
       b[i] = _rng.nextInt(256);
     }
 
-    b[6] = (b[6] & 0x0f) | 0x70; // version 7
+    // version 7, then the counter across the remaining 12 bits of rand_a
+    b[6] = 0x70 | ((_counter >> 8) & 0x0f);
+    b[7] = _counter & 0xff;
     b[8] = (b[8] & 0x3f) | 0x80; // variant 10
 
     final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();

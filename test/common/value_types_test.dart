@@ -72,6 +72,25 @@ void main() {
       expect(a.compareTo(b) < 0, isTrue);
     });
 
+    test('uuid v7 sorts by creation WITHIN one millisecond too', () {
+      // The half of this property that was missing. Everything after the
+      // 48-bit timestamp used to be random, so ids made in the same
+      // millisecond sorted by a coin flip — and the stock level, which breaks
+      // ties on id, came out wrong roughly half the time on a quick machine.
+      for (var trial = 0; trial < 50; trial++) {
+        final made = [for (var i = 0; i < 64; i++) Uuid7.generate()];
+        expect(made, orderedEquals([...made]..sort()),
+            reason: 'made in order, so they must sort in order');
+        expect(made.toSet(), hasLength(made.length), reason: 'and be distinct');
+      }
+    });
+
+    test('an explicit timestamp still counts from its own millisecond', () {
+      final at = DateTime(2026, 3, 3);
+      final made = [for (var i = 0; i < 8; i++) Uuid7.generate(at)];
+      expect(made, orderedEquals([...made]..sort()));
+    });
+
     test('uuid v7 carries version and variant bits', () {
       final u = Uuid7.generate();
       expect(u[14], '7');
