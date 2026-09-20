@@ -113,11 +113,36 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('the schema reaches v10 and the new table exists', () async {
+  test('a v9 database is carried all the way to the current schema', () async {
     db = await openV9WithData((e) {});
     final v = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(v.data.values.first, 10);
+    expect(v.data.values.first, kSchemaVersion,
+        reason: 'every step in between ran, not just the first');
     expect(await rows('order_item_status_events'), isEmpty);
+  });
+
+  test('v11 moves what an item is for onto the item', () async {
+    db = await openV9WithData((e) {
+      order(e, 'o1', status: 'confirmed', deliveryDate: 7000);
+      line(e, 'i1', 'o1');
+      line(e, 'i2', 'o1');
+      e.execute("UPDATE orders SET item_message = 'Happy 40th', "
+          "requirements = 'no fondant', dietary_flags = 2, "
+          "delivery_charge = 5000 WHERE id = 'o1'");
+    });
+
+    final items = await rows('order_items');
+    for (final i in items) {
+      expect(i['item_message'], 'Happy 40th');
+      expect(i['requirements'], 'no fondant');
+      expect(i['dietary_flags'], 2);
+    }
+
+    // One journey, so the charge lands on one item and the order still costs
+    // one delivery rather than two.
+    expect(items.map((i) => i['delivery_charge']).toList()..sort(),
+        [0, 5000],
+        reason: 'a charge on every item would bill one van twice');
   });
 
   test('a line inherits its order schedule, so nothing changes meaning',

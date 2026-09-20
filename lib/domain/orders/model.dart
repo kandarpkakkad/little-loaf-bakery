@@ -271,6 +271,10 @@ class OrderLine {
     this.pinUrl,
     this.trackingUrl,
     this.deliveredAt,
+    this.itemMessage,
+    this.requirements,
+    this.dietaryFlags = 0,
+    this.deliveryCharge = Money.zero,
   });
 
   /// Null for a line that has not been saved yet.
@@ -295,6 +299,15 @@ class OrderLine {
   final double? pinLng;
   final String? pinUrl;
   final String? trackingUrl;
+
+  // ── what this item is for (D25 finished) ──
+  final String? itemMessage;
+  final String? requirements;
+  final int dietaryFlags;
+
+  /// What it costs to send this item. Charged **per drop**, not per item —
+  /// see [dropCharge].
+  final Money deliveryCharge;
 
   /// When this item actually went. Reporting dates a sale by this rather
   /// than by when it was promised.
@@ -513,6 +526,46 @@ class Drop {
   String? get addressText => lines.first.addressText;
   String? get trackingUrl =>
       lines.map((l) => l.trackingUrl).whereType<String>().firstOrNull;
+}
+
+/// The dietary flags set on an item, in words.
+List<String> dietaryLabels(int flags) => [
+      for (final (flag, label) in const [
+        (Dietary.eggless, 'Eggless'),
+        (Dietary.nutFree, 'Nut-free'),
+        (Dietary.glutenFree, 'Gluten-free'),
+        (Dietary.sugarFree, 'Sugar-free'),
+      ])
+        if (flags & flag != 0) label,
+    ];
+
+/// What a drop costs to send.
+///
+/// The **maximum** of its items' charges, not an arbitrary one. The repository
+/// keeps them equal when anything writes, so in practice they all agree — but
+/// two devices can disagree (one adds an item to Friday while the other
+/// re-prices Friday), and last-writer-wins will not reconcile that on its own.
+/// Taking the max is deterministic without extra machinery, and it errs toward
+/// charging rather than silently under-charging.
+Money dropCharge(Drop drop) {
+  var most = 0;
+  for (final l in drop.lines) {
+    if (l.isLive && l.deliveryCharge.paise > most) most = l.deliveryCharge.paise;
+  }
+  return Money(most);
+}
+
+/// What the whole order costs to send: **one charge per journey**.
+///
+/// Two cakes going out together on Friday are charged once; a Friday and a
+/// Sunday delivery are charged twice. Summing the items instead would charge
+/// one van twice for having two boxes in it.
+Money deliveryTotal(Iterable<OrderLine> lines) {
+  var total = 0;
+  for (final d in dropsOf(lines.where((l) => l.isLive))) {
+    total += dropCharge(d).paise;
+  }
+  return Money(total);
 }
 
 /// Groups [lines] into the handovers they actually represent.

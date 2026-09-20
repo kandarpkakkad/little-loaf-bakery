@@ -19,16 +19,19 @@ void main() {
       customerId: customer,
       lines: [
         DraftLine(
-            menuItemId: menu, itemName: 'Cake', basePrice: Money.rupees(1000))
+          menuItemId: menu,
+          itemName: 'Cake',
+          basePrice: Money.rupees(1000),
+          fulfilment: Fulfilment.delivery,
+          deliveryType: DeliveryType.local,
+          addressText: '14 Turner Rd',
+          deliveryCharge: Money.rupees(50),
+          itemMessage: 'Happy birthday',
+          requirements: 'no fondant',
+        ),
       ],
-      fulfilment: Fulfilment.delivery,
-      deliveryType: DeliveryType.local,
-      addressText: '14 Turner Rd',
       deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
       deliveryTime: 600,
-      deliveryCharge: Money.rupees(50),
-      itemMessage: 'Happy birthday',
-      requirements: 'no fondant',
     );
   });
 
@@ -37,61 +40,101 @@ void main() {
   Future<Map<String, Object?>> order() async =>
       (await f.row('orders', orderId))!;
 
-  test('the charge can change', () async {
-    await f.services.orders
-        .updateDetails(orderId, deliveryCharge: Money.rupees(80));
-    expect((await order())['delivery_charge'], 8000);
+  Future<Map<String, Object?>> item() async =>
+      (await f.rows('order_items')).single;
+
+  test('what the order costs to deliver comes from its items', () async {
+    // The charge lives on the item and is counted once per journey (D27), so
+    // there is nothing at order level to set — the column is a cache of the
+    // sum over journeys.
+    expect((await order())['delivery_charge'], 5000);
+
+    final v = await f.services.orders.watchOrder(orderId).first;
+    expect(v!.totals.deliveryCharge, Money.rupees(50));
   });
 
-  test('the delivery date is not something this can change', () async {
+  test('two items going out together are charged once', () async {
+    final menu2 = await f.services.menu.create(name: 'Buns');
+    await f.services.orders.addLine(
+      orderId,
+      DraftLine(
+        menuItemId: menu2,
+        itemName: 'Buns',
+        basePrice: Money.rupees(200),
+        fulfilment: Fulfilment.delivery,
+        deliveryType: DeliveryType.local,
+        addressText: '14 Turner Rd',
+        deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
+        deliveryTime: 600,
+        deliveryCharge: Money.rupees(50),
+      ),
+    );
+
+    final v = await f.services.orders.watchOrder(orderId).first;
+    expect(v!.totals.deliveryCharge, Money.rupees(50),
+        reason: 'one van, two boxes, one charge');
+  });
+
+  test('a second journey is charged again', () async {
+    final menu2 = await f.services.menu.create(name: 'Buns');
+    await f.services.orders.addLine(
+      orderId,
+      DraftLine(
+        menuItemId: menu2,
+        itemName: 'Buns',
+        basePrice: Money.rupees(200),
+        fulfilment: Fulfilment.delivery,
+        deliveryType: DeliveryType.local,
+        addressText: '14 Turner Rd',
+        // a different day, so a different trip
+        deliveryDate: DateTime(2026, 9, 22).millisecondsSinceEpoch,
+        deliveryTime: 600,
+        deliveryCharge: Money.rupees(50),
+      ),
+    );
+
+    final v = await f.services.orders.watchOrder(orderId).first;
+    expect(v!.totals.deliveryCharge, Money.rupees(100));
+  });
+
+  test('the delivery date is not something an edit can change', () async {
     // The order is due when its last item is (D25), so the column is a copy of
     // that derivation. updateDetails has no date parameter at all — the
     // compiler enforces it; this records why.
     final before = (await order())['delivery_date'];
-    await f.services.orders
-        .updateDetails(orderId, deliveryCharge: Money.rupees(80));
+    await f.services.orders.updateDetails(orderId, notes: 'ring the bell');
     expect((await order())['delivery_date'], before,
         reason: 'editing the order cannot move its date');
   });
 
-  test('the items, message and requirements are never touched', () async {
-    await f.services.orders
-        .updateDetails(orderId, deliveryCharge: Money.rupees(80));
-    final o = await order();
-    expect(o['item_message'], 'Happy birthday');
-    expect(o['requirements'], 'no fondant');
-    expect(await f.rows('order_items'), hasLength(1));
+  test('the message and requirements belong to the item', () async {
+    final i = await item();
+    expect(i['item_message'], 'Happy birthday');
+    expect(i['requirements'], 'no fondant');
   });
 
-  test('switching to pickup clears what only a delivery can have', () async {
+  test('the order mirrors how its last item goes out', () async {
+    expect((await order())['fulfilment'], 'delivery');
+
+    final v = await f.services.orders.watchOrder(orderId).first;
     await f.services.orders
-        .updateDetails(orderId, fulfilment: Fulfilment.pickup);
+        .updateLine(v!.lines.single.id!, fulfilment: Fulfilment.pickup);
+
     final o = await order();
-    expect(o['fulfilment'], 'pickup');
+    expect(o['fulfilment'], 'pickup', reason: 'derived from the items');
     // the schema CHECK forbids a pickup keeping these
     expect(o['delivery_type'], isNull);
     expect(o['tracking_url'], isNull);
-  });
-
-  test('an address can be cleared, not just replaced', () async {
-    await f.services.orders.updateDetails(orderId, addressText: null);
-    expect((await order())['address_text'], isNull);
-  });
-
-  test('untouched fields stay untouched', () async {
-    await f.services.orders.updateDetails(orderId, dietaryFlags: 2);
-    final o = await order();
-    expect(o['address_text'], '14 Turner Rd',
-        reason: 'not passed, so not changed');
-    expect(o['delivery_charge'], 5000);
+    expect(o['delivery_charge'], 0, reason: 'nobody is taking it anywhere');
   });
 
   test('the whole edit travels as one op', () async {
     final before = (await f.rows('outbox')).length;
     await f.services.orders.updateDetails(
       orderId,
-      deliveryCharge: Money.rupees(70),
-      dietaryFlags: 1,
+      notes: 'ring the bell',
+      discountType: DiscountType.amount,
+      discountValue: 5000,
     );
     expect((await f.rows('outbox')).length, before + 1,
         reason: 'one op, so a peer can never see half the edit');
@@ -122,19 +165,24 @@ void main() {
   });
 
   test('a locked message is left alone, not cleared', () async {
-    // kUnchanged is what a form passes for a field it did not render
+    // kUnchanged is what a form passes for a field it did not render. The
+    // message lives on the item now, so this is updateLine's problem.
+    final v = await f.services.orders.watchOrder(orderId).first;
     await f.services.orders
-        .updateDetails(orderId, itemMessage: kUnchanged, dietaryFlags: 2);
-    expect((await order())['item_message'], 'Happy birthday',
+        .updateLine(v!.lines.single.id!, itemMessage: kUnchanged, qty: 2);
+    expect((await item())['item_message'], 'Happy birthday',
         reason: 'passing null here would have wiped it');
   });
 
   test('the message can be changed, and cleared on purpose', () async {
-    await f.services.orders.updateDetails(orderId, itemMessage: 'Happy 40th');
-    expect((await order())['item_message'], 'Happy 40th');
+    final v = await f.services.orders.watchOrder(orderId).first;
+    final id = v!.lines.single.id!;
 
-    await f.services.orders.updateDetails(orderId, itemMessage: null);
-    expect((await order())['item_message'], isNull);
+    await f.services.orders.updateLine(id, itemMessage: 'Happy 40th');
+    expect((await item())['item_message'], 'Happy 40th');
+
+    await f.services.orders.updateLine(id, itemMessage: null);
+    expect((await item())['item_message'], isNull);
   });
 
   group('status flow', () {

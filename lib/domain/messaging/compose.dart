@@ -17,8 +17,6 @@ class MessageContext {
     this.deliveryTimeLabel,
     this.addressText,
     this.trackingUrl,
-    this.itemMessage,
-    this.requirements,
     this.upiId,
     this.paymentPhone,
     this.hadBalance = false,
@@ -35,7 +33,7 @@ class MessageContext {
   final List<OrderLine> lines;
   final String businessName;
   final String? deliveryDateLabel, deliveryTimeLabel, addressText;
-  final String? trackingUrl, itemMessage, requirements;
+  final String? trackingUrl;
   final String? upiId, paymentPhone;
 
   /// Whether a balance existed *before* the final payment — by the time
@@ -106,6 +104,12 @@ String _stillToCome(MessageContext c) {
   return rest.join(', ');
 }
 
+/// Each item, and what is particular to it.
+///
+/// The message, the requirements and the dietary flags sit under the item they
+/// belong to rather than once at the bottom: an order of a piped birthday cake
+/// and a plain box of buns has one message, and printing it under "your order"
+/// left the customer to guess which one it was for.
 List<String> _itemLines(MessageContext c) => [
       for (final l in _subject(c)) ...[
         '${[
@@ -115,6 +119,10 @@ List<String> _itemLines(MessageContext c) => [
         ].join(' · ')} × ${l.qty}',
         if (l.addons.isNotEmpty)
           '  + ${l.addons.map((a) => a.name).join(', ')}',
+        if (l.itemMessage != null) '  Piped: "${l.itemMessage}"',
+        if (l.requirements != null) '  ${l.requirements}',
+        if (dietaryLabels(l.dietaryFlags).isNotEmpty)
+          '  ${dietaryLabels(l.dietaryFlags).join(', ')}',
       ],
     ];
 
@@ -154,8 +162,6 @@ String _confirmation(MessageContext c) => [
       '',
       'Order: ${c.orderNo}',
       ..._itemLines(c),
-      if (c.itemMessage != null) 'Message on item: "${c.itemMessage}"',
-      if (c.requirements != null) 'Notes: ${c.requirements}',
       '',
       if (c.deliveryDateLabel != null)
         'Delivery: ${c.deliveryDateLabel}'

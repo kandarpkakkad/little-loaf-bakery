@@ -86,7 +86,11 @@ class OrderView {
                 ? DiscountType.percent
                 : DiscountType.amount),
         discountValue: order.discountValue ?? 0,
-        deliveryCharge: Money(order.deliveryCharge),
+        // Computed from the items, not read off the order. The column is a
+        // cache — one charge per journey — and a view that read it back would
+        // show a stale figure for the moment between an item moving and the
+        // cache catching up.
+        deliveryCharge: deliveryTotal(lines),
         paid: paid,
       );
 
@@ -127,6 +131,10 @@ class DraftLine {
     this.pinLat,
     this.pinLng,
     this.pinUrl,
+    this.itemMessage,
+    this.requirements,
+    this.dietaryFlags = 0,
+    this.deliveryCharge,
   });
 
   String menuItemId;
@@ -148,6 +156,16 @@ class DraftLine {
   double? pinLng;
   String? pinUrl;
 
+  // ── what this item is for (D25 finished) ──
+  String? itemMessage;
+  String? requirements;
+  int dietaryFlags;
+
+  /// Null means "work it out": a line opening a new journey takes the default
+  /// for its delivery type, and one joining an existing journey takes that
+  /// journey's charge and adds nothing.
+  Money? deliveryCharge;
+
   /// "Same as the item above" — a copy, not a link, so editing the first line
   /// afterwards leaves this one alone.
   void copyScheduleFrom(DraftLine other) {
@@ -158,6 +176,8 @@ class DraftLine {
     addressText = other.addressText;
     pinLat = other.pinLat;
     pinLng = other.pinLng;
+    // Same journey, so the same charge — and the order counts it once.
+    deliveryCharge = other.deliveryCharge;
     pinUrl = other.pinUrl;
   }
 
@@ -335,6 +355,10 @@ class OrderRepository {
           pinUrl: i.pinUrl,
           trackingUrl: i.trackingUrl,
           deliveredAt: i.deliveredAt,
+          itemMessage: i.itemMessage,
+          requirements: i.requirements,
+          dietaryFlags: i.dietaryFlags,
+          deliveryCharge: Money(i.deliveryCharge),
           qty: i.qty,
           basePrice: Money(i.basePrice),
           note: i.note,
@@ -369,26 +393,22 @@ class OrderRepository {
     return orderNumber(prefix: s.invoicePrefix, seq: seq, uuid: orderUuid);
   }
 
+  /// Creates an order from its items.
+  ///
+  /// There is no order-level fulfilment, address, message or requirements to
+  /// pass any more: each item carries its own (D25), and what the order shows
+  /// is derived from them by [_refreshOrderCache]. Passing them here as well
+  /// was asking twice and letting the two answers disagree.
   Future<String> create({
     required String customerId,
     required List<DraftLine> lines,
-    required Fulfilment fulfilment,
     /// Only a **fallback** for lines that carry no date of their own. The
     /// order's own `delivery_date` is never this value — it is recomputed from
     /// the lines below, because the order is due when its last item is (D25).
     int? deliveryDate,
     int? deliveryTime,
-    DeliveryType? deliveryType,
-    String? addressText,
-    double? pinLat,
-    double? pinLng,
-    String? pinUrl,
     DiscountType? discountType,
     int discountValue = 0,
-    Money deliveryCharge = Money.zero,
-    String? requirements,
-    String? itemMessage,
-    int dietaryFlags = 0,
     Money advance = Money.zero,
     String advanceMode = 'upi',
   }) async {
@@ -407,52 +427,39 @@ class OrderRepository {
             orderNo: orderNo,
             customerId: customerId,
             status: OrderStatus.created.wire,
-            fulfilment: fulfilment.name,
+            // Placeholders for two NOT NULL columns that are really caches of
+            // the items. _refreshOrderCache rewrites both once the lines are
+            // in, a few statements below.
+            fulfilment: Fulfilment.pickup.name,
             deliveryDate: deliveryDate ??
                 lines
                     .map((l) => l.deliveryDate)
                     .whereType<int>()
                     .fold<int>(0, (a, b) => b > a ? b : a),
             deliveryTime: Value(deliveryTime),
-            deliveryType:
-                Value(fulfilment == Fulfilment.delivery ? deliveryType?.wire : null),
-            addressText: Value(addressText),
-            pinLat: Value(pinLat),
-            pinLng: Value(pinLng),
-            pinUrl: Value(pinUrl),
             discountType: Value(discountType?.name),
             discountValue: Value(discountType == null ? null : discountValue),
-            deliveryCharge: Value(deliveryCharge.paise),
-            requirements: Value(requirements),
-            itemMessage: Value(itemMessage),
-            dietaryFlags: Value(dietaryFlags),
           ));
 
       await mutations.record('orders', id, OpKind.upsert, {
         'order_no': orderNo,
         'customer_id': customerId,
         'status': OrderStatus.created.wire,
-        'fulfilment': fulfilment.name,
         'delivery_date': deliveryDate,
         'delivery_time': deliveryTime,
-        'delivery_charge': deliveryCharge.paise,
       });
 
       for (var i = 0; i < lines.length; i++) {
-        // A line without its own schedule inherits the order's (D25). The
-        // order-level values are the defaults a line copies, so a caller that
-        // knows nothing about per-line scheduling still produces lines that
-        // are properly dated — which is what keeps every list sorting.
+        // A line with no date of its own falls back to the order's, so a
+        // caller that knows nothing about per-line scheduling still produces
+        // lines that are properly dated — which is what keeps every list
+        // sorting. Everything else about how a line goes out is the line's
+        // own business now.
         final l = lines[i];
         l.deliveryDate ??= deliveryDate;
         l.deliveryTime ??= deliveryTime;
-        l.fulfilment ??= fulfilment;
-        l.deliveryType ??=
-            fulfilment == Fulfilment.pickup ? null : deliveryType;
-        l.addressText ??= addressText;
-        l.pinLat ??= pinLat;
-        l.pinLng ??= pinLng;
-        l.pinUrl ??= pinUrl;
+        l.fulfilment ??= Fulfilment.delivery;
+        if (l.fulfilment == Fulfilment.pickup) l.deliveryType = null;
         await _insertLine(id, l, i, now, hlc);
       }
       // The order is due when its last item is. Stored rather than left to the
@@ -498,6 +505,10 @@ class OrderRepository {
           pinLat: Value(l.pinLat),
           pinLng: Value(l.pinLng),
           pinUrl: Value(l.pinUrl),
+          itemMessage: Value(l.itemMessage),
+          requirements: Value(l.requirements),
+          dietaryFlags: Value(l.dietaryFlags),
+          deliveryCharge: Value(l.deliveryCharge?.paise ?? 0),
         ));
     await mutations.record('order_items', itemId, OpKind.upsert, {
       'order_id': orderId,
@@ -514,6 +525,10 @@ class OrderRepository {
       'pin_lat': l.pinLat,
       'pin_lng': l.pinLng,
       'pin_url': l.pinUrl,
+      'item_message': l.itemMessage,
+      'requirements': l.requirements,
+      'dietary_flags': l.dietaryFlags,
+      'delivery_charge': l.deliveryCharge?.paise ?? 0,
       // primitives only — the payload is JSON on the wire
       'weight_value': l.weight?.value,
       'weight_unit': l.weight?.unit,
@@ -675,18 +690,80 @@ class OrderRepository {
   /// as columns because they are NOT NULL and a v9 peer still reads them — so
   /// they are kept as a cache, written from the items after anything that can
   /// move them, and never read back as truth by this build.
+  /// Makes every item in a journey carry the same charge.
+  ///
+  /// A drop is derived from an item's date, time, fulfilment and address, so
+  /// changing any of those moves it between journeys: it may join one that is
+  /// already priced, or open a new one that is not. Run after anything that
+  /// can move an item, so the stored figures match what is actually charged.
+  ///
+  /// The journey's price is [dropCharge] — the highest any of its items names.
+  /// A newcomer therefore inherits rather than resets, and an item that leaves
+  /// takes nothing away from the journey it left.
+  Future<void> _normaliseDropCharges(String orderId, String hlc) async {
+    for (final drop in dropsOf((await _linesOf(orderId)).where((l) => l.isLive))) {
+      // Pickup is never charged: nobody is taking it anywhere.
+      final agreed = drop.fulfilment == Fulfilment.pickup
+          ? Money.zero
+          : dropCharge(drop);
+
+      for (final l in drop.lines) {
+        if (l.deliveryCharge == agreed) continue;
+        await (db.update(db.orderItems)..where((t) => t.id.equals(l.id!)))
+            .write(OrderItemsCompanion(
+          deliveryCharge: Value(agreed.paise),
+          updatedAtHlc: Value(hlc),
+        ));
+        await mutations.record('order_items', l.id!, OpKind.upsert, {
+          'delivery_charge': agreed.paise,
+        });
+      }
+    }
+  }
+
   Future<void> _refreshOrderCache(String orderId, String hlc) async {
+    await _normaliseDropCharges(orderId, hlc);
     final lines = await _linesOf(orderId);
     final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
         .getSingle();
     final status = deriveOrderStatus(lines,
         confirmedAt: o.confirmedAt, completedAt: o.completedAt);
 
+    // One charge per journey, not per item — see deliveryTotal.
+    final delivery = deliveryTotal(lines);
+    final finishing = finishingLine(lines);
+
+    // The order's fulfilment is whichever way the *last* item goes, which is
+    // what decides the wording of the message that closes the order.
+    final how = finishing?.fulfilment ?? Fulfilment.pickup;
+    final isPickup = how == Fulfilment.pickup;
+
     await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
-      OrdersCompanion(status: Value(status.wire), updatedAtHlc: Value(hlc)),
+      OrdersCompanion(
+        status: Value(status.wire),
+        deliveryCharge: Value(delivery.paise),
+        fulfilment: Value(how.name),
+        // Cleared together with the fulfilment, or the schema's own rule is
+        // broken: a pickup may carry neither a delivery type nor a courier
+        // link, and leaving yesterday's behind fails the CHECK.
+        deliveryType: isPickup
+            ? const Value(null)
+            : Value(finishing?.deliveryType?.wire),
+        addressText: isPickup
+            ? const Value(null)
+            : Value(finishing?.addressText),
+        trackingUrl:
+            isPickup ? const Value(null) : Value(finishing?.trackingUrl),
+        updatedAtHlc: Value(hlc),
+      ),
     );
     await mutations.record('orders', orderId, OpKind.upsert, {
       'status': status.wire,
+      'delivery_charge': delivery.paise,
+      'fulfilment': how.name,
+      'delivery_type': isPickup ? null : finishing?.deliveryType?.wire,
+      'address_text': isPickup ? null : finishing?.addressText,
+      'tracking_url': isPickup ? null : finishing?.trackingUrl,
     });
 
     // Fall back to every line once nothing is outstanding, so a fully
@@ -733,6 +810,10 @@ class OrderRepository {
     Object? pinLat = kUnchanged,
     Object? pinLng = kUnchanged,
     Object? pinUrl = kUnchanged,
+    Object? itemMessage = kUnchanged,
+    Object? requirements = kUnchanged,
+    int? dietaryFlags,
+    Money? deliveryCharge,
   }) async {
     final fields = <String, Object?>{};
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -813,6 +894,18 @@ class OrderRepository {
           pinUrl: pinUrl == kUnchanged
               ? const Value.absent()
               : Value(pinUrl as String?),
+          itemMessage: itemMessage == kUnchanged
+              ? const Value.absent()
+              : Value(itemMessage as String?),
+          requirements: requirements == kUnchanged
+              ? const Value.absent()
+              : Value(requirements as String?),
+          dietaryFlags: dietaryFlags == null
+              ? const Value.absent()
+              : Value(dietaryFlags),
+          deliveryCharge: deliveryCharge == null
+              ? const Value.absent()
+              : Value(deliveryCharge.paise),
           updatedAtHlc: Value(hlc),
         ),
       );
@@ -838,6 +931,12 @@ class OrderRepository {
       if (pinLat != kUnchanged) fields['pin_lat'] = pinLat;
       if (pinLng != kUnchanged) fields['pin_lng'] = pinLng;
       if (pinUrl != kUnchanged) fields['pin_url'] = pinUrl;
+      if (itemMessage != kUnchanged) fields['item_message'] = itemMessage;
+      if (requirements != kUnchanged) fields['requirements'] = requirements;
+      if (dietaryFlags != null) fields['dietary_flags'] = dietaryFlags;
+      if (deliveryCharge != null) {
+        fields['delivery_charge'] = deliveryCharge.paise;
+      }
 
       if (fields.isNotEmpty) {
         await mutations.record('order_items', lineId, OpKind.upsert, fields);
@@ -846,6 +945,11 @@ class OrderRepository {
       // HLC of its own for the merge.
       await (db.update(db.orders)..where((t) => t.id.equals(i.orderId)))
           .write(OrdersCompanion(updatedAtHlc: Value(hlc)));
+
+      // Moving an item can move it between journeys — a different day, a
+      // different address — so the charges and everything the order caches
+      // from its items are worked out again.
+      await _refreshOrderCache(i.orderId, hlc);
       if (fields.isNotEmpty) {
         await _insertStatusEvent(i.orderId, null, OrderStatus.inProduction, now,
             hlc, reason: 'item edited');
@@ -1114,7 +1218,7 @@ class OrderRepository {
     Object? pinUrl = kUnchanged,
     Object? discountType = kUnchanged,
     int? discountValue,
-    Money? deliveryCharge,
+
     int? dietaryFlags,
     Object? notes = kUnchanged,
     Object? itemMessage = kUnchanged,
@@ -1137,7 +1241,6 @@ class OrderRepository {
       if (discountType != kUnchanged)
         'discount_type': (discountType as DiscountType?)?.name,
       if (discountValue != null) 'discount_value': discountValue,
-      if (deliveryCharge != null) 'delivery_charge': deliveryCharge.paise,
       if (dietaryFlags != null) 'dietary_flags': dietaryFlags,
       if (notes != kUnchanged) 'notes': notes,
       if (itemMessage != kUnchanged) 'item_message': itemMessage,
@@ -1170,9 +1273,6 @@ class OrderRepository {
           discountValue: discountValue == null
               ? const Value.absent()
               : Value(discountValue),
-          deliveryCharge: deliveryCharge == null
-              ? const Value.absent()
-              : Value(deliveryCharge.paise),
           dietaryFlags:
               dietaryFlags == null ? const Value.absent() : Value(dietaryFlags),
           notes: notes == kUnchanged ? const Value.absent() : Value(notes as String?),

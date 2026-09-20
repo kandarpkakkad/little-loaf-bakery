@@ -36,7 +36,6 @@ void main() {
       f.services.orders.create(
         customerId: customerId,
         lines: lines,
-        fulfilment: Fulfilment.pickup,
         deliveryDate: 1000,
         discountType: discountType,
         discountValue: discountValue,

@@ -157,7 +157,17 @@ so a new file each release would need the address of an APK that does not exist 
 **Bonus:** Drive keeps 30 days of prior versions, which is a free rollback.
 
 ### D25 · A line is scheduled, not the order
-Built — schema v10, `OrderRepository`, and every screen that reads a date.
+Built — schema v10 for the schedule, v11 for the rest.
+
+**Everything about an item is the item's**, not just when it goes: the message
+piped on it, its special requirements, its dietary flags and what its journey
+costs all moved down in v11. They had been asked for at both levels, which
+meant asking twice and letting the two answers disagree. An order of a piped
+birthday cake and a plain box of buns has one message, on one of them.
+
+The order still carries these as columns, rewritten from the items after any
+change — NOT NULL and read by v9 peers, so they survive as a cache the way
+`status` does.
 
 **Chose:** delivery date, time, type, address and status move **down to `order_items`**.
 One order can put a cake at the house on Friday and a snack box at the office on Sunday.
@@ -194,8 +204,16 @@ invisible until someone reads an order marked delivered while a cake is still in
 together. §4.3 keeps a bulk action for exactly that.
 
 ### D27 · Money stays on the order
-**Chose:** payments, discount and delivery charge stay order-level even though lines are
-scheduled separately. One sale, one balance, one invoice.
+**Chose:** payments and the discount stay order-level even though lines are scheduled
+separately. One sale, one balance, one invoice.
+
+**The delivery charge is the exception, and it proves the rule.** It is stored per item but
+**counted per journey**: items sharing a day, a time, a fulfilment and an address go out
+together, and `dropsOf` already grouped them for the clubbed messages. Two cakes in one van
+are charged once; a Friday and a Sunday delivery are charged twice. The order's own
+`delivery_charge` is the sum over journeys, so there is still one balance and one invoice.
+A drop's price is the **maximum** its items name — deterministic where last-writer-wins is
+not, and it errs toward charging rather than silently under-charging.
 **Because:** a customer pays for an order, not for a line. Splitting the balance per line
 would make "what do they owe?" a sum across rows that are delivered on different days.
 **Consequence:** a cancelled line leaves the total — so cancelling a line after payment can

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
-import '../../../common/money.dart';
 import '../../../common/phone.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
@@ -11,7 +10,6 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/primitives.dart';
-import 'address_picker.dart';
 import 'customer_picker.dart';
 import 'line_editor.dart';
 import 'order_detail_screen.dart';
@@ -33,14 +31,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   final _requirements = TextEditingController();
   final _itemMessage = TextEditingController();
   final _discount = TextEditingController();
-  final _delivery = TextEditingController();
   final _advance = TextEditingController();
 
   final List<DraftLine> _lines = [];
-  Fulfilment _fulfilment = Fulfilment.delivery;
-  DeliveryType _deliveryType = DeliveryType.local;
   DiscountType? _discountType;
-  int _dietary = 0;
   String _advanceMode = 'upi';
   bool _saving = false;
 
@@ -49,25 +43,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   String? _customerId;
 
   /// The address this order is going to. Null until one is picked or typed.
-  AddressDraft? _address;
 
   /// Guards the phone lookup: the field fires onChanged on every keystroke and
   /// only the last number typed should win.
   String _lastLookedUp = '';
 
-  bool _defaultsLoaded = false;
 
   // Not initState: reading AppScope is a dependency lookup, and looking one up
   // before initState has finished is illegal. didChangeDependencies is the
-  // first point where the scope is legitimately available.
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_defaultsLoaded) return;
-    _defaultsLoaded = true;
-    _loadDefaultDeliveryCharge();
-  }
-
   /// A known number fills in the name and unlocks that customer's saved
   /// addresses. Typing over the name afterwards still works — findOrCreate
   /// treats the number as the identity and updates the name.
@@ -94,40 +77,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       _name.text = picked.name;
       _phone.text = Phone.parse(picked.phoneE164).national;
       _lastLookedUp = picked.phoneE164;
-      _address = null; // theirs, not the previous customer's
     });
   }
 
   /// Saved addresses need a customer to hang off. Without one there is still a
   /// perfectly good one-off address to type.
-  Future<void> _chooseAddress() async {
-    final id = _customerId;
-    // Written as a statement rather than a ternary so the analyzer can see
-    // that only one branch touches context, and neither does so after an await.
-    final AddressDraft? picked;
-    if (id == null) {
-      picked = await editAddress(context, existing: _address);
-    } else {
-      picked = await pickAddress(context, customerId: id);
-    }
-    if (!mounted || picked == null) return;
-    setState(() => _address = picked);
-  }
-
-  Future<void> _loadDefaultDeliveryCharge() async {
-    final s = await context.app.settings();
-    if (!mounted) return;
-    setState(() => _delivery.text = moneyToField(Money(
-        _deliveryType == DeliveryType.local
-            ? s.deliveryChargeLocal
-            : s.deliveryChargeOutstation)));
-  }
-
   @override
   void dispose() {
     for (final c in [
       _name, _phone, _requirements, _itemMessage,
-      _discount, _delivery, _advance,
+      _discount, _advance,
     ]) {
       c.dispose();
     }
@@ -144,18 +103,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       .whereType<int>()
       .fold<int?>(null, (a, b) => a == null || b > a ? b : a);
 
+  /// What a new item starts from when there is no item above to copy.
+  ///
+  /// Delivery inside the city is the common case, and the first item asks for
+  /// its own date — there is deliberately no date here, because every item
+  /// after the first copies the one above.
   DraftLine get _orderDefaults => DraftLine(
         menuItemId: '',
         itemName: '',
-        // deliberately no date: the first item asks for one, and every item
-        // after copies the one above
-        fulfilment: _fulfilment,
-        deliveryType:
-            _fulfilment == Fulfilment.delivery ? _deliveryType : null,
-        addressText: _address?.addressText,
-        pinLat: _address?.pinLat,
-        pinLng: _address?.pinLng,
-        pinUrl: _address?.pinUrl,
+        fulfilment: Fulfilment.delivery,
+        deliveryType: DeliveryType.local,
       );
 
   OrderTotals get _totals => OrderTotals(
@@ -164,8 +121,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         discountValue: _discountType == DiscountType.percent
             ? ((double.tryParse(_discount.text.trim()) ?? 0) * 100).round()
             : moneyFromField(_discount.text).paise,
-        deliveryCharge:
-            _fulfilment == Fulfilment.delivery ? moneyFromField(_delivery.text) : Money.zero,
+        // One charge per journey, worked out from the items — two cakes going
+        // out together are charged once.
+        deliveryCharge: deliveryTotal([for (final l in _lines) l.toLine()]),
         paid: moneyFromField(_advance.text),
       );
 
@@ -186,38 +144,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         phoneE164: phone.e164,
         countryCode: kDefaultCountry.code,
       );
-      // A new address typed on this form is worth keeping for next time.
-      final addr = _address;
-      if (addr != null && addr.id == null) {
-        await app.customers.addAddress(
-          customerId: customerId,
-          label: addr.label,
-          addressText: addr.addressText,
-          pinLat: addr.pinLat,
-          pinLng: addr.pinLng,
-          pinUrl: addr.pinUrl,
-        );
-      }
       final t = _totals;
       final orderId = await app.orders.create(
         customerId: customerId,
         lines: _lines,
-        fulfilment: _fulfilment,
-        deliveryType: _fulfilment == Fulfilment.delivery ? _deliveryType : null,
-        // snapshotted onto the order, so editing the address later cannot
-        // rewrite where a delivered order went
-        addressText: addr?.addressText,
-        pinLat: addr?.pinLat,
-        pinLng: addr?.pinLng,
-        pinUrl: addr?.pinUrl,
         discountType: _discountType,
         discountValue: t.discountValue,
-        deliveryCharge: t.deliveryCharge,
-        requirements:
-            _requirements.text.trim().isEmpty ? null : _requirements.text.trim(),
-        itemMessage:
-            _itemMessage.text.trim().isEmpty ? null : _itemMessage.text.trim(),
-        dietaryFlags: _dietary,
         advance: moneyFromField(_advance.text),
         advanceMode: _advanceMode,
       );
@@ -314,7 +246,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       // a new line starts as a copy of the one above
                       // the first line copies the order-level defaults;
                       // later ones copy the line above (D25)
-                      copyFrom: _lines.isEmpty ? _orderDefaults : _lines.last,
+                      siblings: _lines.isEmpty ? [_orderDefaults] : _lines,
                       customerId: _customerId,
                     );
                     if (line != null) setState(() => _lines.add(line));
@@ -341,8 +273,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               await editLine(
                                 context,
                                 existing: _lines[i],
-                                copyFrom:
-                                    i == 0 ? _orderDefaults : _lines[i - 1],
+                                // Every *other* item, so this one can be moved
+                                // onto any journey the order already has.
+                                siblings: [
+                                  for (var j = 0; j < _lines.length; j++)
+                                    if (j != i) _lines[j],
+                                ],
                                 customerId: _customerId,
                               );
                           if (edited != null) setState(() => _lines[i] = edited);
@@ -354,98 +290,30 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 ),
               ),
 
-            const SectionLabel('Fulfilment'),
-            LoafCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SegmentedButton<Fulfilment>(
-                    segments: const [
-                      ButtonSegment(
-                          value: Fulfilment.delivery,
-                          icon: Icon(Icons.local_shipping_outlined),
-                          label: Text('Delivery')),
-                      ButtonSegment(
-                          value: Fulfilment.pickup,
-                          icon: Icon(Icons.storefront_outlined),
-                          label: Text('Pickup')),
-                    ],
-                    selected: {_fulfilment},
-                    onSelectionChanged: (s) => setState(() => _fulfilment = s.first),
-                  ),
-                  if (_fulfilment == Fulfilment.delivery) ...[
-                    const SizedBox(height: Space.lg),
-                    SegmentedButton<DeliveryType>(
-                      segments: [
-                        for (final d in DeliveryType.values)
-                          ButtonSegment(value: d, label: Text(d.label)),
-                      ],
-                      selected: {_deliveryType},
-                      onSelectionChanged: (s) {
-                        setState(() => _deliveryType = s.first);
-                        _loadDefaultDeliveryCharge();
-                      },
-                    ),
-                    const SizedBox(height: Space.lg),
-                    _AddressRow(
-                      address: _address,
-                      onChoose: _chooseAddress,
-                      onClear: () => setState(() => _address = null),
+            // No fulfilment here, and no requirements. Both belong to the
+            // item (D25): an order of a birthday cake and a box of buns has
+            // one message piped on one of them, and the box may go out on a
+            // different day to a different address. Asking at this level as
+            // well meant asking twice and letting the two disagree.
+            if (_lines.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.md),
+                child: Row(
+                  children: [
+                    Icon(Icons.event, size: 16, color: c.ink3),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: Text(
+                        _dueDate == null
+                            ? 'Each item gets its own delivery date.'
+                            : 'Due ${_dateLabel(DateTime.fromMillisecondsSinceEpoch(_dueDate!))} — '
+                                'the last item to go.',
+                        style: context.text.bodySmall!.copyWith(color: c.ink3),
+                      ),
                     ),
                   ],
-                  // No date here. Each item carries its own (D25), and the
-                  // order's is whatever the last of them is — so a picker at
-                  // this level would be setting something the items overwrite.
-                  Row(
-                    children: [
-                      Icon(Icons.event, size: 16, color: c.ink3),
-                      const SizedBox(width: Space.sm),
-                      Expanded(
-                        child: Text(
-                          _lines.isEmpty
-                              ? 'Each item gets its own delivery date.'
-                              : 'Due ${_dateLabel(DateTime.fromMillisecondsSinceEpoch(_dueDate!))} — '
-                                  'the last item to go.',
-                          style: context.text.bodySmall!.copyWith(color: c.ink3),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-
-            const SectionLabel('Requirements'),
-            LoafCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LoafField(
-                      label: 'Message on the item', controller: _itemMessage),
-                  LoafField(
-                      label: 'Special requirements',
-                      controller: _requirements,
-                      maxLines: 3),
-                  Wrap(
-                    spacing: Space.sm,
-                    children: [
-                      for (final (flag, label) in const [
-                        (Dietary.eggless, 'Eggless'),
-                        (Dietary.nutFree, 'Nut-free'),
-                        (Dietary.glutenFree, 'Gluten-free'),
-                        (Dietary.sugarFree, 'Sugar-free'),
-                      ])
-                        FilterChip(
-                          label: Text(label),
-                          selected: _dietary & flag != 0,
-                          onSelected: (on) => setState(
-                              () => _dietary = on ? _dietary | flag : _dietary & ~flag),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
 
             const SectionLabel('Money'),
             LoafCard(
@@ -491,15 +359,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       ),
                     ],
                   ),
-                  if (_fulfilment == Fulfilment.delivery)
-                    LoafField(
-                      label: 'Delivery charge',
-                      controller: _delivery,
-                      prefix: '₹ ',
-                      keyboardType: TextInputType.number,
-                      inputFormatters: rupeeInput,
-                      onChanged: (_) => setState(() {}),
-                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -606,60 +465,3 @@ String _dateLabel(DateTime d) {
 ///
 /// A pin is worth calling out: it is the difference between a courier finding
 /// the flat and phoning from the gate.
-class _AddressRow extends StatelessWidget {
-  const _AddressRow({
-    required this.address,
-    required this.onChoose,
-    required this.onClear,
-  });
-
-  final AddressDraft? address;
-  final VoidCallback onChoose;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = address;
-    final c = context.colors;
-    if (a == null) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: Space.lg),
-        child: OutlinedButton.icon(
-          onPressed: onChoose,
-          icon: const Icon(Icons.place_outlined, size: 18),
-          label: const Text('Choose address'),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Space.lg),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(a.hasPin ? Icons.place : Icons.place_outlined,
-              size: 18, color: a.hasPin ? c.accent2 : c.ink3),
-          const SizedBox(width: Space.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(a.label, style: context.text.bodyMedium),
-                Text(a.addressText,
-                    style: context.text.bodySmall!.copyWith(color: c.ink2)),
-                if (a.hasPin)
-                  Text('Map pin saved',
-                      style: context.text.bodySmall!.copyWith(color: c.accent2)),
-              ],
-            ),
-          ),
-          TextButton(onPressed: onChoose, child: const Text('Change')),
-          IconButton(
-            icon: Icon(Icons.close, size: 18, color: c.ink3),
-            tooltip: 'Remove address',
-            onPressed: onClear,
-          ),
-        ],
-      ),
-    );
-  }
-}

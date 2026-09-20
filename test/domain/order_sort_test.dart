@@ -113,7 +113,6 @@ class AppServicesFixture {
             basePrice: Money.rupees(100),
           )
         ],
-        fulfilment: Fulfilment.pickup,
         deliveryDate: DateTime(2026, 9, dayOfSept).millisecondsSinceEpoch,
         deliveryTime: minutes,
       );
@@ -142,7 +141,6 @@ class AppServicesFixture {
             deliveryDate: DateTime(2026, 9, last).millisecondsSinceEpoch,
           ),
         ],
-        fulfilment: Fulfilment.pickup,
         deliveryDate: DateTime(2026, 9, first).millisecondsSinceEpoch,
       );
 

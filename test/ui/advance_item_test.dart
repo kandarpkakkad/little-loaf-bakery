@@ -43,7 +43,6 @@ void main() {
   Future<String> order(List<DraftLine> lines) => f.services.orders.create(
         customerId: customerId,
         lines: lines,
-        fulfilment: Fulfilment.delivery,
         deliveryDate: lines.first.deliveryDate!,
       );
 

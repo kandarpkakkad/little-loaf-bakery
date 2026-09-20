@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 10;
+const int kSchemaVersion = 11;
 
 @DriftDatabase(
   tables: [
@@ -70,7 +70,52 @@ class AppDatabase extends _$AppDatabase {
   /// docs/01-platform/storage/lld.md §5b.
   static final Map<int, Future<void> Function(Migrator)> _steps = {
     9: _v9ToV10,
+    10: _v10ToV11,
   };
+
+  /// What an item is for moves down to the item (D25, finished).
+  ///
+  /// The message piped on it, its special requirements, its dietary flags and
+  /// what it costs to send were all asked for at order level *and* per item.
+  /// Each order's values are copied onto every one of its items, so nothing a
+  /// person typed is lost — an order with one message ends up with that
+  /// message on each item, which is what it already meant.
+  static Future<void> _v10ToV11(Migrator m) async {
+    final db = m.database as AppDatabase;
+    final items = db.orderItems;
+
+    await m.addColumn(items, items.itemMessage);
+    await m.addColumn(items, items.requirements);
+    await m.addColumn(items, items.dietaryFlags);
+    await m.addColumn(items, items.deliveryCharge);
+
+    await db.customStatement('''
+      UPDATE order_items SET
+        item_message  = (SELECT o.item_message  FROM orders o WHERE o.id = order_items.order_id),
+        requirements  = (SELECT o.requirements  FROM orders o WHERE o.id = order_items.order_id),
+        dietary_flags = COALESCE((SELECT o.dietary_flags FROM orders o WHERE o.id = order_items.order_id), 0)
+    ''');
+
+    // The charge is per journey, not per item, so it lands on **one** item of
+    // each journey and the rest of that journey carry zero. Splitting it
+    // evenly would invent figures nobody agreed; putting it on all of them
+    // would charge one delivery several times.
+    await db.customStatement('''
+      UPDATE order_items SET delivery_charge = COALESCE((
+        SELECT o.delivery_charge FROM orders o WHERE o.id = order_items.order_id
+      ), 0)
+      WHERE id IN (
+        SELECT MIN(i.id) FROM order_items i
+         WHERE i.order_id = order_items.order_id
+           AND i.deleted_at IS NULL
+         GROUP BY i.order_id,
+                  COALESCE(i.delivery_date, -1),
+                  COALESCE(i.delivery_time, -1),
+                  COALESCE(i.fulfilment, ''),
+                  COALESCE(i.address_text, '')
+      )
+    ''');
+  }
 
   /// Scheduling moves from the order down to the line (D25-D27).
   static Future<void> _v9ToV10(Migrator m) async {

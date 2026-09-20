@@ -159,6 +159,21 @@ class OrderItems extends Table with Common {
   IntColumn get deliveredAt => integer().nullable()();
   TextColumn get cancelReason => text().nullable()();
 
+  // ── what this item is for, and what it costs to send (D25 finished) ──
+  // These lived on the order and were asked for twice: once there and once
+  // per item. An order of a birthday cake and a box of buns has one message
+  // piped on one of them, not on both.
+  TextColumn get itemMessage => text().nullable()();
+  TextColumn get requirements => text().nullable()();
+  IntColumn get dietaryFlags => integer().withDefault(const Constant(0))();
+
+  /// What it costs to send this item, in paise.
+  ///
+  /// Stored per item, **charged per drop**: items sharing a day, time,
+  /// fulfilment and address are one journey, so they carry the same figure and
+  /// the order counts it once. See `dropCharge` in domain/orders/model.dart.
+  IntColumn get deliveryCharge => integer().withDefault(const Constant(0))();
+
   @override
   List<String> get customConstraints => [
         'CHECK (qty > 0)',

@@ -9,6 +9,7 @@ import '../../theme/format.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/primitives.dart';
 import 'address_picker.dart';
 
 /// One line of an order: pick the item from the menu, then flavour, weight,
@@ -23,7 +24,9 @@ import 'address_picker.dart';
 Future<DraftLine?> editLine(
   BuildContext context, {
   DraftLine? existing,
-  DraftLine? copyFrom,
+  /// Every other item already on this order. Their journeys are what this one
+  /// can join — see the journey picker in the sheet.
+  List<DraftLine> siblings = const [],
   String? customerId,
   /// When set, what the item *is* is shown but cannot be changed — the baker
   /// has started. Only its schedule stays editable.
@@ -46,7 +49,7 @@ Future<DraftLine?> editLine(
     builder: (_) => _LineSheet(
       menu: items,
       existing: existing,
-      copyFrom: copyFrom,
+      siblings: siblings,
       customerId: customerId,
       status: status,
     ),
@@ -60,7 +63,7 @@ class _LineSheet extends StatefulWidget {
   const _LineSheet({
     required this.menu,
     this.existing,
-    this.copyFrom,
+    this.siblings = const [],
     this.customerId,
     this.status,
   });
@@ -70,7 +73,7 @@ class _LineSheet extends StatefulWidget {
 
   /// The line above this one, when there is one. Its schedule is what
   /// "same as the item above" copies.
-  final DraftLine? copyFrom;
+  final List<DraftLine> siblings;
 
   /// Lets the address picker offer this customer's saved addresses.
   final String? customerId;
@@ -102,7 +105,22 @@ class _LineSheetState extends State<_LineSheet> {
   /// previous one's date and address. Most multi-item orders go to one place on
   /// one day, so the common case needs no typing at all; the "Same as above"
   /// button is for putting it back after a change, not for the first fill.
-  DraftLine? get _seed => widget.existing ?? widget.copyFrom;
+  /// What this sheet opens showing. An item being edited shows itself; a new
+  /// one starts on the most recent journey, which is the common case — most
+  /// of an order goes out together.
+  DraftLine? get _seed => widget.existing ?? widget.siblings.lastOrNull;
+
+  /// The journeys this order already has.
+  ///
+  /// Items sharing a day, a time, a fulfilment and an address go out together
+  /// — one trip, charged once. Offering them by name is what lets the fourth
+  /// item join the *first* item's journey rather than only the one above it.
+  List<Drop> get _journeys =>
+      dropsOf(widget.siblings.map((l) => l.toLine()).where((l) =>
+          l.deliveryDate != null));
+
+  /// Which journey this item is on, or null when it is making its own.
+  int? _journey;
 
   /// Once the baker has started, what the item *is* is settled. The schedule
   /// is not: a van can be redirected, a cake cannot be un-baked.
@@ -119,6 +137,20 @@ class _LineSheetState extends State<_LineSheet> {
         );
   late Fulfilment _fulfilment = _seed?.fulfilment ?? Fulfilment.delivery;
   late DeliveryType _deliveryType = _seed?.deliveryType ?? DeliveryType.local;
+
+  /// What this item's journey costs. Null until it is known — a new journey
+  /// takes the default for its delivery type, and one joining an existing
+  /// journey takes that journey's figure and adds nothing to the order.
+  late Money? _charge = _seed?.deliveryCharge;
+
+  // ── what this item is for ──
+  // On the item rather than the order: one cake is piped, the box of buns
+  // beside it is not, and one may be eggless while the other is not.
+  late final _itemMessage =
+      TextEditingController(text: widget.existing?.itemMessage ?? '');
+  late final _requirements =
+      TextEditingController(text: widget.existing?.requirements ?? '');
+  late int _dietary = widget.existing?.dietaryFlags ?? 0;
   late AddressDraft? _address = _seed?.addressText == null
       ? null
       : AddressDraft(
@@ -129,12 +161,15 @@ class _LineSheetState extends State<_LineSheet> {
           pinUrl: _seed!.pinUrl,
         );
 
-  /// Copies the line above rather than linking to it, so editing that one
-  /// afterwards leaves this alone.
-  void _sameAsAbove() {
-    final o = widget.copyFrom;
-    if (o == null) return;
+  /// Joins a journey: takes a copy of when and where it goes, rather than
+  /// linking to it, so editing one of its items afterwards leaves this alone.
+  ///
+  /// Copying the *charge* too is what makes two items in one delivery cost one
+  /// delivery — the order counts a journey once however many boxes are in it.
+  void _join(Drop drop) {
+    final o = drop.lines.first;
     setState(() {
+      _journey = _journeys.indexWhere((d) => d.key == drop.key);
       _date = o.deliveryDate == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(o.deliveryDate!);
@@ -143,6 +178,7 @@ class _LineSheetState extends State<_LineSheet> {
           : TimeOfDay(hour: o.deliveryTime! ~/ 60, minute: o.deliveryTime! % 60);
       _fulfilment = o.fulfilment ?? Fulfilment.delivery;
       _deliveryType = o.deliveryType ?? DeliveryType.local;
+      _charge = dropCharge(drop);
       _address = o.addressText == null
           ? null
           : AddressDraft(
@@ -189,7 +225,9 @@ class _LineSheetState extends State<_LineSheet> {
 
   @override
   void dispose() {
-    for (final c in [_flavour, _weight, _price, _note]) {
+    for (final c in [
+      _flavour, _weight, _price, _note, _itemMessage, _requirements,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -416,19 +454,69 @@ class _LineSheetState extends State<_LineSheet> {
                   ),
                 ),
 
-              LoafField(label: 'Note for the kitchen', controller: _note, maxLines: 2),
+              LoafField(
+                  label: 'Message on the item',
+                  controller: _itemMessage,
+                  hint: 'Piped on this one — "Happy 40th"'),
+              LoafField(
+                  label: 'Special requirements',
+                  controller: _requirements,
+                  maxLines: 2),
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.md),
+                child: Wrap(
+                  spacing: Space.sm,
+                  children: [
+                    for (final (flag, label) in const [
+                      (Dietary.eggless, 'Eggless'),
+                      (Dietary.nutFree, 'Nut-free'),
+                      (Dietary.glutenFree, 'Gluten-free'),
+                      (Dietary.sugarFree, 'Sugar-free'),
+                    ])
+                      FilterChip(
+                        label: Text(label),
+                        selected: _dietary & flag != 0,
+                        onSelected: _locked
+                            ? null
+                            : (on) => setState(
+                                () => _dietary = on ? _dietary | flag : _dietary & ~flag),
+                      ),
+                  ],
+                ),
+              ),
+              LoafField(
+                  label: 'Note for the kitchen', controller: _note, maxLines: 2),
 
               // ── when and where this line goes (D25) ──
-              SectionLabel('When and where',
-                  // A new line already arrives copied, so this is the way back
-                  // after editing it — not the way in.
-                  trailing: widget.copyFrom == null
+              const SectionLabel('When and where'),
+
+              // The journeys this order already has, by name, plus the option
+              // of a new one. "Same as above" could only ever mean the item
+              // directly above — so a fourth item could not join the first
+              // item's delivery without retyping its date, time and address
+              // and hoping they matched exactly. Naming them removes the
+              // guesswork, and joining one is what makes two boxes in a van
+              // cost one delivery.
+              if (_journeys.isNotEmpty) ...[
+                for (var i = 0; i < _journeys.length; i++)
+                  _JourneyOption(
+                    selected: _journey == i,
+                    title: _journeyLabel(_journeys[i]),
+                    subtitle: _journeyItems(_journeys[i]),
+                    onTap: _locked ? null : () => _join(_journeys[i]),
+                  ),
+                _JourneyOption(
+                  selected: _journey == null,
+                  title: 'A different date or place',
+                  onTap: _locked
                       ? null
-                      : TextButton.icon(
-                          onPressed: _sameAsAbove,
-                          icon: const Icon(Icons.copy_all_outlined, size: 16),
-                          label: const Text('Same as above'),
-                        )),
+                      : () => setState(() {
+                            _journey = null;
+                            _charge = null;
+                          }),
+                ),
+                const SizedBox(height: Space.sm),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -545,6 +633,19 @@ class _LineSheetState extends State<_LineSheet> {
                       pinLat: _address?.pinLat,
                       pinLng: _address?.pinLng,
                       pinUrl: _address?.pinUrl,
+                      itemMessage: _itemMessage.text.trim().isEmpty
+                          ? null
+                          : _itemMessage.text.trim(),
+                      requirements: _requirements.text.trim().isEmpty
+                          ? null
+                          : _requirements.text.trim(),
+                      dietaryFlags: _dietary,
+                      // Null when this item is opening a journey of its own:
+                      // the repository seeds the default for its delivery
+                      // type. Joining an existing one carries its figure, so
+                      // the order counts that trip exactly once.
+                      deliveryCharge:
+                          _fulfilment == Fulfilment.pickup ? Money.zero : _charge,
                     ),
                   );
                 },
@@ -609,4 +710,51 @@ class _LineAddress extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A journey, said the way someone would say it: when it goes, and how.
+String _journeyLabel(Drop drop) {
+  final when = drop.deliveryDate == null
+      ? 'No date'
+      : _dayLabel(DateTime.fromMillisecondsSinceEpoch(drop.deliveryDate!));
+  final at = timeLabel(drop.deliveryTime);
+  final how = drop.fulfilment == Fulfilment.pickup
+      ? 'Pickup'
+      : (drop.addressText == null
+          ? 'Delivery'
+          : 'Delivery to ${drop.addressText}');
+  return '$when · $at · $how';
+}
+
+/// What is already going on that journey, so it is recognisable at a glance.
+String _journeyItems(Drop drop) =>
+    drop.lines.map((l) => l.itemName).join(', ');
+
+/// One journey to join, or the choice to make a new one.
+class _JourneyOption extends StatelessWidget {
+  const _JourneyOption({
+    required this.selected,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final bool selected;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        onTap: onTap,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          size: 20,
+          color: selected ? context.colors.accent2 : context.colors.ink3,
+        ),
+        title: Text(title),
+        subtitle: subtitle == null ? null : Micro(subtitle!),
+      );
 }

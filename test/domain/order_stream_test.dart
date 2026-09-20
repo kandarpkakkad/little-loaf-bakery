@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/money.dart';
-import 'package:little_loaf/domain/orders/model.dart';
 import 'package:little_loaf/domain/orders/repository.dart';
 
 import '../support/harness.dart';
@@ -24,7 +23,6 @@ void main() {
         DraftLine(
             menuItemId: menu, itemName: 'Cake', basePrice: Money.rupees(1000))
       ],
-      fulfilment: Fulfilment.pickup,
       deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
     );
   });

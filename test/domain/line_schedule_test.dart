@@ -41,7 +41,6 @@ void main() {
   Future<String> order(List<DraftLine> lines) => f.services.orders.create(
         customerId: customerId,
         lines: lines,
-        fulfilment: Fulfilment.delivery,
         deliveryDate: lines.first.deliveryDate!,
       );
 
@@ -215,7 +214,6 @@ void main() {
         DraftLine(
             menuItemId: menuId, itemName: 'Cake', basePrice: Money.rupees(500))
       ],
-      fulfilment: Fulfilment.delivery,
       deliveryDate: 4242,
     );
     final v = await view(id);

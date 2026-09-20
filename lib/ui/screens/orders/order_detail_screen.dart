@@ -153,42 +153,6 @@ class _Detail extends StatelessWidget {
             ),
           ),
 
-          if (o.itemMessage != null ||
-              o.requirements != null ||
-              o.dietaryFlags != 0) ...[
-            const SectionLabel('Requirements'),
-            LoafCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (o.itemMessage != null)
-                    _Fact('On the item', o.itemMessage!),
-                  if (o.dietaryFlags != 0)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: Space.xs),
-                      child: Wrap(
-                        spacing: Space.sm,
-                        children: [
-                          for (final l in Dietary.labels(o.dietaryFlags))
-                            Chip(
-                              label: Text(l),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: c.goodSoft,
-                              side: BorderSide.none,
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (o.requirements != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Space.xs),
-                      child: Text(o.requirements!, style: context.text.bodyMedium),
-                    ),
-                ],
-              ),
-            ),
-          ],
-
           const SectionLabel('Items'),
           LoafCard(
             child: Column(
@@ -223,6 +187,29 @@ class _Detail extends StatelessWidget {
                                   ].join(' · ')),
                                 for (final a in l.addons)
                                   Micro('+ ${a.name}  ${money(a.price) ?? ''}'),
+                                if (l.itemMessage != null)
+                                  Micro('Piped: "${l.itemMessage!}"'),
+                                if (l.requirements != null)
+                                  Micro(l.requirements!),
+                                if (l.dietaryFlags != 0)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(top: Space.xs),
+                                    child: Wrap(
+                                      spacing: Space.sm,
+                                      children: [
+                                        for (final d
+                                            in dietaryLabels(l.dietaryFlags))
+                                          Chip(
+                                            label: Text(d),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            backgroundColor: c.goodSoft,
+                                            side: BorderSide.none,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 if (l.note != null) Micro('Note: ${l.note!}'),
                                 // Each item says when it goes and where it is
                                 // in its own life -- the whole point of D25 is
@@ -638,8 +625,9 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
   final orders = context.app.orders;
   final added = await editLine(
     context,
-    // a new item starts from the last one, as it does on the order form
-    copyFrom: view.lines.isEmpty ? null : _draftOf(view.lines.last),
+    // Every item already on the order, so the new one can join any journey
+    // they are on rather than only the most recent.
+    siblings: [for (final l in view.lines) _draftOf(l)],
     customerId: view.customer.id,
   );
   if (added == null) return;
@@ -852,8 +840,6 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     deliveryTimeLabel: timeLabel(view.dueTime ?? o.deliveryTime),
     addressText: o.addressText,
     trackingUrl: o.trackingUrl,
-    itemMessage: o.itemMessage,
-    requirements: o.requirements,
     upiId: s.upiId,
     paymentPhone: s.paymentPhone,
     hadBalance: view.totals.hasBalance,

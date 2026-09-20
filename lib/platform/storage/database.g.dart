@@ -4396,6 +4396,52 @@ class $OrderItemsTable extends OrderItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _itemMessageMeta = const VerificationMeta(
+    'itemMessage',
+  );
+  @override
+  late final GeneratedColumn<String> itemMessage = GeneratedColumn<String>(
+    'item_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _requirementsMeta = const VerificationMeta(
+    'requirements',
+  );
+  @override
+  late final GeneratedColumn<String> requirements = GeneratedColumn<String>(
+    'requirements',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dietaryFlagsMeta = const VerificationMeta(
+    'dietaryFlags',
+  );
+  @override
+  late final GeneratedColumn<int> dietaryFlags = GeneratedColumn<int>(
+    'dietary_flags',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _deliveryChargeMeta = const VerificationMeta(
+    'deliveryCharge',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryCharge = GeneratedColumn<int>(
+    'delivery_charge',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4425,6 +4471,10 @@ class $OrderItemsTable extends OrderItems
     trackingUrl,
     deliveredAt,
     cancelReason,
+    itemMessage,
+    requirements,
+    dietaryFlags,
+    deliveryCharge,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4648,6 +4698,42 @@ class $OrderItemsTable extends OrderItems
         ),
       );
     }
+    if (data.containsKey('item_message')) {
+      context.handle(
+        _itemMessageMeta,
+        itemMessage.isAcceptableOrUnknown(
+          data['item_message']!,
+          _itemMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('requirements')) {
+      context.handle(
+        _requirementsMeta,
+        requirements.isAcceptableOrUnknown(
+          data['requirements']!,
+          _requirementsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dietary_flags')) {
+      context.handle(
+        _dietaryFlagsMeta,
+        dietaryFlags.isAcceptableOrUnknown(
+          data['dietary_flags']!,
+          _dietaryFlagsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivery_charge')) {
+      context.handle(
+        _deliveryChargeMeta,
+        deliveryCharge.isAcceptableOrUnknown(
+          data['delivery_charge']!,
+          _deliveryChargeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4765,6 +4851,22 @@ class $OrderItemsTable extends OrderItems
         DriftSqlType.string,
         data['${effectivePrefix}cancel_reason'],
       ),
+      itemMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_message'],
+      ),
+      requirements: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}requirements'],
+      ),
+      dietaryFlags: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dietary_flags'],
+      )!,
+      deliveryCharge: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_charge'],
+      )!,
     );
   }
 
@@ -4802,6 +4904,16 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
   final String? trackingUrl;
   final int? deliveredAt;
   final String? cancelReason;
+  final String? itemMessage;
+  final String? requirements;
+  final int dietaryFlags;
+
+  /// What it costs to send this item, in paise.
+  ///
+  /// Stored per item, **charged per drop**: items sharing a day, time,
+  /// fulfilment and address are one journey, so they carry the same figure and
+  /// the order counts it once. See `dropCharge` in domain/orders/model.dart.
+  final int deliveryCharge;
   const OrderItem({
     required this.id,
     required this.deviceId,
@@ -4830,6 +4942,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     this.trackingUrl,
     this.deliveredAt,
     this.cancelReason,
+    this.itemMessage,
+    this.requirements,
+    required this.dietaryFlags,
+    required this.deliveryCharge,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4893,6 +5009,14 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     if (!nullToAbsent || cancelReason != null) {
       map['cancel_reason'] = Variable<String>(cancelReason);
     }
+    if (!nullToAbsent || itemMessage != null) {
+      map['item_message'] = Variable<String>(itemMessage);
+    }
+    if (!nullToAbsent || requirements != null) {
+      map['requirements'] = Variable<String>(requirements);
+    }
+    map['dietary_flags'] = Variable<int>(dietaryFlags);
+    map['delivery_charge'] = Variable<int>(deliveryCharge);
     return map;
   }
 
@@ -4955,6 +5079,14 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       cancelReason: cancelReason == null && nullToAbsent
           ? const Value.absent()
           : Value(cancelReason),
+      itemMessage: itemMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(itemMessage),
+      requirements: requirements == null && nullToAbsent
+          ? const Value.absent()
+          : Value(requirements),
+      dietaryFlags: Value(dietaryFlags),
+      deliveryCharge: Value(deliveryCharge),
     );
   }
 
@@ -4991,6 +5123,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       trackingUrl: serializer.fromJson<String?>(json['trackingUrl']),
       deliveredAt: serializer.fromJson<int?>(json['deliveredAt']),
       cancelReason: serializer.fromJson<String?>(json['cancelReason']),
+      itemMessage: serializer.fromJson<String?>(json['itemMessage']),
+      requirements: serializer.fromJson<String?>(json['requirements']),
+      dietaryFlags: serializer.fromJson<int>(json['dietaryFlags']),
+      deliveryCharge: serializer.fromJson<int>(json['deliveryCharge']),
     );
   }
   @override
@@ -5024,6 +5160,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       'trackingUrl': serializer.toJson<String?>(trackingUrl),
       'deliveredAt': serializer.toJson<int?>(deliveredAt),
       'cancelReason': serializer.toJson<String?>(cancelReason),
+      'itemMessage': serializer.toJson<String?>(itemMessage),
+      'requirements': serializer.toJson<String?>(requirements),
+      'dietaryFlags': serializer.toJson<int>(dietaryFlags),
+      'deliveryCharge': serializer.toJson<int>(deliveryCharge),
     };
   }
 
@@ -5055,6 +5195,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     Value<String?> trackingUrl = const Value.absent(),
     Value<int?> deliveredAt = const Value.absent(),
     Value<String?> cancelReason = const Value.absent(),
+    Value<String?> itemMessage = const Value.absent(),
+    Value<String?> requirements = const Value.absent(),
+    int? dietaryFlags,
+    int? deliveryCharge,
   }) => OrderItem(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -5083,6 +5227,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     trackingUrl: trackingUrl.present ? trackingUrl.value : this.trackingUrl,
     deliveredAt: deliveredAt.present ? deliveredAt.value : this.deliveredAt,
     cancelReason: cancelReason.present ? cancelReason.value : this.cancelReason,
+    itemMessage: itemMessage.present ? itemMessage.value : this.itemMessage,
+    requirements: requirements.present ? requirements.value : this.requirements,
+    dietaryFlags: dietaryFlags ?? this.dietaryFlags,
+    deliveryCharge: deliveryCharge ?? this.deliveryCharge,
   );
   OrderItem copyWithCompanion(OrderItemsCompanion data) {
     return OrderItem(
@@ -5139,6 +5287,18 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       cancelReason: data.cancelReason.present
           ? data.cancelReason.value
           : this.cancelReason,
+      itemMessage: data.itemMessage.present
+          ? data.itemMessage.value
+          : this.itemMessage,
+      requirements: data.requirements.present
+          ? data.requirements.value
+          : this.requirements,
+      dietaryFlags: data.dietaryFlags.present
+          ? data.dietaryFlags.value
+          : this.dietaryFlags,
+      deliveryCharge: data.deliveryCharge.present
+          ? data.deliveryCharge.value
+          : this.deliveryCharge,
     );
   }
 
@@ -5171,7 +5331,11 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ..write('pinUrl: $pinUrl, ')
           ..write('trackingUrl: $trackingUrl, ')
           ..write('deliveredAt: $deliveredAt, ')
-          ..write('cancelReason: $cancelReason')
+          ..write('cancelReason: $cancelReason, ')
+          ..write('itemMessage: $itemMessage, ')
+          ..write('requirements: $requirements, ')
+          ..write('dietaryFlags: $dietaryFlags, ')
+          ..write('deliveryCharge: $deliveryCharge')
           ..write(')'))
         .toString();
   }
@@ -5205,6 +5369,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     trackingUrl,
     deliveredAt,
     cancelReason,
+    itemMessage,
+    requirements,
+    dietaryFlags,
+    deliveryCharge,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5236,7 +5404,11 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           other.pinUrl == this.pinUrl &&
           other.trackingUrl == this.trackingUrl &&
           other.deliveredAt == this.deliveredAt &&
-          other.cancelReason == this.cancelReason);
+          other.cancelReason == this.cancelReason &&
+          other.itemMessage == this.itemMessage &&
+          other.requirements == this.requirements &&
+          other.dietaryFlags == this.dietaryFlags &&
+          other.deliveryCharge == this.deliveryCharge);
 }
 
 class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
@@ -5267,6 +5439,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
   final Value<String?> trackingUrl;
   final Value<int?> deliveredAt;
   final Value<String?> cancelReason;
+  final Value<String?> itemMessage;
+  final Value<String?> requirements;
+  final Value<int> dietaryFlags;
+  final Value<int> deliveryCharge;
   final Value<int> rowid;
   const OrderItemsCompanion({
     this.id = const Value.absent(),
@@ -5296,6 +5472,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.trackingUrl = const Value.absent(),
     this.deliveredAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
+    this.itemMessage = const Value.absent(),
+    this.requirements = const Value.absent(),
+    this.dietaryFlags = const Value.absent(),
+    this.deliveryCharge = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrderItemsCompanion.insert({
@@ -5326,6 +5506,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.trackingUrl = const Value.absent(),
     this.deliveredAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
+    this.itemMessage = const Value.absent(),
+    this.requirements = const Value.absent(),
+    this.dietaryFlags = const Value.absent(),
+    this.deliveryCharge = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deviceId = Value(deviceId),
@@ -5364,6 +5548,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Expression<String>? trackingUrl,
     Expression<int>? deliveredAt,
     Expression<String>? cancelReason,
+    Expression<String>? itemMessage,
+    Expression<String>? requirements,
+    Expression<int>? dietaryFlags,
+    Expression<int>? deliveryCharge,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5394,6 +5582,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       if (trackingUrl != null) 'tracking_url': trackingUrl,
       if (deliveredAt != null) 'delivered_at': deliveredAt,
       if (cancelReason != null) 'cancel_reason': cancelReason,
+      if (itemMessage != null) 'item_message': itemMessage,
+      if (requirements != null) 'requirements': requirements,
+      if (dietaryFlags != null) 'dietary_flags': dietaryFlags,
+      if (deliveryCharge != null) 'delivery_charge': deliveryCharge,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5426,6 +5618,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Value<String?>? trackingUrl,
     Value<int?>? deliveredAt,
     Value<String?>? cancelReason,
+    Value<String?>? itemMessage,
+    Value<String?>? requirements,
+    Value<int>? dietaryFlags,
+    Value<int>? deliveryCharge,
     Value<int>? rowid,
   }) {
     return OrderItemsCompanion(
@@ -5456,6 +5652,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       trackingUrl: trackingUrl ?? this.trackingUrl,
       deliveredAt: deliveredAt ?? this.deliveredAt,
       cancelReason: cancelReason ?? this.cancelReason,
+      itemMessage: itemMessage ?? this.itemMessage,
+      requirements: requirements ?? this.requirements,
+      dietaryFlags: dietaryFlags ?? this.dietaryFlags,
+      deliveryCharge: deliveryCharge ?? this.deliveryCharge,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5544,6 +5744,18 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     if (cancelReason.present) {
       map['cancel_reason'] = Variable<String>(cancelReason.value);
     }
+    if (itemMessage.present) {
+      map['item_message'] = Variable<String>(itemMessage.value);
+    }
+    if (requirements.present) {
+      map['requirements'] = Variable<String>(requirements.value);
+    }
+    if (dietaryFlags.present) {
+      map['dietary_flags'] = Variable<int>(dietaryFlags.value);
+    }
+    if (deliveryCharge.present) {
+      map['delivery_charge'] = Variable<int>(deliveryCharge.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5580,6 +5792,10 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
           ..write('trackingUrl: $trackingUrl, ')
           ..write('deliveredAt: $deliveredAt, ')
           ..write('cancelReason: $cancelReason, ')
+          ..write('itemMessage: $itemMessage, ')
+          ..write('requirements: $requirements, ')
+          ..write('dietaryFlags: $dietaryFlags, ')
+          ..write('deliveryCharge: $deliveryCharge, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -17870,6 +18086,10 @@ typedef $$OrderItemsTableCreateCompanionBuilder =
       Value<String?> trackingUrl,
       Value<int?> deliveredAt,
       Value<String?> cancelReason,
+      Value<String?> itemMessage,
+      Value<String?> requirements,
+      Value<int> dietaryFlags,
+      Value<int> deliveryCharge,
       Value<int> rowid,
     });
 typedef $$OrderItemsTableUpdateCompanionBuilder =
@@ -17901,6 +18121,10 @@ typedef $$OrderItemsTableUpdateCompanionBuilder =
       Value<String?> trackingUrl,
       Value<int?> deliveredAt,
       Value<String?> cancelReason,
+      Value<String?> itemMessage,
+      Value<String?> requirements,
+      Value<int> dietaryFlags,
+      Value<int> deliveryCharge,
       Value<int> rowid,
     });
 
@@ -18119,6 +18343,26 @@ class $$OrderItemsTableFilterComposer
 
   ColumnFilters<String> get cancelReason => $composableBuilder(
     column: $table.cancelReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemMessage => $composableBuilder(
+    column: $table.itemMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requirements => $composableBuilder(
+    column: $table.requirements,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dietaryFlags => $composableBuilder(
+    column: $table.dietaryFlags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18354,6 +18598,26 @@ class $$OrderItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get itemMessage => $composableBuilder(
+    column: $table.itemMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requirements => $composableBuilder(
+    column: $table.requirements,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dietaryFlags => $composableBuilder(
+    column: $table.dietaryFlags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$OrdersTableOrderingComposer get orderId {
     final $$OrdersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18506,6 +18770,26 @@ class $$OrderItemsTableAnnotationComposer
 
   GeneratedColumn<String> get cancelReason => $composableBuilder(
     column: $table.cancelReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get itemMessage => $composableBuilder(
+    column: $table.itemMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get requirements => $composableBuilder(
+    column: $table.requirements,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dietaryFlags => $composableBuilder(
+    column: $table.dietaryFlags,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
     builder: (column) => column,
   );
 
@@ -18667,6 +18951,10 @@ class $$OrderItemsTableTableManager
                 Value<String?> trackingUrl = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
+                Value<String?> itemMessage = const Value.absent(),
+                Value<String?> requirements = const Value.absent(),
+                Value<int> dietaryFlags = const Value.absent(),
+                Value<int> deliveryCharge = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion(
                 id: id,
@@ -18696,6 +18984,10 @@ class $$OrderItemsTableTableManager
                 trackingUrl: trackingUrl,
                 deliveredAt: deliveredAt,
                 cancelReason: cancelReason,
+                itemMessage: itemMessage,
+                requirements: requirements,
+                dietaryFlags: dietaryFlags,
+                deliveryCharge: deliveryCharge,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -18727,6 +19019,10 @@ class $$OrderItemsTableTableManager
                 Value<String?> trackingUrl = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
+                Value<String?> itemMessage = const Value.absent(),
+                Value<String?> requirements = const Value.absent(),
+                Value<int> dietaryFlags = const Value.absent(),
+                Value<int> deliveryCharge = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion.insert(
                 id: id,
@@ -18756,6 +19052,10 @@ class $$OrderItemsTableTableManager
                 trackingUrl: trackingUrl,
                 deliveredAt: deliveredAt,
                 cancelReason: cancelReason,
+                itemMessage: itemMessage,
+                requirements: requirements,
+                dietaryFlags: dietaryFlags,
+                deliveryCharge: deliveryCharge,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

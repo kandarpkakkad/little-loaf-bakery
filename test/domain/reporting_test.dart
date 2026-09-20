@@ -34,7 +34,6 @@ void main() {
   Future<String> order(List<DraftLine> lines) => f.services.orders.create(
         customerId: customerId,
         lines: lines,
-        fulfilment: Fulfilment.pickup,
         deliveryDate: DateTime(2026, 9, 10).millisecondsSinceEpoch,
       );
 

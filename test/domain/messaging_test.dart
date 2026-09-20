@@ -11,6 +11,10 @@ final _lines = [
       Addon(name: 'Message on cake', price: Money.rupees(50)),
       Addon(name: 'Candles', price: Money.rupees(30)),
     ],
+    // On the cake, not on the order: the loaf below is neither piped nor
+    // fussy about fondant.
+    itemMessage: 'Happy 40th Aarav',
+    requirements: 'gold lettering, pastel blue rosettes, no fondant figures',
   ),
   OrderLine(menuItemId: 'm2', itemName: 'Sourdough loaf', qty: 2, basePrice: Money.rupees(180)),
 ];
@@ -41,8 +45,6 @@ MessageContext _ctx({
       deliveryDateLabel: 'Sat 29 Aug',
       deliveryTimeLabel: '4:00 pm',
       addressText: '14 Turner Rd, Bandra West, Mumbai 400050',
-      itemMessage: 'Happy 40th Aarav',
-      requirements: 'gold lettering, pastel blue rosettes, no fondant figures',
       trackingUrl: tracking,
       upiId: upi,
       paymentPhone: phone,
