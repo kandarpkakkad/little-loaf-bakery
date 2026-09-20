@@ -496,6 +496,44 @@ message opens with "Little Loaf Bakery".
 
 ---
 
+## 8b. Reminders
+
+**Local notifications, no push server.** Every reminder is a moment the device
+can work out from an order it already holds, so it is scheduled on the phone
+and survives the app being closed or the phone rebooting.
+
+| When | Why |
+|---|---|
+| **2 hours before** a journey's time | Enough left to finish and box |
+| **30 minutes before** | Leave now |
+| **1 hour after**, if it has not been handed over | Nobody has moved it |
+| **6 am on the day**, for a journey with no time | There is no hour to count from |
+
+Plus a **warning on the journey itself**, shown for as long as it is past its
+time and not handed over — on the order screen and on the Kitchen board. A
+notification is easy to miss and impossible to come back to; a line on the
+journey is still there when you next look.
+
+**Both phones raise the same reminder**, because both hold the same orders.
+With no server there is nobody to decide whose phone should ring, and for a
+delivery both owners want to know.
+
+**Cleared by handing it over or cancelling it**, and by nothing else — a
+journey marked *out* is still one the customer has not received.
+
+**Handing over more than 4 hours late asks once**, and records the time it
+actually happened. It is never refused: a van that broke down still has to be
+recorded, and a handover the app will not accept is a journey that can never be
+closed. The question does not apply to an untimed journey — there is no hour
+for it to be four hours past.
+
+The schedule is rebuilt wholesale whenever the orders change — cancel
+everything, lay it out again — rather than tracked notification by
+notification. A stale reminder for a cake already delivered is exactly what
+makes somebody turn notifications off.
+
+---
+
 ## 9. Stock
 
 **Stock in, stock out, an alert when it's low. No recipes.**
@@ -773,10 +811,11 @@ bakery's data nowhere near it.
 | Charts | A `CustomPainter`. No chart package |
 | Sharing | `wa.me` deep link via `url_launcher` |
 | Lock | `local_auth` — device PIN or biometric |
+| Reminders | `flutter_local_notifications` + `timezone`, scheduled locally |
 | Distribution | Signed APK from GitHub Releases, installed over the previous one |
 
-**Deliberately absent from the dependency list:** any chart library, any notification plugin,
-any QR package, any analytics SDK. The APK was worked down from 68 MB to ~25 MB and stays
+**Deliberately absent from the dependency list:** any chart library, any QR package, any
+analytics SDK. The APK was worked down from 68 MB to ~25 MB and stays
 there on purpose.
 
 ## Appendix B — Message drafts

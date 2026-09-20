@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/scope.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
+import '../../../domain/reminders/model.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -227,8 +228,18 @@ class _WorkCard extends StatelessWidget {
                     dayLabel(sub.deliveryDate),
                     timeLabel(sub.deliveryTime),
                   ].join(' · '),
-                  style: context.text.bodySmall!.copyWith(color: c.ink2),
+                  style: context.text.bodySmall!.copyWith(
+                    // Past its hour and still here: the board is where this
+                    // needs to be loud, because it is the screen somebody is
+                    // actually looking at during service.
+                    color: isLate(sub) ? c.warn : c.ink2,
+                    fontWeight: isLate(sub) ? FontWeight.w600 : null,
+                  ),
                 ),
+                if (isLate(sub)) ...[
+                  const SizedBox(width: Space.xs),
+                  Icon(Icons.schedule, size: 13, color: c.warn),
+                ],
               ],
             ),
             Text(work.order.customer.name,

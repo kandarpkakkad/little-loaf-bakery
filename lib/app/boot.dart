@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../platform/device/device_id.dart';
+import '../platform/notifications/reminders.dart';
 import '../platform/storage/connection.dart';
 import '../platform/storage/database.dart';
 import '../platform/sync/background.dart';
@@ -30,6 +31,7 @@ class Boot extends StatefulWidget {
 
 class _BootState extends State<Boot> {
   late final Future<AppServices> _future = _open();
+  final _reminders = ReminderService();
 
   Future<AppServices> _open() async {
     final deviceId = await const DeviceIdStore().readOrCreate();
@@ -43,6 +45,13 @@ class _BootState extends State<Boot> {
     // app opening — sync on resume still works without it.
     unawaited(registerBackgroundSync().catchError(
         (Object e) => debugPrint('could not schedule background sync: $e')));
+
+    // Journey reminders. Following the order stream covers every way a
+    // journey can change — an edit here, or a peer's edit arriving over sync
+    // and landing in the same database — so there is no path that forgets to
+    // reschedule. Quiet on failure, like the sync registration above.
+    unawaited(_reminders.init().then((_) => _reminders.follow(services.orders))
+        .catchError((Object e) => debugPrint('no reminders: $e')));
     return services;
   }
 

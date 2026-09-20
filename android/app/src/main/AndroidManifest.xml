@@ -3,6 +3,19 @@
          credential of its own. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Journey reminders. Every one is scheduled on this device from data it
+         already holds; nothing is pushed and no server is involved. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Survive a reboot: a phone restarted overnight must still warn about
+         the morning's deliveries. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "30 minutes before" has to mean 30 minutes. USE_EXACT_ALARM is granted
+         at install with no prompt; SCHEDULE_EXACT_ALARM would send the owner
+         into a settings screen. Play restricts USE_EXACT_ALARM to apps whose
+         job is alarms — this app is side-loaded from GitHub Releases, so that
+         policy does not apply to it. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <application
         android:label="Little Loaf"
         android:name="${applicationName}"
@@ -37,6 +50,20 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Reschedules the journey reminders after a reboot. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

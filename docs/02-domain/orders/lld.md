@@ -330,7 +330,8 @@ opened. That placement is the whole design:
 | New order, past date | Refused |
 | Item added to a live order for a past date | Refused |
 | Item moved to a different past date | Refused -- a different date is a different journey |
-| Item edited on an order whose day has already gone | **Allowed.** Its journey already exists and is returned before the check |
+| **Undelivered** item on an order whose day has already gone | **Allowed.** Its journey already exists and is returned before the check — a late order must stay correctable |
+| Delivered or cancelled item | Refused, and not by this rule: `updateLine` rejects `status.isDone` outright. Editing what was handed over would rewrite the record of what happened |
 
 The pickers are bounded too -- `firstDate` is today, and a time already gone
 is rejected with a message, since `showTimePicker` cannot be bounded. But the

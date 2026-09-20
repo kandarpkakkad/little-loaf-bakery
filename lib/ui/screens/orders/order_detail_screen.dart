@@ -7,6 +7,7 @@ import '../../../common/phone.dart';
 import '../../../domain/messaging/compose.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
+import '../../../domain/reminders/model.dart';
 import '../../../platform/storage/database.dart';
 import '../../theme/format.dart';
 import '../../theme/breakpoints.dart';
@@ -157,6 +158,10 @@ class _Detail extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Shown for as long as it stays true. An hour's notification
+                  // is easy to miss and impossible to come back to; a line on
+                  // the journey itself is still there when you next look.
+                  if (isLate(sub)) const _LateStrip(),
                   // The courier link belongs to this trip. A pickup has none,
                   // and a two-journey order has two.
                   if (!sub.isPickup)
@@ -569,6 +574,35 @@ class SubOrderNextStep extends StatelessWidget {
   Future<void> _go(BuildContext context, SubOrderStatus to) async {
     final messenger = ScaffoldMessenger.of(context);
     final orders = context.app.orders;
+
+    // Four hours past its hour, ask once. It is never refused: a van that
+    // broke down still has to be recorded, and a handover the app will not
+    // accept is a journey that can never be closed.
+    if (to == SubOrderStatus.delivered && isVeryLate(sub)) {
+      final now = DateTime.now();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: Text(sub.isPickup ? 'Collected late?' : 'Delivered late?'),
+          content: Text(
+            'This was due ${dayLabel(sub.deliveryDate)} at '
+            '${timeLabel(sub.deliveryTime)} — more than four hours ago.\n\n'
+            'It will be recorded as handed over now, at '
+            '${timeLabel(now.hour * 60 + now.minute)}.',
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(d, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(d, true),
+                child: const Text('Yes, record it')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    if (!context.mounted) return;
 
     // What is on it *now*, before the move. Afterwards every one of them is
     // delivered, and the message would name them all whatever happened.
@@ -1124,6 +1158,35 @@ Future<void> _editPayment(BuildContext context, Payment p) async {
         reference: reference.text.trim().isEmpty ? null : reference.text.trim());
   } on StateError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+/// A journey past its hour and still not handed over.
+class _LateStrip extends StatelessWidget {
+  const _LateStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: Space.sm),
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.sm, vertical: Space.xs),
+      decoration: BoxDecoration(
+        color: c.warnSoft,
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 14, color: c.warn),
+          const SizedBox(width: Space.xs),
+          Expanded(
+            child: Text('Past its time and still not handed over',
+                style: context.text.bodySmall!.copyWith(color: c.warn)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
