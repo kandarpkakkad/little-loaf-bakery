@@ -3,17 +3,23 @@ import 'version_gate.dart';
 
 /// The version gate, assembled from whatever this device can actually reach.
 ///
-/// Three sources, each answering a different question:
+/// Two sources, each answering a different question:
 ///
 /// - **GitHub** — what has been *released*. Needs no account, so it answers on
-///   a device that has never connected Drive.
-/// - **`app.json`** — what the fleet has been told, written by the release
-///   pipeline and by any app that finds itself newer.
+///   a device that has never connected Drive, and it answers the moment CI
+///   publishes.
 /// - **the peers' own `device.json`** — what is actually *installed* around
-///   here. This is the one that cannot be stale or forgotten, because a device
-///   writes it every time it syncs.
+///   here, and the strictest floor any of them asks for. It cannot go stale,
+///   because a device rewrites it every time it syncs.
 ///
-/// None of them answering is a normal outcome, not an error.
+/// There is deliberately no third source announcing a floor from CI. A floor
+/// written by the pipeline takes effect before any device has upgraded, so
+/// raising it would block every device at once over an incompatibility that
+/// has not happened yet — the bakery locked out of its own order book until
+/// each device is updated by hand. A floor carried by the peers rises only as
+/// devices actually move, which is when the incompatibility becomes real.
+///
+/// Neither answering is a normal outcome, not an error.
 class AppUpdates {
   AppUpdates(this._sync, {ReleaseSource? github})
       : _github = github ?? GitHubReleases();
@@ -27,20 +33,17 @@ class AppUpdates {
   Future<GateResult> check() async {
     // The shell does this too, and it is idempotent: it reads the remembered
     // account from storage and never prompts. Without it the gate runs before
-    // the account is known, misses app.json — the only source with a floor —
+    // the account is known, misses the peers — the only source with a floor —
     // and silently degrades to "GitHub said there is a newer tag".
     await _sync.restore();
 
     final store = await _sync.remoteStore();
-    final drive = store == null ? null : DriveAppConfig(store);
 
     return VersionGate(
       sources: [
         _github,
         if (store != null) PeerVersions(store, deviceId: _sync.deviceId),
-        if (drive != null) drive,
       ],
-      publishTo: drive,
       // Everything this device knows goes out while it still can.
       onBlocked: () => _sync.syncNow(),
     ).check();

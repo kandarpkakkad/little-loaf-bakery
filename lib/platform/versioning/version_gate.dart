@@ -19,8 +19,8 @@ class ReleaseInfo {
 
   final String latest;
 
-  /// Only `app.json` carries this — a GitHub release has no field for it — so
-  /// it is null whenever GitHub is the only source that answered.
+  /// Only the peers carry this — a GitHub release has no field for it — so it
+  /// is null whenever GitHub is the only source that answered.
   final String? minSupported;
 
   final String? apkUrl;
@@ -89,9 +89,9 @@ abstract class ReleaseSource {
 
 /// The GitHub release the tag-driven pipeline publishes.
 ///
-/// Answers with the tag name and the arm64 APK, and never with a
-/// `min_supported_version` — a GitHub release has nowhere to put one. That
-/// number lives in `app.json`, which is why the gate reads both.
+/// Answers with the tag name and the arm64 APK, and never with a floor — a
+/// GitHub release has nowhere to put one. That number comes from the peers,
+/// which is why the gate reads both.
 class GitHubReleases implements ReleaseSource {
   GitHubReleases({http.Client? client, this.url = kReleasesApi})
       : _client = client ?? http.Client();
@@ -131,28 +131,6 @@ class GitHubReleases implements ReleaseSource {
       return null;
     }
   }
-}
-
-/// `app.json` beside the journals, written by whichever app finds itself
-/// newer than what is there. Nobody hand-edits it.
-class DriveAppConfig implements ReleaseSource {
-  DriveAppConfig(this.store);
-
-  final RemoteStore store;
-
-  @override
-  Future<ReleaseInfo?> read() async {
-    try {
-      final text = await store.readAppConfig();
-      if (text == null) return null;
-      return ReleaseInfo.fromJson(jsonDecode(text) as Map<String, Object?>);
-    } on Exception {
-      return null;
-    }
-  }
-
-  Future<void> write(ReleaseInfo info) =>
-      store.writeAppConfig(jsonEncode(info.toJson()));
 }
 
 /// What the other devices in this bakery are running.
@@ -211,27 +189,21 @@ class PeerVersions implements ReleaseSource {
 /// Whether this build may still run.
 ///
 /// Reads both sources, because they answer different questions: GitHub knows
-/// what has been released, `app.json` knows what the fleet has agreed is the
-/// oldest acceptable build. Either may be unreachable, and **unreadable never
-/// blocks** — an offline-first app that locks you out because Drive hiccuped
+/// what has been released, the peers know what is actually installed and the
+/// oldest build any of them will still talk to. Either may be unreachable, and
+/// **unreadable never blocks** — an offline-first app that locks you out because Drive hiccuped
 /// has got its priorities backwards.
 /// docs/01-platform/versioning/lld.md §2
 class VersionGate {
   VersionGate({
     required this.sources,
-    this.publishTo,
     this.onBlocked,
     Directory? cacheDir,
     String appVersion = kAppVersion,
-    String minSupported = kMinSupported,
   })  : _cacheDir = cacheDir,
-        _appVersion = appVersion,
-        _minSupported = minSupported;
+        _appVersion = appVersion;
 
   final List<ReleaseSource> sources;
-
-  /// Where to announce this build when it is newer than anything known.
-  final DriveAppConfig? publishTo;
 
   /// Called before the block screen appears, to flush the outbox. A device
   /// about to be locked out still has work only it knows about.
@@ -239,7 +211,6 @@ class VersionGate {
 
   final Directory? _cacheDir;
   final String _appVersion;
-  final String _minSupported;
 
   Future<GateResult> check() async {
     ReleaseInfo? known;
@@ -258,22 +229,11 @@ class VersionGate {
       // that has been told to upgrade should stay told, even on a tunnel.
       known = await _cached();
     }
-    // This build is ahead of everything published, so it says so — that is how
-    // app.json is written, and nobody edits JSON in Drive by hand.
-    //
-    // `known == null` counts as ahead: nobody knows anything, so this build is
-    // the newest by default and has to be the one that goes first. Without
-    // that, app.json is never created — so it never answers, so nothing ever
-    // finds itself newer than it, so it is never created. A closed loop with
-    // no floor anywhere in it, and on a private repo, where the GitHub source
-    // never answers either, that is every install's first launch.
+    // Nothing known, or this build is ahead of everything known. Either way
+    // there is nothing to tell anyone: no file is written, because the only
+    // thing that announces a version now is a device publishing its own
+    // device.json, which the sync engine already does on every run.
     if (known == null || isOlder(known.latest, _appVersion)) {
-      await publishTo?.write(ReleaseInfo(
-        latest: _appVersion,
-        minSupported: _minSupported,
-        apkUrl: known?.apkUrl ?? kReleasesPage,
-        publishedAt: DateTime.now().toUtc().toIso8601String(),
-      ));
       return const GateResult(GateVerdict.ok);
     }
 

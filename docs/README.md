@@ -13,7 +13,7 @@ docs/
     storage/                 common columns, settings, migrations
     sync/                    journals, ops, HLC, merge, compaction
     backup/                  snapshots, ownership, restore
-    versioning/              app.json, the version gate, distribution
+    versioning/              the version gate, distribution
     security/                Drive auth, encryption, app lock, privacy
   02-domain/                 business systems
     orders/  menu/  customers/  invoicing/  payments/
@@ -47,7 +47,7 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | invoicing — issue, freeze, void | built — one per order, issued when the last item lands, totals frozen at that moment |
 | backup, restore, journal compaction | built — nightly snapshot at 00:02 IST, one owner device, 14 kept. Restore is staged and applied at the next launch |
 | security — app lock | built — off by default, device PIN or biometric, asked on cold start and after five minutes away |
-| versioning — the update gate | built — GitHub Releases and `app.json` together; unreadable never blocks |
+| versioning — the update gate | built — GitHub Releases for what exists, peers' `device.json` for the floor; unreadable never blocks |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
 | Today and Kitchen reading line dates | built — Today counts orders with a line due that day; Kitchen is a board of lines |
 | invoicing — GST columns and a separate invoice screen | **not built** — the bill itself is issued and rendered; GST stays behind `gst_enabled` |

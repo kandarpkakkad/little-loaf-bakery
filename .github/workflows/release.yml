@@ -184,31 +184,6 @@ jobs:
             && gh release upload "$V" dist/*.apk --clobber \
             || gh release create "$V" dist/*.apk --title "$V" --generate-notes
 
-      # Tells the bakery's devices about the new build, so they learn on their
-      # next sync instead of waiting for somebody to install it on one of them.
-      #
-      # Skipped, not failed, when the secrets are absent: the release itself is
-      # already published and a device that installs it announces the version
-      # anyway. Present-but-broken *does* fail, because a silent no-op here is
-      # a fleet that never hears about an update.
-      - name: Announce in Drive
-        if: success()
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [ -z "$GOOGLE_REFRESH_TOKEN" ]; then
-            echo "::notice::Drive secrets not set — skipping the announcement. Devices will learn the version when one of them installs it."
-            exit 0
-          fi
-          MIN_SUPPORTED="$(grep -E "^const String kMinSupported" lib/platform/versioning/version.dart | sed -E "s/.*'(.*)'.*/\1/")"
-          APK_URL="$(gh release view "v$VERSION" --json assets -q '.assets[] | select(.name | endswith("arm64.apk")) | .url' | head -1)"
-          echo "floor $MIN_SUPPORTED, apk $APK_URL"
-          MIN_SUPPORTED="$MIN_SUPPORTED" APK_URL="$APK_URL" python3 tool/publish_app_json.py
-
       # Runs even when an earlier step failed, so a crashed job never leaves the
       # key on the runner's disk.
       - name: Shred the key

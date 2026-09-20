@@ -4,38 +4,23 @@
 Built — `lib/platform/versioning/`, the block screen and banner in
 `ui/shell/update_gate.dart`, 18 tests.
 
-**The gate reads two sources, not one.** Distribution moved to GitHub
-Releases, so that is where "what is the newest build" is answered — and it
-answers for a device that has never connected Drive. But a GitHub release has
-nowhere to carry `min_supported_version`, so the floor still lives in
-`app.json` beside the journals. The gate merges them: the newer `latest`, and
-the stricter floor either one names. One source being unreachable loses only
-what that source knew.
+**The gate reads two sources.** Distribution is GitHub Releases, so that is
+where "what is the newest build" is answered — and because the repository is
+public it answers for any device, including one that has never connected
+Drive, with a download link that resolves without a sign-in. A GitHub release
+has nowhere to carry `min_supported_version`, so the floor comes from the peers
+instead: every device publishes its own version and its own floor in the
+`device.json` it already writes on every sync.
 
 Versions are **semver strings** rather than integers, because the release tag
 is the version and the tag is `v0.1.1`. `v`, a `+build` suffix and an `-rc`
 suffix all compare equal to the bare version, so a tag and a pubspec line are
 the same thing to the comparator.
 
-`app.json` sits at the **root** of the shared folder, beside `journal/` and
-`snapshot/`: it is a fact about the app, not about one device's ops.
-
-**Somebody has to go first.** When no source answers — no `app.json` yet, and a
-GitHub source that cannot answer — this build counts as the newest by default
-and writes `app.json` itself. Without that the file is never created, so it
-never answers, so nothing ever finds itself newer than it: a closed loop with
-no floor anywhere in it.
-
-The repository is **public**, so the GitHub source answers for any device —
-including one that has never connected Drive — and the download link on the
-block screen resolves without a sign-in. It went public to give the OAuth
-consent screen a homepage and a privacy policy; turning this source on came
-free with it.
-
-Were it private again, an unauthenticated call to the release API would be a
-404, a 404 is "no answer", and the gate would quietly fall back to `app.json`
-and the peers — still correct, but with `latest` tracking the newest *installed*
-device rather than the newest published release.
+Were the repository private again, an unauthenticated call to the release API
+would be a 404, a 404 is "no answer", and the gate would fall back to the peers
+alone — still correct, but with `latest` tracking the newest *installed* device
+rather than the newest published release.
 
 ## Purpose
 Let devices run different versions safely, force an upgrade when they cannot, and get the APK
@@ -46,44 +31,45 @@ onto a phone without a store.
 | | Scope | Automatic? |
 |---|---|---|
 | **`min_reader_version`** on a journal | One peer's ops | Yes — stop applying *that journal* |
-| **`min_supported_version`** in `app.json` | The whole app | Yes — hard block the app |
+| **`min_supported`** in a peer's `device.json` | The whole app | Yes — hard block the app |
 
 A breaking schema change usually bumps both: the journal guard stops bad reads immediately,
 the version gate makes sure nobody stays on the old build.
 
-## Three sources, not two
+## Two sources
 
 | Source | Answers | Carries a floor? |
 |---|---|---|
 | **GitHub Releases** | what has been *published* | No — a release has nowhere to put one |
-| **`app.json`** in Drive | what the release pipeline announced | Yes |
 | **peers' `device.json`** | what is actually *installed* around here | Yes — the strictest any peer asks for |
 
-The third needs no new file and no extra read: `device.json` is already written on every sync
-and already read from every peer on every sync, so the version rides along for free. It is
-also the one that cannot go stale, because a device rewrites it every time it syncs — and it
-answers the question the other two cannot, which is not "what exists" but "what is this
-bakery actually running".
+`device.json` is already written on every sync and already read from every peer on every sync,
+so the version rides along for free. It cannot go stale, because a device rewrites it every
+time it syncs — and it answers the question GitHub cannot, which is not "what exists" but
+"what is this bakery actually running". A newer build propagates its own `kMinSupported`
+simply by syncing once.
 
-A newer build therefore propagates its own `kMinSupported` simply by syncing once.
+**There was a third, and it was removed.** `app.json`, written into Drive by the release
+pipeline, would have announced a floor the moment CI published — *before any device had
+upgraded*. Raising `kMinSupported` would then have blocked every device at once, over an
+incompatibility that had not happened yet, leaving the bakery locked out of its own order book
+until each device was updated by hand. A floor carried by the peers rises only as devices
+actually move, which is when the incompatibility becomes real. Dropping it also removed a
+long-lived Google credential from CI, and with it the seven-day refresh-token expiry that
+would have had to be nursed.
 
-## `app.json`
-```jsonc
-{ "latest_version": 14, "min_supported_version": 12,
-  "published_at": "2026-08-27T09:00:00Z", "apk_url": "https://…" }
-```
-Written by whichever app finds its own version higher than `latest_version`. **Nobody
-hand-edits JSON in Drive.**
+## The verdict
 
 | Case | Behaviour |
 |---|---|
-| Below `min_supported_version` | **Hard block** (S29). Outbox flushed first, so nothing is lost |
-| Below `latest_version` | Dismissible banner |
-| `app.json` unreadable or missing | **Never blocks.** Cached values used |
-| `apk_url` missing | Block screen drops its Download button |
+| Below the strictest peer's `min_supported` | **Hard block** (S29). Outbox flushed first, so nothing is lost |
+| Below the newest release | Dismissible banner, once per launch |
+| No source answered | **Never blocks.** The last cached answer is used, then nothing |
+| No APK link | Block screen falls back to the releases page, which is always there |
 
 **Unreadable never blocks** is the rule that keeps an offline-first app from locking you out
-because Drive hiccuped.
+because Drive or GitHub hiccuped. A device told to upgrade stays told, because the last answer
+is cached — but an answer that never came is not an answer.
 
 ## Distribution
 **GitHub Releases**, published by the tag-driven pipeline: pushing `v0.1.2` builds, signs,

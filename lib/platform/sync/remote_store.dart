@@ -52,16 +52,6 @@ abstract class RemoteStore {
 
   Future<void> deleteSnapshot(String name);
 
-  // ── the fleet's idea of the newest build ───────────────────────────────
-
-  /// `<root>/app.json`, or null if nothing has written it yet.
-  ///
-  /// At the root beside `journal/` and `snapshot/` rather than inside either:
-  /// it is a fact about the app, not about one device's ops or one night's
-  /// backup. docs/01-platform/versioning/schema.md
-  Future<String?> readAppConfig();
-
-  Future<void> writeAppConfig(String json);
 }
 
 /// A [RemoteStore] in a map. Used by the tests, and by nothing else.
@@ -95,17 +85,6 @@ class InMemoryRemoteStore implements RemoteStore {
   Future<void> writeDeviceMeta(String deviceId, String json) async {
     _maybeFail();
     meta[deviceId] = json;
-  }
-
-  String? appConfig;
-
-  @override
-  Future<String?> readAppConfig() async => appConfig;
-
-  @override
-  Future<void> writeAppConfig(String json) async {
-    _maybeFail();
-    appConfig = json;
   }
 
   @override

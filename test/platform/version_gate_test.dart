@@ -22,17 +22,13 @@ void main() {
   VersionGate gate(
     List<ReleaseSource> sources, {
     String app = '0.2.0',
-    String minSupported = '0.1.0',
-    DriveAppConfig? publish,
     Future<void> Function()? onBlocked,
   }) =>
       VersionGate(
         sources: sources,
-        publishTo: publish,
         onBlocked: onBlocked,
         cacheDir: cache,
         appVersion: app,
-        minSupported: minSupported,
       );
 
   group('comparing versions', () {
@@ -116,14 +112,15 @@ void main() {
           reason: 'a device told to upgrade stays told, even on a tunnel');
     });
 
-    test('a malformed app.json is no answer, not a bad one', () async {
-      final store = _ConfigStore('{"latest_version": 12345}'); // not a string
-      final r = await gate([DriveAppConfig(store)]).check();
-      expect(r.verdict, GateVerdict.ok);
-    });
+    test('a source that cannot parse what it read says nothing', () async {
+      // ReleaseInfo.fromJson returns null rather than throwing on anything it
+      // does not recognise, and null is "no answer".
+      expect(ReleaseInfo.fromJson({'latest_version': 12345}), isNull,
+          reason: 'a number is not a version');
+      expect(ReleaseInfo.fromJson({'latest_version': ''}), isNull);
+      expect(ReleaseInfo.fromJson(const {}), isNull);
 
-    test('an empty file is no answer either', () async {
-      final r = await gate([DriveAppConfig(_ConfigStore(''))]).check();
+      final r = await gate([_Source(null)]).check();
       expect(r.verdict, GateVerdict.ok);
     });
   });
@@ -138,7 +135,7 @@ void main() {
       expect(r.verdict, GateVerdict.updateAvailable);
       expect(r.info!.latest, 'v0.5.0', reason: 'GitHub had the newer tag');
       expect(r.info!.minSupported, '0.1.0',
-          reason: 'only app.json carries a floor, and it must survive');
+          reason: 'only the peers carry a floor, and it must survive');
       expect(r.info!.apkUrl, 'https://gh/apk');
     });
 
@@ -156,68 +153,6 @@ void main() {
         _Source(const ReleaseInfo(latest: '0.4.0', minSupported: '0.1.0')),
       ]).check();
       expect(r.verdict, GateVerdict.updateAvailable);
-    });
-  });
-
-  group('publishing', () {
-    test('a build newer than anything known announces itself', () async {
-      final store = _ConfigStore(
-          jsonEncode(const ReleaseInfo(latest: '0.1.0').toJson()));
-      final drive = DriveAppConfig(store);
-
-      final r = await gate(
-        [drive],
-        app: '0.2.0',
-        minSupported: '0.1.5',
-        publish: drive,
-      ).check();
-
-      expect(r.verdict, GateVerdict.ok);
-      final written =
-          jsonDecode(store.text!) as Map<String, Object?>;
-      expect(written['latest_version'], '0.2.0');
-      expect(written['min_supported_version'], '0.1.5');
-    });
-
-    test('the very first install creates app.json', () async {
-      // Nothing has ever written it, and on a private repo GitHub never
-      // answers either — so no source knows anything. This is the first
-      // launch of the first device, and it has to be the one that says what
-      // the fleet is on. Otherwise app.json is never created, never answers,
-      // and therefore never gets created: a closed loop with no floor in it.
-      final store = _ConfigStore(null);
-      final drive = DriveAppConfig(store);
-
-      final r = await gate(
-        [_Source(null), drive],
-        app: '0.1.3',
-        minSupported: '0.1.0',
-        publish: drive,
-      ).check();
-
-      expect(r.verdict, GateVerdict.ok);
-      expect(store.text, isNotNull,
-          reason: 'somebody has to go first');
-      final written = jsonDecode(store.text!) as Map<String, Object?>;
-      expect(written['latest_version'], '0.1.3');
-      expect(written['min_supported_version'], '0.1.0');
-    });
-
-    test('with nowhere to publish it simply carries on', () async {
-      final r = await gate([_Source(null)], app: '0.1.3').check();
-      expect(r.verdict, GateVerdict.ok,
-          reason: 'Drive not connected is not a reason to stop');
-    });
-
-    test('a build that is merely current writes nothing', () async {
-      final store = _ConfigStore(
-          jsonEncode(const ReleaseInfo(latest: '0.2.0').toJson()));
-      final before = store.writes;
-
-      await gate([DriveAppConfig(store)],
-              app: '0.2.0', publish: DriveAppConfig(store))
-          .check();
-      expect(store.writes, before);
     });
   });
 
@@ -311,26 +246,4 @@ class _Source implements ReleaseSource {
 
   @override
   Future<ReleaseInfo?> read() async => info;
-}
-
-/// Only the two app.json methods matter here; the rest of RemoteStore is a
-/// different story with its own tests.
-class _ConfigStore implements RemoteStore {
-  _ConfigStore(this.text);
-
-  String? text;
-  int writes = 0;
-
-  @override
-  Future<String?> readAppConfig() async => text;
-
-  @override
-  Future<void> writeAppConfig(String json) async {
-    writes++;
-    text = json;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation i) =>
-      throw UnimplementedError('${i.memberName}');
 }

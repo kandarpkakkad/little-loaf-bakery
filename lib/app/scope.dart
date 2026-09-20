@@ -54,7 +54,8 @@ class AppServices {
   /// default, and the switch is in Business details.
   final AppLock lock;
 
-  /// Whether this build is too old to carry on. Reads GitHub and `app.json`.
+  /// Whether this build is too old to carry on. Reads GitHub Releases and
+  /// what the other devices say they are running.
   late final AppUpdates updates;
 
   Future<Setting> settings() => db.select(db.settings).getSingle();

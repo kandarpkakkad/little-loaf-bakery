@@ -24,7 +24,7 @@ Everything about the architecture follows from that one choice.
 │  storage      SQLite · drift · migrations · HLC stamping                       │
 │  sync         outbox · journals · merge · compaction · cursors                 │
 │  backup       snapshot ownership · nightly write · restore                     │
-│  versioning   app.json · gate · APK distribution                               │
+│  versioning   gate · GitHub Releases · APK distribution                        │
 │  security     Drive auth · SQLCipher · app lock · privacy                      │
 └───────────────────────────────────────┬────────────────────────────────────────┘
                                         ▼

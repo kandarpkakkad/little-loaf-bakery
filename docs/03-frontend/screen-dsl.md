@@ -608,7 +608,7 @@ Every branch above, in one place — so none is discovered during build.
 | 21 | Sync strip | syncing · offline+N · stale ≥24h · otherwise ∅ |
 | 22 | Peer | normal · needs upgrade · silent >30 days |
 | 23 | Snapshot | mine · another device's · **stale ≥3 days → warning naming the owner** |
-| 24 | Version gate | ok · banner · **blocked** · unreadable `app.json` → **never blocks** |
+| 24 | Version gate | ok · banner · **blocked** · no source answered → **never blocks** |
 | 25 | Setup | fresh · existing snapshots found → restore offered |
 | 26 | Menu item | available · inactive · out of season → greyed with the reason |
 | 27 | Material unit | editable when no movements · **locked once movements exist** |

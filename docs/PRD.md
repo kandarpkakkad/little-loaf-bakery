@@ -57,7 +57,7 @@ Device 0192f3…a41c            Device 0192f4…7b02            (…any number)
           snapshot/owner.json                 which device takes snapshots
           snapshot/2026-08-26.db              nightly, by the owner only
           media/ref-<uuid>.jpg
-          app.json                            version gate
+          releases + device.json              version gate
           releases/little-loaf.apk            replaced in place
 ```
 
@@ -221,10 +221,10 @@ Keep the last 14 snapshots; prune older.
 | A journal needs a newer app (`min_reader_version`) | Stop applying **that journal**, say so. Other devices' journals keep syncing. Never partial-apply |
 | App below `min_supported_version` | **Hard block** (S29). Outbox flushed first, so nothing is lost |
 | App below `latest_version` | Dismissible banner |
-| `app.json` unreadable or missing | **Never blocks.** Cached values used |
+| No source answered | **Never blocks.** Cached values used |
 | `apk_url` missing | Block screen drops the Download button |
 
-`app.json` in Drive: `{ latest_version, min_supported_version, published_at, apk_url }`.
+The GitHub release tag for what exists; each peer's `device.json` for `app_version` and `min_supported`.
 The newest app writes it. Nobody hand-edits JSON.
 
 **Publishing an update**
@@ -232,7 +232,7 @@ The newest app writes it. Nobody hand-edits JSON.
 1. Bump `version`. Bump `min_supported_version` only if genuinely breaking.
 2. Build a signed APK **with the same keystore as always**.
 3. **Replace** `releases/little-loaf.apk` in Drive — *Manage versions → Upload new version*, never a new file. A new file gets a new id, and the URL is baked into the build.
-4. Install on one device (it writes `app.json`), then the rest.
+4. Install on one device; it publishes its version to the others on its next sync.
 
 Sharing stays **off** — only the bakery account can see it, and every device is signed in.
 Use `https://drive.google.com/uc?export=download&id=<file-id>`. Drive keeps prior versions
@@ -755,7 +755,7 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 |---|---|
 | **Sync bugs lose or corrupt data** | Append-only journals, idempotent ops, nightly snapshots, conflict log, multi-device soak test from M2, quarterly restore drills |
 | **Upgrade installed after an uninstall** | Never uninstall; keep the signing key safe; snapshot before every migration |
-| **Bad build sets `min_supported_version` too high** | Block screen always carries the update link and Restore; unreadable `app.json` never blocks |
+| **Bad build sets `min_supported` too high** | Only devices actually running it raise the floor, so it spreads as fast as installs do rather than all at once; the block screen always carries the update link and Restore |
 | Devices offline for days | Field-level LWW limits the blast radius; overwrites logged |
 | A device is lost | Nothing to transfer — the others keep working. Its replacement is a **new device with a new id**, starting a fresh sequence. The old journal stays readable and ages out after 30 days |
 | Journals grow without bound | Compaction needs both peer cursors and snapshot inclusion; a peer silent 30 days stops being waited for |

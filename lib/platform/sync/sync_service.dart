@@ -234,7 +234,7 @@ class SyncService extends ChangeNotifier {
   }
 
   /// The Drive folder, if this device can reach it. Used by the version gate,
-  /// which reads `app.json` from the same place the journals live.
+  /// which reads what each peer is running from its `device.json`.
   Future<RemoteStore?> remoteStore() => _store();
 
   Future<DriveStore?> _store() async {
