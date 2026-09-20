@@ -37,20 +37,27 @@ void main() {
         deliveryDate: DateTime(2026, 9, 10).millisecondsSinceEpoch,
       );
 
+  /// Bake everything, then hand over every journey — which is what delivers
+  /// the items on it (D29).
   Future<void> deliverAll(String id) async {
     await f.services.orders.confirm(id);
     final v = await f.services.orders.watchOrder(id).first;
+
     for (final l in v!.lines) {
-      for (final st in const [
-        LineStatus.inProduction,
-        LineStatus.ready,
-        LineStatus.delivered,
-      ]) {
+      for (final st in const [LineStatus.inProduction, LineStatus.ready]) {
         final rows = await f.rows('order_items');
         final now = LineStatus.parse(
             rows.firstWhere((r) => r['id'] == l.id)['status'] as String);
         if (now.canGoTo(st)) await f.services.orders.moveLine(l.id!, st);
       }
+    }
+
+    final fresh = await f.services.orders.watchOrder(id).first;
+    for (final sub in fresh!.liveSubOrders) {
+      if (!sub.isPickup) {
+        await f.services.orders.moveSubOrder(sub.id, SubOrderStatus.out);
+      }
+      await f.services.orders.moveSubOrder(sub.id, SubOrderStatus.delivered);
     }
   }
 

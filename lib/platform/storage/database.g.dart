@@ -4099,6 +4099,1095 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   }
 }
 
+class $SubOrdersTable extends SubOrders
+    with TableInfo<$SubOrdersTable, SubOrderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SubOrdersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtHlcMeta = const VerificationMeta(
+    'updatedAtHlc',
+  );
+  @override
+  late final GeneratedColumn<String> updatedAtHlc = GeneratedColumn<String>(
+    'updated_at_hlc',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _orderIdMeta = const VerificationMeta(
+    'orderId',
+  );
+  @override
+  late final GeneratedColumn<String> orderId = GeneratedColumn<String>(
+    'order_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES orders (id)',
+    ),
+  );
+  static const VerificationMeta _seqMeta = const VerificationMeta('seq');
+  @override
+  late final GeneratedColumn<int> seq = GeneratedColumn<int>(
+    'seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('created'),
+  );
+  static const VerificationMeta _deliveryDateMeta = const VerificationMeta(
+    'deliveryDate',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryDate = GeneratedColumn<int>(
+    'delivery_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deliveryTimeMeta = const VerificationMeta(
+    'deliveryTime',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryTime = GeneratedColumn<int>(
+    'delivery_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fulfilmentMeta = const VerificationMeta(
+    'fulfilment',
+  );
+  @override
+  late final GeneratedColumn<String> fulfilment = GeneratedColumn<String>(
+    'fulfilment',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deliveryTypeMeta = const VerificationMeta(
+    'deliveryType',
+  );
+  @override
+  late final GeneratedColumn<String> deliveryType = GeneratedColumn<String>(
+    'delivery_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressTextMeta = const VerificationMeta(
+    'addressText',
+  );
+  @override
+  late final GeneratedColumn<String> addressText = GeneratedColumn<String>(
+    'address_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinLatMeta = const VerificationMeta('pinLat');
+  @override
+  late final GeneratedColumn<double> pinLat = GeneratedColumn<double>(
+    'pin_lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinLngMeta = const VerificationMeta('pinLng');
+  @override
+  late final GeneratedColumn<double> pinLng = GeneratedColumn<double>(
+    'pin_lng',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinUrlMeta = const VerificationMeta('pinUrl');
+  @override
+  late final GeneratedColumn<String> pinUrl = GeneratedColumn<String>(
+    'pin_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveryChargeMeta = const VerificationMeta(
+    'deliveryCharge',
+  );
+  @override
+  late final GeneratedColumn<int> deliveryCharge = GeneratedColumn<int>(
+    'delivery_charge',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _trackingUrlMeta = const VerificationMeta(
+    'trackingUrl',
+  );
+  @override
+  late final GeneratedColumn<String> trackingUrl = GeneratedColumn<String>(
+    'tracking_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveredAtMeta = const VerificationMeta(
+    'deliveredAt',
+  );
+  @override
+  late final GeneratedColumn<int> deliveredAt = GeneratedColumn<int>(
+    'delivered_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
+    orderId,
+    seq,
+    status,
+    deliveryDate,
+    deliveryTime,
+    fulfilment,
+    deliveryType,
+    addressText,
+    pinLat,
+    pinLng,
+    pinUrl,
+    deliveryCharge,
+    trackingUrl,
+    deliveredAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sub_orders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SubOrderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at_hlc')) {
+      context.handle(
+        _updatedAtHlcMeta,
+        updatedAtHlc.isAcceptableOrUnknown(
+          data['updated_at_hlc']!,
+          _updatedAtHlcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtHlcMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('order_id')) {
+      context.handle(
+        _orderIdMeta,
+        orderId.isAcceptableOrUnknown(data['order_id']!, _orderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderIdMeta);
+    }
+    if (data.containsKey('seq')) {
+      context.handle(
+        _seqMeta,
+        seq.isAcceptableOrUnknown(data['seq']!, _seqMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seqMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('delivery_date')) {
+      context.handle(
+        _deliveryDateMeta,
+        deliveryDate.isAcceptableOrUnknown(
+          data['delivery_date']!,
+          _deliveryDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_deliveryDateMeta);
+    }
+    if (data.containsKey('delivery_time')) {
+      context.handle(
+        _deliveryTimeMeta,
+        deliveryTime.isAcceptableOrUnknown(
+          data['delivery_time']!,
+          _deliveryTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fulfilment')) {
+      context.handle(
+        _fulfilmentMeta,
+        fulfilment.isAcceptableOrUnknown(data['fulfilment']!, _fulfilmentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fulfilmentMeta);
+    }
+    if (data.containsKey('delivery_type')) {
+      context.handle(
+        _deliveryTypeMeta,
+        deliveryType.isAcceptableOrUnknown(
+          data['delivery_type']!,
+          _deliveryTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('address_text')) {
+      context.handle(
+        _addressTextMeta,
+        addressText.isAcceptableOrUnknown(
+          data['address_text']!,
+          _addressTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pin_lat')) {
+      context.handle(
+        _pinLatMeta,
+        pinLat.isAcceptableOrUnknown(data['pin_lat']!, _pinLatMeta),
+      );
+    }
+    if (data.containsKey('pin_lng')) {
+      context.handle(
+        _pinLngMeta,
+        pinLng.isAcceptableOrUnknown(data['pin_lng']!, _pinLngMeta),
+      );
+    }
+    if (data.containsKey('pin_url')) {
+      context.handle(
+        _pinUrlMeta,
+        pinUrl.isAcceptableOrUnknown(data['pin_url']!, _pinUrlMeta),
+      );
+    }
+    if (data.containsKey('delivery_charge')) {
+      context.handle(
+        _deliveryChargeMeta,
+        deliveryCharge.isAcceptableOrUnknown(
+          data['delivery_charge']!,
+          _deliveryChargeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tracking_url')) {
+      context.handle(
+        _trackingUrlMeta,
+        trackingUrl.isAcceptableOrUnknown(
+          data['tracking_url']!,
+          _trackingUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivered_at')) {
+      context.handle(
+        _deliveredAtMeta,
+        deliveredAt.isAcceptableOrUnknown(
+          data['delivered_at']!,
+          _deliveredAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SubOrderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SubOrderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAtHlc: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at_hlc'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      orderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_id'],
+      )!,
+      seq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seq'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      deliveryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_date'],
+      )!,
+      deliveryTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_time'],
+      ),
+      fulfilment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fulfilment'],
+      )!,
+      deliveryType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivery_type'],
+      ),
+      addressText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address_text'],
+      ),
+      pinLat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}pin_lat'],
+      ),
+      pinLng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}pin_lng'],
+      ),
+      pinUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_url'],
+      ),
+      deliveryCharge: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivery_charge'],
+      )!,
+      trackingUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tracking_url'],
+      ),
+      deliveredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delivered_at'],
+      ),
+    );
+  }
+
+  @override
+  $SubOrdersTable createAlias(String alias) {
+    return $SubOrdersTable(attachedDatabase, alias);
+  }
+}
+
+class SubOrderRow extends DataClass implements Insertable<SubOrderRow> {
+  final String id;
+  final String deviceId;
+  final int createdAt;
+  final String updatedAtHlc;
+  final int? deletedAt;
+  final String orderId;
+
+  /// 1, 2, 3 … within the order, so the kitchen can say "LLB-0001-67FR-2".
+  ///
+  /// **Spent, never reused.** A sub-order that empties takes its number with
+  /// it: a number that comes back meaning something else is worse than a gap.
+  /// It never appears in a customer message — the customer bought one order.
+  final int seq;
+  final String status;
+  final int deliveryDate;
+  final int? deliveryTime;
+  final String fulfilment;
+  final String? deliveryType;
+  final String? addressText;
+  final double? pinLat;
+  final double? pinLng;
+  final String? pinUrl;
+
+  /// One journey, one charge, however many boxes are in it. The order's own
+  /// charge is the sum across its sub-orders.
+  final int deliveryCharge;
+  final String? trackingUrl;
+  final int? deliveredAt;
+  const SubOrderRow({
+    required this.id,
+    required this.deviceId,
+    required this.createdAt,
+    required this.updatedAtHlc,
+    this.deletedAt,
+    required this.orderId,
+    required this.seq,
+    required this.status,
+    required this.deliveryDate,
+    this.deliveryTime,
+    required this.fulfilment,
+    this.deliveryType,
+    this.addressText,
+    this.pinLat,
+    this.pinLng,
+    this.pinUrl,
+    required this.deliveryCharge,
+    this.trackingUrl,
+    this.deliveredAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at_hlc'] = Variable<String>(updatedAtHlc);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['order_id'] = Variable<String>(orderId);
+    map['seq'] = Variable<int>(seq);
+    map['status'] = Variable<String>(status);
+    map['delivery_date'] = Variable<int>(deliveryDate);
+    if (!nullToAbsent || deliveryTime != null) {
+      map['delivery_time'] = Variable<int>(deliveryTime);
+    }
+    map['fulfilment'] = Variable<String>(fulfilment);
+    if (!nullToAbsent || deliveryType != null) {
+      map['delivery_type'] = Variable<String>(deliveryType);
+    }
+    if (!nullToAbsent || addressText != null) {
+      map['address_text'] = Variable<String>(addressText);
+    }
+    if (!nullToAbsent || pinLat != null) {
+      map['pin_lat'] = Variable<double>(pinLat);
+    }
+    if (!nullToAbsent || pinLng != null) {
+      map['pin_lng'] = Variable<double>(pinLng);
+    }
+    if (!nullToAbsent || pinUrl != null) {
+      map['pin_url'] = Variable<String>(pinUrl);
+    }
+    map['delivery_charge'] = Variable<int>(deliveryCharge);
+    if (!nullToAbsent || trackingUrl != null) {
+      map['tracking_url'] = Variable<String>(trackingUrl);
+    }
+    if (!nullToAbsent || deliveredAt != null) {
+      map['delivered_at'] = Variable<int>(deliveredAt);
+    }
+    return map;
+  }
+
+  SubOrdersCompanion toCompanion(bool nullToAbsent) {
+    return SubOrdersCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      createdAt: Value(createdAt),
+      updatedAtHlc: Value(updatedAtHlc),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      orderId: Value(orderId),
+      seq: Value(seq),
+      status: Value(status),
+      deliveryDate: Value(deliveryDate),
+      deliveryTime: deliveryTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryTime),
+      fulfilment: Value(fulfilment),
+      deliveryType: deliveryType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryType),
+      addressText: addressText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(addressText),
+      pinLat: pinLat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinLat),
+      pinLng: pinLng == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinLng),
+      pinUrl: pinUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinUrl),
+      deliveryCharge: Value(deliveryCharge),
+      trackingUrl: trackingUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackingUrl),
+      deliveredAt: deliveredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredAt),
+    );
+  }
+
+  factory SubOrderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SubOrderRow(
+      id: serializer.fromJson<String>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAtHlc: serializer.fromJson<String>(json['updatedAtHlc']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      orderId: serializer.fromJson<String>(json['orderId']),
+      seq: serializer.fromJson<int>(json['seq']),
+      status: serializer.fromJson<String>(json['status']),
+      deliveryDate: serializer.fromJson<int>(json['deliveryDate']),
+      deliveryTime: serializer.fromJson<int?>(json['deliveryTime']),
+      fulfilment: serializer.fromJson<String>(json['fulfilment']),
+      deliveryType: serializer.fromJson<String?>(json['deliveryType']),
+      addressText: serializer.fromJson<String?>(json['addressText']),
+      pinLat: serializer.fromJson<double?>(json['pinLat']),
+      pinLng: serializer.fromJson<double?>(json['pinLng']),
+      pinUrl: serializer.fromJson<String?>(json['pinUrl']),
+      deliveryCharge: serializer.fromJson<int>(json['deliveryCharge']),
+      trackingUrl: serializer.fromJson<String?>(json['trackingUrl']),
+      deliveredAt: serializer.fromJson<int?>(json['deliveredAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAtHlc': serializer.toJson<String>(updatedAtHlc),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'orderId': serializer.toJson<String>(orderId),
+      'seq': serializer.toJson<int>(seq),
+      'status': serializer.toJson<String>(status),
+      'deliveryDate': serializer.toJson<int>(deliveryDate),
+      'deliveryTime': serializer.toJson<int?>(deliveryTime),
+      'fulfilment': serializer.toJson<String>(fulfilment),
+      'deliveryType': serializer.toJson<String?>(deliveryType),
+      'addressText': serializer.toJson<String?>(addressText),
+      'pinLat': serializer.toJson<double?>(pinLat),
+      'pinLng': serializer.toJson<double?>(pinLng),
+      'pinUrl': serializer.toJson<String?>(pinUrl),
+      'deliveryCharge': serializer.toJson<int>(deliveryCharge),
+      'trackingUrl': serializer.toJson<String?>(trackingUrl),
+      'deliveredAt': serializer.toJson<int?>(deliveredAt),
+    };
+  }
+
+  SubOrderRow copyWith({
+    String? id,
+    String? deviceId,
+    int? createdAt,
+    String? updatedAtHlc,
+    Value<int?> deletedAt = const Value.absent(),
+    String? orderId,
+    int? seq,
+    String? status,
+    int? deliveryDate,
+    Value<int?> deliveryTime = const Value.absent(),
+    String? fulfilment,
+    Value<String?> deliveryType = const Value.absent(),
+    Value<String?> addressText = const Value.absent(),
+    Value<double?> pinLat = const Value.absent(),
+    Value<double?> pinLng = const Value.absent(),
+    Value<String?> pinUrl = const Value.absent(),
+    int? deliveryCharge,
+    Value<String?> trackingUrl = const Value.absent(),
+    Value<int?> deliveredAt = const Value.absent(),
+  }) => SubOrderRow(
+    id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    orderId: orderId ?? this.orderId,
+    seq: seq ?? this.seq,
+    status: status ?? this.status,
+    deliveryDate: deliveryDate ?? this.deliveryDate,
+    deliveryTime: deliveryTime.present ? deliveryTime.value : this.deliveryTime,
+    fulfilment: fulfilment ?? this.fulfilment,
+    deliveryType: deliveryType.present ? deliveryType.value : this.deliveryType,
+    addressText: addressText.present ? addressText.value : this.addressText,
+    pinLat: pinLat.present ? pinLat.value : this.pinLat,
+    pinLng: pinLng.present ? pinLng.value : this.pinLng,
+    pinUrl: pinUrl.present ? pinUrl.value : this.pinUrl,
+    deliveryCharge: deliveryCharge ?? this.deliveryCharge,
+    trackingUrl: trackingUrl.present ? trackingUrl.value : this.trackingUrl,
+    deliveredAt: deliveredAt.present ? deliveredAt.value : this.deliveredAt,
+  );
+  SubOrderRow copyWithCompanion(SubOrdersCompanion data) {
+    return SubOrderRow(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAtHlc: data.updatedAtHlc.present
+          ? data.updatedAtHlc.value
+          : this.updatedAtHlc,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      orderId: data.orderId.present ? data.orderId.value : this.orderId,
+      seq: data.seq.present ? data.seq.value : this.seq,
+      status: data.status.present ? data.status.value : this.status,
+      deliveryDate: data.deliveryDate.present
+          ? data.deliveryDate.value
+          : this.deliveryDate,
+      deliveryTime: data.deliveryTime.present
+          ? data.deliveryTime.value
+          : this.deliveryTime,
+      fulfilment: data.fulfilment.present
+          ? data.fulfilment.value
+          : this.fulfilment,
+      deliveryType: data.deliveryType.present
+          ? data.deliveryType.value
+          : this.deliveryType,
+      addressText: data.addressText.present
+          ? data.addressText.value
+          : this.addressText,
+      pinLat: data.pinLat.present ? data.pinLat.value : this.pinLat,
+      pinLng: data.pinLng.present ? data.pinLng.value : this.pinLng,
+      pinUrl: data.pinUrl.present ? data.pinUrl.value : this.pinUrl,
+      deliveryCharge: data.deliveryCharge.present
+          ? data.deliveryCharge.value
+          : this.deliveryCharge,
+      trackingUrl: data.trackingUrl.present
+          ? data.trackingUrl.value
+          : this.trackingUrl,
+      deliveredAt: data.deliveredAt.present
+          ? data.deliveredAt.value
+          : this.deliveredAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SubOrderRow(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('orderId: $orderId, ')
+          ..write('seq: $seq, ')
+          ..write('status: $status, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveryTime: $deliveryTime, ')
+          ..write('fulfilment: $fulfilment, ')
+          ..write('deliveryType: $deliveryType, ')
+          ..write('addressText: $addressText, ')
+          ..write('pinLat: $pinLat, ')
+          ..write('pinLng: $pinLng, ')
+          ..write('pinUrl: $pinUrl, ')
+          ..write('deliveryCharge: $deliveryCharge, ')
+          ..write('trackingUrl: $trackingUrl, ')
+          ..write('deliveredAt: $deliveredAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
+    orderId,
+    seq,
+    status,
+    deliveryDate,
+    deliveryTime,
+    fulfilment,
+    deliveryType,
+    addressText,
+    pinLat,
+    pinLng,
+    pinUrl,
+    deliveryCharge,
+    trackingUrl,
+    deliveredAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SubOrderRow &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAtHlc == this.updatedAtHlc &&
+          other.deletedAt == this.deletedAt &&
+          other.orderId == this.orderId &&
+          other.seq == this.seq &&
+          other.status == this.status &&
+          other.deliveryDate == this.deliveryDate &&
+          other.deliveryTime == this.deliveryTime &&
+          other.fulfilment == this.fulfilment &&
+          other.deliveryType == this.deliveryType &&
+          other.addressText == this.addressText &&
+          other.pinLat == this.pinLat &&
+          other.pinLng == this.pinLng &&
+          other.pinUrl == this.pinUrl &&
+          other.deliveryCharge == this.deliveryCharge &&
+          other.trackingUrl == this.trackingUrl &&
+          other.deliveredAt == this.deliveredAt);
+}
+
+class SubOrdersCompanion extends UpdateCompanion<SubOrderRow> {
+  final Value<String> id;
+  final Value<String> deviceId;
+  final Value<int> createdAt;
+  final Value<String> updatedAtHlc;
+  final Value<int?> deletedAt;
+  final Value<String> orderId;
+  final Value<int> seq;
+  final Value<String> status;
+  final Value<int> deliveryDate;
+  final Value<int?> deliveryTime;
+  final Value<String> fulfilment;
+  final Value<String?> deliveryType;
+  final Value<String?> addressText;
+  final Value<double?> pinLat;
+  final Value<double?> pinLng;
+  final Value<String?> pinUrl;
+  final Value<int> deliveryCharge;
+  final Value<String?> trackingUrl;
+  final Value<int?> deliveredAt;
+  final Value<int> rowid;
+  const SubOrdersCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAtHlc = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.orderId = const Value.absent(),
+    this.seq = const Value.absent(),
+    this.status = const Value.absent(),
+    this.deliveryDate = const Value.absent(),
+    this.deliveryTime = const Value.absent(),
+    this.fulfilment = const Value.absent(),
+    this.deliveryType = const Value.absent(),
+    this.addressText = const Value.absent(),
+    this.pinLat = const Value.absent(),
+    this.pinLng = const Value.absent(),
+    this.pinUrl = const Value.absent(),
+    this.deliveryCharge = const Value.absent(),
+    this.trackingUrl = const Value.absent(),
+    this.deliveredAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SubOrdersCompanion.insert({
+    required String id,
+    required String deviceId,
+    required int createdAt,
+    required String updatedAtHlc,
+    this.deletedAt = const Value.absent(),
+    required String orderId,
+    required int seq,
+    this.status = const Value.absent(),
+    required int deliveryDate,
+    this.deliveryTime = const Value.absent(),
+    required String fulfilment,
+    this.deliveryType = const Value.absent(),
+    this.addressText = const Value.absent(),
+    this.pinLat = const Value.absent(),
+    this.pinLng = const Value.absent(),
+    this.pinUrl = const Value.absent(),
+    this.deliveryCharge = const Value.absent(),
+    this.trackingUrl = const Value.absent(),
+    this.deliveredAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       deviceId = Value(deviceId),
+       createdAt = Value(createdAt),
+       updatedAtHlc = Value(updatedAtHlc),
+       orderId = Value(orderId),
+       seq = Value(seq),
+       deliveryDate = Value(deliveryDate),
+       fulfilment = Value(fulfilment);
+  static Insertable<SubOrderRow> custom({
+    Expression<String>? id,
+    Expression<String>? deviceId,
+    Expression<int>? createdAt,
+    Expression<String>? updatedAtHlc,
+    Expression<int>? deletedAt,
+    Expression<String>? orderId,
+    Expression<int>? seq,
+    Expression<String>? status,
+    Expression<int>? deliveryDate,
+    Expression<int>? deliveryTime,
+    Expression<String>? fulfilment,
+    Expression<String>? deliveryType,
+    Expression<String>? addressText,
+    Expression<double>? pinLat,
+    Expression<double>? pinLng,
+    Expression<String>? pinUrl,
+    Expression<int>? deliveryCharge,
+    Expression<String>? trackingUrl,
+    Expression<int>? deliveredAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAtHlc != null) 'updated_at_hlc': updatedAtHlc,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (orderId != null) 'order_id': orderId,
+      if (seq != null) 'seq': seq,
+      if (status != null) 'status': status,
+      if (deliveryDate != null) 'delivery_date': deliveryDate,
+      if (deliveryTime != null) 'delivery_time': deliveryTime,
+      if (fulfilment != null) 'fulfilment': fulfilment,
+      if (deliveryType != null) 'delivery_type': deliveryType,
+      if (addressText != null) 'address_text': addressText,
+      if (pinLat != null) 'pin_lat': pinLat,
+      if (pinLng != null) 'pin_lng': pinLng,
+      if (pinUrl != null) 'pin_url': pinUrl,
+      if (deliveryCharge != null) 'delivery_charge': deliveryCharge,
+      if (trackingUrl != null) 'tracking_url': trackingUrl,
+      if (deliveredAt != null) 'delivered_at': deliveredAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SubOrdersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? deviceId,
+    Value<int>? createdAt,
+    Value<String>? updatedAtHlc,
+    Value<int?>? deletedAt,
+    Value<String>? orderId,
+    Value<int>? seq,
+    Value<String>? status,
+    Value<int>? deliveryDate,
+    Value<int?>? deliveryTime,
+    Value<String>? fulfilment,
+    Value<String?>? deliveryType,
+    Value<String?>? addressText,
+    Value<double?>? pinLat,
+    Value<double?>? pinLng,
+    Value<String?>? pinUrl,
+    Value<int>? deliveryCharge,
+    Value<String?>? trackingUrl,
+    Value<int?>? deliveredAt,
+    Value<int>? rowid,
+  }) {
+    return SubOrdersCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+      deletedAt: deletedAt ?? this.deletedAt,
+      orderId: orderId ?? this.orderId,
+      seq: seq ?? this.seq,
+      status: status ?? this.status,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      deliveryTime: deliveryTime ?? this.deliveryTime,
+      fulfilment: fulfilment ?? this.fulfilment,
+      deliveryType: deliveryType ?? this.deliveryType,
+      addressText: addressText ?? this.addressText,
+      pinLat: pinLat ?? this.pinLat,
+      pinLng: pinLng ?? this.pinLng,
+      pinUrl: pinUrl ?? this.pinUrl,
+      deliveryCharge: deliveryCharge ?? this.deliveryCharge,
+      trackingUrl: trackingUrl ?? this.trackingUrl,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAtHlc.present) {
+      map['updated_at_hlc'] = Variable<String>(updatedAtHlc.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (orderId.present) {
+      map['order_id'] = Variable<String>(orderId.value);
+    }
+    if (seq.present) {
+      map['seq'] = Variable<int>(seq.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (deliveryDate.present) {
+      map['delivery_date'] = Variable<int>(deliveryDate.value);
+    }
+    if (deliveryTime.present) {
+      map['delivery_time'] = Variable<int>(deliveryTime.value);
+    }
+    if (fulfilment.present) {
+      map['fulfilment'] = Variable<String>(fulfilment.value);
+    }
+    if (deliveryType.present) {
+      map['delivery_type'] = Variable<String>(deliveryType.value);
+    }
+    if (addressText.present) {
+      map['address_text'] = Variable<String>(addressText.value);
+    }
+    if (pinLat.present) {
+      map['pin_lat'] = Variable<double>(pinLat.value);
+    }
+    if (pinLng.present) {
+      map['pin_lng'] = Variable<double>(pinLng.value);
+    }
+    if (pinUrl.present) {
+      map['pin_url'] = Variable<String>(pinUrl.value);
+    }
+    if (deliveryCharge.present) {
+      map['delivery_charge'] = Variable<int>(deliveryCharge.value);
+    }
+    if (trackingUrl.present) {
+      map['tracking_url'] = Variable<String>(trackingUrl.value);
+    }
+    if (deliveredAt.present) {
+      map['delivered_at'] = Variable<int>(deliveredAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SubOrdersCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('orderId: $orderId, ')
+          ..write('seq: $seq, ')
+          ..write('status: $status, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveryTime: $deliveryTime, ')
+          ..write('fulfilment: $fulfilment, ')
+          ..write('deliveryType: $deliveryType, ')
+          ..write('addressText: $addressText, ')
+          ..write('pinLat: $pinLat, ')
+          ..write('pinLng: $pinLng, ')
+          ..write('pinUrl: $pinUrl, ')
+          ..write('deliveryCharge: $deliveryCharge, ')
+          ..write('trackingUrl: $trackingUrl, ')
+          ..write('deliveredAt: $deliveredAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OrderItemsTable extends OrderItems
     with TableInfo<$OrderItemsTable, OrderItem> {
   @override
@@ -4271,6 +5360,20 @@ class $OrderItemsTable extends OrderItems
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _subOrderIdMeta = const VerificationMeta(
+    'subOrderId',
+  );
+  @override
+  late final GeneratedColumn<String> subOrderId = GeneratedColumn<String>(
+    'sub_order_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES sub_orders (id)',
+    ),
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -4280,99 +5383,6 @@ class $OrderItemsTable extends OrderItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant('created'),
-  );
-  static const VerificationMeta _deliveryDateMeta = const VerificationMeta(
-    'deliveryDate',
-  );
-  @override
-  late final GeneratedColumn<int> deliveryDate = GeneratedColumn<int>(
-    'delivery_date',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _deliveryTimeMeta = const VerificationMeta(
-    'deliveryTime',
-  );
-  @override
-  late final GeneratedColumn<int> deliveryTime = GeneratedColumn<int>(
-    'delivery_time',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _fulfilmentMeta = const VerificationMeta(
-    'fulfilment',
-  );
-  @override
-  late final GeneratedColumn<String> fulfilment = GeneratedColumn<String>(
-    'fulfilment',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _deliveryTypeMeta = const VerificationMeta(
-    'deliveryType',
-  );
-  @override
-  late final GeneratedColumn<String> deliveryType = GeneratedColumn<String>(
-    'delivery_type',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _addressTextMeta = const VerificationMeta(
-    'addressText',
-  );
-  @override
-  late final GeneratedColumn<String> addressText = GeneratedColumn<String>(
-    'address_text',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _pinLatMeta = const VerificationMeta('pinLat');
-  @override
-  late final GeneratedColumn<double> pinLat = GeneratedColumn<double>(
-    'pin_lat',
-    aliasedName,
-    true,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _pinLngMeta = const VerificationMeta('pinLng');
-  @override
-  late final GeneratedColumn<double> pinLng = GeneratedColumn<double>(
-    'pin_lng',
-    aliasedName,
-    true,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _pinUrlMeta = const VerificationMeta('pinUrl');
-  @override
-  late final GeneratedColumn<String> pinUrl = GeneratedColumn<String>(
-    'pin_url',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _trackingUrlMeta = const VerificationMeta(
-    'trackingUrl',
-  );
-  @override
-  late final GeneratedColumn<String> trackingUrl = GeneratedColumn<String>(
-    'tracking_url',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
   );
   static const VerificationMeta _deliveredAtMeta = const VerificationMeta(
     'deliveredAt',
@@ -4430,18 +5440,6 @@ class $OrderItemsTable extends OrderItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
-  static const VerificationMeta _deliveryChargeMeta = const VerificationMeta(
-    'deliveryCharge',
-  );
-  @override
-  late final GeneratedColumn<int> deliveryCharge = GeneratedColumn<int>(
-    'delivery_charge',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4459,22 +5457,13 @@ class $OrderItemsTable extends OrderItems
     basePrice,
     note,
     position,
+    subOrderId,
     status,
-    deliveryDate,
-    deliveryTime,
-    fulfilment,
-    deliveryType,
-    addressText,
-    pinLat,
-    pinLng,
-    pinUrl,
-    trackingUrl,
     deliveredAt,
     cancelReason,
     itemMessage,
     requirements,
     dietaryFlags,
-    deliveryCharge,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4605,79 +5594,21 @@ class $OrderItemsTable extends OrderItems
     } else if (isInserting) {
       context.missing(_positionMeta);
     }
+    if (data.containsKey('sub_order_id')) {
+      context.handle(
+        _subOrderIdMeta,
+        subOrderId.isAcceptableOrUnknown(
+          data['sub_order_id']!,
+          _subOrderIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subOrderIdMeta);
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
-      );
-    }
-    if (data.containsKey('delivery_date')) {
-      context.handle(
-        _deliveryDateMeta,
-        deliveryDate.isAcceptableOrUnknown(
-          data['delivery_date']!,
-          _deliveryDateMeta,
-        ),
-      );
-    }
-    if (data.containsKey('delivery_time')) {
-      context.handle(
-        _deliveryTimeMeta,
-        deliveryTime.isAcceptableOrUnknown(
-          data['delivery_time']!,
-          _deliveryTimeMeta,
-        ),
-      );
-    }
-    if (data.containsKey('fulfilment')) {
-      context.handle(
-        _fulfilmentMeta,
-        fulfilment.isAcceptableOrUnknown(data['fulfilment']!, _fulfilmentMeta),
-      );
-    }
-    if (data.containsKey('delivery_type')) {
-      context.handle(
-        _deliveryTypeMeta,
-        deliveryType.isAcceptableOrUnknown(
-          data['delivery_type']!,
-          _deliveryTypeMeta,
-        ),
-      );
-    }
-    if (data.containsKey('address_text')) {
-      context.handle(
-        _addressTextMeta,
-        addressText.isAcceptableOrUnknown(
-          data['address_text']!,
-          _addressTextMeta,
-        ),
-      );
-    }
-    if (data.containsKey('pin_lat')) {
-      context.handle(
-        _pinLatMeta,
-        pinLat.isAcceptableOrUnknown(data['pin_lat']!, _pinLatMeta),
-      );
-    }
-    if (data.containsKey('pin_lng')) {
-      context.handle(
-        _pinLngMeta,
-        pinLng.isAcceptableOrUnknown(data['pin_lng']!, _pinLngMeta),
-      );
-    }
-    if (data.containsKey('pin_url')) {
-      context.handle(
-        _pinUrlMeta,
-        pinUrl.isAcceptableOrUnknown(data['pin_url']!, _pinUrlMeta),
-      );
-    }
-    if (data.containsKey('tracking_url')) {
-      context.handle(
-        _trackingUrlMeta,
-        trackingUrl.isAcceptableOrUnknown(
-          data['tracking_url']!,
-          _trackingUrlMeta,
-        ),
       );
     }
     if (data.containsKey('delivered_at')) {
@@ -4722,15 +5653,6 @@ class $OrderItemsTable extends OrderItems
         dietaryFlags.isAcceptableOrUnknown(
           data['dietary_flags']!,
           _dietaryFlagsMeta,
-        ),
-      );
-    }
-    if (data.containsKey('delivery_charge')) {
-      context.handle(
-        _deliveryChargeMeta,
-        deliveryCharge.isAcceptableOrUnknown(
-          data['delivery_charge']!,
-          _deliveryChargeMeta,
         ),
       );
     }
@@ -4803,46 +5725,14 @@ class $OrderItemsTable extends OrderItems
         DriftSqlType.int,
         data['${effectivePrefix}position'],
       )!,
+      subOrderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sub_order_id'],
+      )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
-      deliveryDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}delivery_date'],
-      ),
-      deliveryTime: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}delivery_time'],
-      ),
-      fulfilment: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}fulfilment'],
-      ),
-      deliveryType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}delivery_type'],
-      ),
-      addressText: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}address_text'],
-      ),
-      pinLat: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}pin_lat'],
-      ),
-      pinLng: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}pin_lng'],
-      ),
-      pinUrl: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}pin_url'],
-      ),
-      trackingUrl: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}tracking_url'],
-      ),
       deliveredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}delivered_at'],
@@ -4862,10 +5752,6 @@ class $OrderItemsTable extends OrderItems
       dietaryFlags: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}dietary_flags'],
-      )!,
-      deliveryCharge: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}delivery_charge'],
       )!,
     );
   }
@@ -4892,28 +5778,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
   final int basePrice;
   final String? note;
   final int position;
+  final String subOrderId;
   final String status;
-  final int? deliveryDate;
-  final int? deliveryTime;
-  final String? fulfilment;
-  final String? deliveryType;
-  final String? addressText;
-  final double? pinLat;
-  final double? pinLng;
-  final String? pinUrl;
-  final String? trackingUrl;
   final int? deliveredAt;
   final String? cancelReason;
   final String? itemMessage;
   final String? requirements;
   final int dietaryFlags;
-
-  /// What it costs to send this item, in paise.
-  ///
-  /// Stored per item, **charged per drop**: items sharing a day, time,
-  /// fulfilment and address are one journey, so they carry the same figure and
-  /// the order counts it once. See `dropCharge` in domain/orders/model.dart.
-  final int deliveryCharge;
   const OrderItem({
     required this.id,
     required this.deviceId,
@@ -4930,22 +5801,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     required this.basePrice,
     this.note,
     required this.position,
+    required this.subOrderId,
     required this.status,
-    this.deliveryDate,
-    this.deliveryTime,
-    this.fulfilment,
-    this.deliveryType,
-    this.addressText,
-    this.pinLat,
-    this.pinLng,
-    this.pinUrl,
-    this.trackingUrl,
     this.deliveredAt,
     this.cancelReason,
     this.itemMessage,
     this.requirements,
     required this.dietaryFlags,
-    required this.deliveryCharge,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4975,34 +5837,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       map['note'] = Variable<String>(note);
     }
     map['position'] = Variable<int>(position);
+    map['sub_order_id'] = Variable<String>(subOrderId);
     map['status'] = Variable<String>(status);
-    if (!nullToAbsent || deliveryDate != null) {
-      map['delivery_date'] = Variable<int>(deliveryDate);
-    }
-    if (!nullToAbsent || deliveryTime != null) {
-      map['delivery_time'] = Variable<int>(deliveryTime);
-    }
-    if (!nullToAbsent || fulfilment != null) {
-      map['fulfilment'] = Variable<String>(fulfilment);
-    }
-    if (!nullToAbsent || deliveryType != null) {
-      map['delivery_type'] = Variable<String>(deliveryType);
-    }
-    if (!nullToAbsent || addressText != null) {
-      map['address_text'] = Variable<String>(addressText);
-    }
-    if (!nullToAbsent || pinLat != null) {
-      map['pin_lat'] = Variable<double>(pinLat);
-    }
-    if (!nullToAbsent || pinLng != null) {
-      map['pin_lng'] = Variable<double>(pinLng);
-    }
-    if (!nullToAbsent || pinUrl != null) {
-      map['pin_url'] = Variable<String>(pinUrl);
-    }
-    if (!nullToAbsent || trackingUrl != null) {
-      map['tracking_url'] = Variable<String>(trackingUrl);
-    }
     if (!nullToAbsent || deliveredAt != null) {
       map['delivered_at'] = Variable<int>(deliveredAt);
     }
@@ -5016,7 +5852,6 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       map['requirements'] = Variable<String>(requirements);
     }
     map['dietary_flags'] = Variable<int>(dietaryFlags);
-    map['delivery_charge'] = Variable<int>(deliveryCharge);
     return map;
   }
 
@@ -5045,34 +5880,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: Value(basePrice),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       position: Value(position),
+      subOrderId: Value(subOrderId),
       status: Value(status),
-      deliveryDate: deliveryDate == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deliveryDate),
-      deliveryTime: deliveryTime == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deliveryTime),
-      fulfilment: fulfilment == null && nullToAbsent
-          ? const Value.absent()
-          : Value(fulfilment),
-      deliveryType: deliveryType == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deliveryType),
-      addressText: addressText == null && nullToAbsent
-          ? const Value.absent()
-          : Value(addressText),
-      pinLat: pinLat == null && nullToAbsent
-          ? const Value.absent()
-          : Value(pinLat),
-      pinLng: pinLng == null && nullToAbsent
-          ? const Value.absent()
-          : Value(pinLng),
-      pinUrl: pinUrl == null && nullToAbsent
-          ? const Value.absent()
-          : Value(pinUrl),
-      trackingUrl: trackingUrl == null && nullToAbsent
-          ? const Value.absent()
-          : Value(trackingUrl),
       deliveredAt: deliveredAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deliveredAt),
@@ -5086,7 +5895,6 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ? const Value.absent()
           : Value(requirements),
       dietaryFlags: Value(dietaryFlags),
-      deliveryCharge: Value(deliveryCharge),
     );
   }
 
@@ -5111,22 +5919,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: serializer.fromJson<int>(json['basePrice']),
       note: serializer.fromJson<String?>(json['note']),
       position: serializer.fromJson<int>(json['position']),
+      subOrderId: serializer.fromJson<String>(json['subOrderId']),
       status: serializer.fromJson<String>(json['status']),
-      deliveryDate: serializer.fromJson<int?>(json['deliveryDate']),
-      deliveryTime: serializer.fromJson<int?>(json['deliveryTime']),
-      fulfilment: serializer.fromJson<String?>(json['fulfilment']),
-      deliveryType: serializer.fromJson<String?>(json['deliveryType']),
-      addressText: serializer.fromJson<String?>(json['addressText']),
-      pinLat: serializer.fromJson<double?>(json['pinLat']),
-      pinLng: serializer.fromJson<double?>(json['pinLng']),
-      pinUrl: serializer.fromJson<String?>(json['pinUrl']),
-      trackingUrl: serializer.fromJson<String?>(json['trackingUrl']),
       deliveredAt: serializer.fromJson<int?>(json['deliveredAt']),
       cancelReason: serializer.fromJson<String?>(json['cancelReason']),
       itemMessage: serializer.fromJson<String?>(json['itemMessage']),
       requirements: serializer.fromJson<String?>(json['requirements']),
       dietaryFlags: serializer.fromJson<int>(json['dietaryFlags']),
-      deliveryCharge: serializer.fromJson<int>(json['deliveryCharge']),
     );
   }
   @override
@@ -5148,22 +5947,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       'basePrice': serializer.toJson<int>(basePrice),
       'note': serializer.toJson<String?>(note),
       'position': serializer.toJson<int>(position),
+      'subOrderId': serializer.toJson<String>(subOrderId),
       'status': serializer.toJson<String>(status),
-      'deliveryDate': serializer.toJson<int?>(deliveryDate),
-      'deliveryTime': serializer.toJson<int?>(deliveryTime),
-      'fulfilment': serializer.toJson<String?>(fulfilment),
-      'deliveryType': serializer.toJson<String?>(deliveryType),
-      'addressText': serializer.toJson<String?>(addressText),
-      'pinLat': serializer.toJson<double?>(pinLat),
-      'pinLng': serializer.toJson<double?>(pinLng),
-      'pinUrl': serializer.toJson<String?>(pinUrl),
-      'trackingUrl': serializer.toJson<String?>(trackingUrl),
       'deliveredAt': serializer.toJson<int?>(deliveredAt),
       'cancelReason': serializer.toJson<String?>(cancelReason),
       'itemMessage': serializer.toJson<String?>(itemMessage),
       'requirements': serializer.toJson<String?>(requirements),
       'dietaryFlags': serializer.toJson<int>(dietaryFlags),
-      'deliveryCharge': serializer.toJson<int>(deliveryCharge),
     };
   }
 
@@ -5183,22 +5973,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     int? basePrice,
     Value<String?> note = const Value.absent(),
     int? position,
+    String? subOrderId,
     String? status,
-    Value<int?> deliveryDate = const Value.absent(),
-    Value<int?> deliveryTime = const Value.absent(),
-    Value<String?> fulfilment = const Value.absent(),
-    Value<String?> deliveryType = const Value.absent(),
-    Value<String?> addressText = const Value.absent(),
-    Value<double?> pinLat = const Value.absent(),
-    Value<double?> pinLng = const Value.absent(),
-    Value<String?> pinUrl = const Value.absent(),
-    Value<String?> trackingUrl = const Value.absent(),
     Value<int?> deliveredAt = const Value.absent(),
     Value<String?> cancelReason = const Value.absent(),
     Value<String?> itemMessage = const Value.absent(),
     Value<String?> requirements = const Value.absent(),
     int? dietaryFlags,
-    int? deliveryCharge,
   }) => OrderItem(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -5215,22 +5996,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     basePrice: basePrice ?? this.basePrice,
     note: note.present ? note.value : this.note,
     position: position ?? this.position,
+    subOrderId: subOrderId ?? this.subOrderId,
     status: status ?? this.status,
-    deliveryDate: deliveryDate.present ? deliveryDate.value : this.deliveryDate,
-    deliveryTime: deliveryTime.present ? deliveryTime.value : this.deliveryTime,
-    fulfilment: fulfilment.present ? fulfilment.value : this.fulfilment,
-    deliveryType: deliveryType.present ? deliveryType.value : this.deliveryType,
-    addressText: addressText.present ? addressText.value : this.addressText,
-    pinLat: pinLat.present ? pinLat.value : this.pinLat,
-    pinLng: pinLng.present ? pinLng.value : this.pinLng,
-    pinUrl: pinUrl.present ? pinUrl.value : this.pinUrl,
-    trackingUrl: trackingUrl.present ? trackingUrl.value : this.trackingUrl,
     deliveredAt: deliveredAt.present ? deliveredAt.value : this.deliveredAt,
     cancelReason: cancelReason.present ? cancelReason.value : this.cancelReason,
     itemMessage: itemMessage.present ? itemMessage.value : this.itemMessage,
     requirements: requirements.present ? requirements.value : this.requirements,
     dietaryFlags: dietaryFlags ?? this.dietaryFlags,
-    deliveryCharge: deliveryCharge ?? this.deliveryCharge,
   );
   OrderItem copyWithCompanion(OrderItemsCompanion data) {
     return OrderItem(
@@ -5259,28 +6031,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       basePrice: data.basePrice.present ? data.basePrice.value : this.basePrice,
       note: data.note.present ? data.note.value : this.note,
       position: data.position.present ? data.position.value : this.position,
+      subOrderId: data.subOrderId.present
+          ? data.subOrderId.value
+          : this.subOrderId,
       status: data.status.present ? data.status.value : this.status,
-      deliveryDate: data.deliveryDate.present
-          ? data.deliveryDate.value
-          : this.deliveryDate,
-      deliveryTime: data.deliveryTime.present
-          ? data.deliveryTime.value
-          : this.deliveryTime,
-      fulfilment: data.fulfilment.present
-          ? data.fulfilment.value
-          : this.fulfilment,
-      deliveryType: data.deliveryType.present
-          ? data.deliveryType.value
-          : this.deliveryType,
-      addressText: data.addressText.present
-          ? data.addressText.value
-          : this.addressText,
-      pinLat: data.pinLat.present ? data.pinLat.value : this.pinLat,
-      pinLng: data.pinLng.present ? data.pinLng.value : this.pinLng,
-      pinUrl: data.pinUrl.present ? data.pinUrl.value : this.pinUrl,
-      trackingUrl: data.trackingUrl.present
-          ? data.trackingUrl.value
-          : this.trackingUrl,
       deliveredAt: data.deliveredAt.present
           ? data.deliveredAt.value
           : this.deliveredAt,
@@ -5296,9 +6050,6 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       dietaryFlags: data.dietaryFlags.present
           ? data.dietaryFlags.value
           : this.dietaryFlags,
-      deliveryCharge: data.deliveryCharge.present
-          ? data.deliveryCharge.value
-          : this.deliveryCharge,
     );
   }
 
@@ -5320,22 +6071,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ..write('basePrice: $basePrice, ')
           ..write('note: $note, ')
           ..write('position: $position, ')
+          ..write('subOrderId: $subOrderId, ')
           ..write('status: $status, ')
-          ..write('deliveryDate: $deliveryDate, ')
-          ..write('deliveryTime: $deliveryTime, ')
-          ..write('fulfilment: $fulfilment, ')
-          ..write('deliveryType: $deliveryType, ')
-          ..write('addressText: $addressText, ')
-          ..write('pinLat: $pinLat, ')
-          ..write('pinLng: $pinLng, ')
-          ..write('pinUrl: $pinUrl, ')
-          ..write('trackingUrl: $trackingUrl, ')
           ..write('deliveredAt: $deliveredAt, ')
           ..write('cancelReason: $cancelReason, ')
           ..write('itemMessage: $itemMessage, ')
           ..write('requirements: $requirements, ')
-          ..write('dietaryFlags: $dietaryFlags, ')
-          ..write('deliveryCharge: $deliveryCharge')
+          ..write('dietaryFlags: $dietaryFlags')
           ..write(')'))
         .toString();
   }
@@ -5357,22 +6099,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     basePrice,
     note,
     position,
+    subOrderId,
     status,
-    deliveryDate,
-    deliveryTime,
-    fulfilment,
-    deliveryType,
-    addressText,
-    pinLat,
-    pinLng,
-    pinUrl,
-    trackingUrl,
     deliveredAt,
     cancelReason,
     itemMessage,
     requirements,
     dietaryFlags,
-    deliveryCharge,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5393,22 +6126,13 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           other.basePrice == this.basePrice &&
           other.note == this.note &&
           other.position == this.position &&
+          other.subOrderId == this.subOrderId &&
           other.status == this.status &&
-          other.deliveryDate == this.deliveryDate &&
-          other.deliveryTime == this.deliveryTime &&
-          other.fulfilment == this.fulfilment &&
-          other.deliveryType == this.deliveryType &&
-          other.addressText == this.addressText &&
-          other.pinLat == this.pinLat &&
-          other.pinLng == this.pinLng &&
-          other.pinUrl == this.pinUrl &&
-          other.trackingUrl == this.trackingUrl &&
           other.deliveredAt == this.deliveredAt &&
           other.cancelReason == this.cancelReason &&
           other.itemMessage == this.itemMessage &&
           other.requirements == this.requirements &&
-          other.dietaryFlags == this.dietaryFlags &&
-          other.deliveryCharge == this.deliveryCharge);
+          other.dietaryFlags == this.dietaryFlags);
 }
 
 class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
@@ -5427,22 +6151,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
   final Value<int> basePrice;
   final Value<String?> note;
   final Value<int> position;
+  final Value<String> subOrderId;
   final Value<String> status;
-  final Value<int?> deliveryDate;
-  final Value<int?> deliveryTime;
-  final Value<String?> fulfilment;
-  final Value<String?> deliveryType;
-  final Value<String?> addressText;
-  final Value<double?> pinLat;
-  final Value<double?> pinLng;
-  final Value<String?> pinUrl;
-  final Value<String?> trackingUrl;
   final Value<int?> deliveredAt;
   final Value<String?> cancelReason;
   final Value<String?> itemMessage;
   final Value<String?> requirements;
   final Value<int> dietaryFlags;
-  final Value<int> deliveryCharge;
   final Value<int> rowid;
   const OrderItemsCompanion({
     this.id = const Value.absent(),
@@ -5460,22 +6175,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.basePrice = const Value.absent(),
     this.note = const Value.absent(),
     this.position = const Value.absent(),
+    this.subOrderId = const Value.absent(),
     this.status = const Value.absent(),
-    this.deliveryDate = const Value.absent(),
-    this.deliveryTime = const Value.absent(),
-    this.fulfilment = const Value.absent(),
-    this.deliveryType = const Value.absent(),
-    this.addressText = const Value.absent(),
-    this.pinLat = const Value.absent(),
-    this.pinLng = const Value.absent(),
-    this.pinUrl = const Value.absent(),
-    this.trackingUrl = const Value.absent(),
     this.deliveredAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.itemMessage = const Value.absent(),
     this.requirements = const Value.absent(),
     this.dietaryFlags = const Value.absent(),
-    this.deliveryCharge = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrderItemsCompanion.insert({
@@ -5494,22 +6200,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     required int basePrice,
     this.note = const Value.absent(),
     required int position,
+    required String subOrderId,
     this.status = const Value.absent(),
-    this.deliveryDate = const Value.absent(),
-    this.deliveryTime = const Value.absent(),
-    this.fulfilment = const Value.absent(),
-    this.deliveryType = const Value.absent(),
-    this.addressText = const Value.absent(),
-    this.pinLat = const Value.absent(),
-    this.pinLng = const Value.absent(),
-    this.pinUrl = const Value.absent(),
-    this.trackingUrl = const Value.absent(),
     this.deliveredAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.itemMessage = const Value.absent(),
     this.requirements = const Value.absent(),
     this.dietaryFlags = const Value.absent(),
-    this.deliveryCharge = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deviceId = Value(deviceId),
@@ -5519,7 +6216,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
        menuItemId = Value(menuItemId),
        itemNameSnapshot = Value(itemNameSnapshot),
        basePrice = Value(basePrice),
-       position = Value(position);
+       position = Value(position),
+       subOrderId = Value(subOrderId);
   static Insertable<OrderItem> custom({
     Expression<String>? id,
     Expression<String>? deviceId,
@@ -5536,22 +6234,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Expression<int>? basePrice,
     Expression<String>? note,
     Expression<int>? position,
+    Expression<String>? subOrderId,
     Expression<String>? status,
-    Expression<int>? deliveryDate,
-    Expression<int>? deliveryTime,
-    Expression<String>? fulfilment,
-    Expression<String>? deliveryType,
-    Expression<String>? addressText,
-    Expression<double>? pinLat,
-    Expression<double>? pinLng,
-    Expression<String>? pinUrl,
-    Expression<String>? trackingUrl,
     Expression<int>? deliveredAt,
     Expression<String>? cancelReason,
     Expression<String>? itemMessage,
     Expression<String>? requirements,
     Expression<int>? dietaryFlags,
-    Expression<int>? deliveryCharge,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5570,22 +6259,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       if (basePrice != null) 'base_price': basePrice,
       if (note != null) 'note': note,
       if (position != null) 'position': position,
+      if (subOrderId != null) 'sub_order_id': subOrderId,
       if (status != null) 'status': status,
-      if (deliveryDate != null) 'delivery_date': deliveryDate,
-      if (deliveryTime != null) 'delivery_time': deliveryTime,
-      if (fulfilment != null) 'fulfilment': fulfilment,
-      if (deliveryType != null) 'delivery_type': deliveryType,
-      if (addressText != null) 'address_text': addressText,
-      if (pinLat != null) 'pin_lat': pinLat,
-      if (pinLng != null) 'pin_lng': pinLng,
-      if (pinUrl != null) 'pin_url': pinUrl,
-      if (trackingUrl != null) 'tracking_url': trackingUrl,
       if (deliveredAt != null) 'delivered_at': deliveredAt,
       if (cancelReason != null) 'cancel_reason': cancelReason,
       if (itemMessage != null) 'item_message': itemMessage,
       if (requirements != null) 'requirements': requirements,
       if (dietaryFlags != null) 'dietary_flags': dietaryFlags,
-      if (deliveryCharge != null) 'delivery_charge': deliveryCharge,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5606,22 +6286,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Value<int>? basePrice,
     Value<String?>? note,
     Value<int>? position,
+    Value<String>? subOrderId,
     Value<String>? status,
-    Value<int?>? deliveryDate,
-    Value<int?>? deliveryTime,
-    Value<String?>? fulfilment,
-    Value<String?>? deliveryType,
-    Value<String?>? addressText,
-    Value<double?>? pinLat,
-    Value<double?>? pinLng,
-    Value<String?>? pinUrl,
-    Value<String?>? trackingUrl,
     Value<int?>? deliveredAt,
     Value<String?>? cancelReason,
     Value<String?>? itemMessage,
     Value<String?>? requirements,
     Value<int>? dietaryFlags,
-    Value<int>? deliveryCharge,
     Value<int>? rowid,
   }) {
     return OrderItemsCompanion(
@@ -5640,22 +6311,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       basePrice: basePrice ?? this.basePrice,
       note: note ?? this.note,
       position: position ?? this.position,
+      subOrderId: subOrderId ?? this.subOrderId,
       status: status ?? this.status,
-      deliveryDate: deliveryDate ?? this.deliveryDate,
-      deliveryTime: deliveryTime ?? this.deliveryTime,
-      fulfilment: fulfilment ?? this.fulfilment,
-      deliveryType: deliveryType ?? this.deliveryType,
-      addressText: addressText ?? this.addressText,
-      pinLat: pinLat ?? this.pinLat,
-      pinLng: pinLng ?? this.pinLng,
-      pinUrl: pinUrl ?? this.pinUrl,
-      trackingUrl: trackingUrl ?? this.trackingUrl,
       deliveredAt: deliveredAt ?? this.deliveredAt,
       cancelReason: cancelReason ?? this.cancelReason,
       itemMessage: itemMessage ?? this.itemMessage,
       requirements: requirements ?? this.requirements,
       dietaryFlags: dietaryFlags ?? this.dietaryFlags,
-      deliveryCharge: deliveryCharge ?? this.deliveryCharge,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5708,35 +6370,11 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
+    if (subOrderId.present) {
+      map['sub_order_id'] = Variable<String>(subOrderId.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
-    }
-    if (deliveryDate.present) {
-      map['delivery_date'] = Variable<int>(deliveryDate.value);
-    }
-    if (deliveryTime.present) {
-      map['delivery_time'] = Variable<int>(deliveryTime.value);
-    }
-    if (fulfilment.present) {
-      map['fulfilment'] = Variable<String>(fulfilment.value);
-    }
-    if (deliveryType.present) {
-      map['delivery_type'] = Variable<String>(deliveryType.value);
-    }
-    if (addressText.present) {
-      map['address_text'] = Variable<String>(addressText.value);
-    }
-    if (pinLat.present) {
-      map['pin_lat'] = Variable<double>(pinLat.value);
-    }
-    if (pinLng.present) {
-      map['pin_lng'] = Variable<double>(pinLng.value);
-    }
-    if (pinUrl.present) {
-      map['pin_url'] = Variable<String>(pinUrl.value);
-    }
-    if (trackingUrl.present) {
-      map['tracking_url'] = Variable<String>(trackingUrl.value);
     }
     if (deliveredAt.present) {
       map['delivered_at'] = Variable<int>(deliveredAt.value);
@@ -5752,9 +6390,6 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     }
     if (dietaryFlags.present) {
       map['dietary_flags'] = Variable<int>(dietaryFlags.value);
-    }
-    if (deliveryCharge.present) {
-      map['delivery_charge'] = Variable<int>(deliveryCharge.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -5780,22 +6415,13 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
           ..write('basePrice: $basePrice, ')
           ..write('note: $note, ')
           ..write('position: $position, ')
+          ..write('subOrderId: $subOrderId, ')
           ..write('status: $status, ')
-          ..write('deliveryDate: $deliveryDate, ')
-          ..write('deliveryTime: $deliveryTime, ')
-          ..write('fulfilment: $fulfilment, ')
-          ..write('deliveryType: $deliveryType, ')
-          ..write('addressText: $addressText, ')
-          ..write('pinLat: $pinLat, ')
-          ..write('pinLng: $pinLng, ')
-          ..write('pinUrl: $pinUrl, ')
-          ..write('trackingUrl: $trackingUrl, ')
           ..write('deliveredAt: $deliveredAt, ')
           ..write('cancelReason: $cancelReason, ')
           ..write('itemMessage: $itemMessage, ')
           ..write('requirements: $requirements, ')
           ..write('dietaryFlags: $dietaryFlags, ')
-          ..write('deliveryCharge: $deliveryCharge, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -15062,6 +15688,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CustomerAddressesTable(this);
   late final $MenuItemsTable menuItems = $MenuItemsTable(this);
   late final $OrdersTable orders = $OrdersTable(this);
+  late final $SubOrdersTable subOrders = $SubOrdersTable(this);
   late final $OrderItemsTable orderItems = $OrderItemsTable(this);
   late final $OrderItemStatusEventsTable orderItemStatusEvents =
       $OrderItemStatusEventsTable(this);
@@ -15092,6 +15719,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     customerAddresses,
     menuItems,
     orders,
+    subOrders,
     orderItems,
     orderItemStatusEvents,
     orderItemAddons,
@@ -16699,6 +17327,24 @@ final class $$OrdersTableReferences
     );
   }
 
+  static MultiTypedResultKey<$SubOrdersTable, List<SubOrderRow>>
+  _subOrdersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.subOrders,
+    aliasName: 'orders__id__sub_orders__order_id',
+  );
+
+  $$SubOrdersTableProcessedTableManager get subOrdersRefs {
+    final manager = $$SubOrdersTableTableManager(
+      $_db,
+      $_db.subOrders,
+    ).filter((f) => f.orderId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_subOrdersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$OrderItemsTable, List<OrderItem>>
   _orderItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.orderItems,
@@ -17003,6 +17649,31 @@ class $$OrdersTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> subOrdersRefs(
+    Expression<bool> Function($$SubOrdersTableFilterComposer f) f,
+  ) {
+    final $$SubOrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.subOrders,
+      getReferencedColumn: (t) => t.orderId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SubOrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.subOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 
   Expression<bool> orderItemsRefs(
@@ -17519,6 +18190,31 @@ class $$OrdersTableAnnotationComposer
     return composer;
   }
 
+  Expression<T> subOrdersRefs<T extends Object>(
+    Expression<T> Function($$SubOrdersTableAnnotationComposer a) f,
+  ) {
+    final $$SubOrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.subOrders,
+      getReferencedColumn: (t) => t.orderId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SubOrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.subOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> orderItemsRefs<T extends Object>(
     Expression<T> Function($$OrderItemsTableAnnotationComposer a) f,
   ) {
@@ -17686,6 +18382,7 @@ class $$OrdersTableTableManager
           Order,
           PrefetchHooks Function({
             bool customerId,
+            bool subOrdersRefs,
             bool orderItemsRefs,
             bool orderStatusEventsRefs,
             bool attachmentsRefs,
@@ -17858,6 +18555,7 @@ class $$OrdersTableTableManager
           prefetchHooksCallback:
               ({
                 customerId = false,
+                subOrdersRefs = false,
                 orderItemsRefs = false,
                 orderStatusEventsRefs = false,
                 attachmentsRefs = false,
@@ -17868,6 +18566,7 @@ class $$OrdersTableTableManager
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (subOrdersRefs) db.subOrders,
                     if (orderItemsRefs) db.orderItems,
                     if (orderStatusEventsRefs) db.orderStatusEvents,
                     if (attachmentsRefs) db.attachments,
@@ -17909,6 +18608,27 @@ class $$OrdersTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (subOrdersRefs)
+                        await $_getPrefetchedData<
+                          Order,
+                          $OrdersTable,
+                          SubOrderRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$OrdersTableReferences
+                              ._subOrdersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$OrdersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).subOrdersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.orderId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (orderItemsRefs)
                         await $_getPrefetchedData<
                           Order,
@@ -18049,6 +18769,7 @@ typedef $$OrdersTableProcessedTableManager =
       Order,
       PrefetchHooks Function({
         bool customerId,
+        bool subOrdersRefs,
         bool orderItemsRefs,
         bool orderStatusEventsRefs,
         bool attachmentsRefs,
@@ -18056,6 +18777,695 @@ typedef $$OrdersTableProcessedTableManager =
         bool invoicesRefs,
         bool shareLogRefs,
       })
+    >;
+typedef $$SubOrdersTableCreateCompanionBuilder =
+    SubOrdersCompanion Function({
+      required String id,
+      required String deviceId,
+      required int createdAt,
+      required String updatedAtHlc,
+      Value<int?> deletedAt,
+      required String orderId,
+      required int seq,
+      Value<String> status,
+      required int deliveryDate,
+      Value<int?> deliveryTime,
+      required String fulfilment,
+      Value<String?> deliveryType,
+      Value<String?> addressText,
+      Value<double?> pinLat,
+      Value<double?> pinLng,
+      Value<String?> pinUrl,
+      Value<int> deliveryCharge,
+      Value<String?> trackingUrl,
+      Value<int?> deliveredAt,
+      Value<int> rowid,
+    });
+typedef $$SubOrdersTableUpdateCompanionBuilder =
+    SubOrdersCompanion Function({
+      Value<String> id,
+      Value<String> deviceId,
+      Value<int> createdAt,
+      Value<String> updatedAtHlc,
+      Value<int?> deletedAt,
+      Value<String> orderId,
+      Value<int> seq,
+      Value<String> status,
+      Value<int> deliveryDate,
+      Value<int?> deliveryTime,
+      Value<String> fulfilment,
+      Value<String?> deliveryType,
+      Value<String?> addressText,
+      Value<double?> pinLat,
+      Value<double?> pinLng,
+      Value<String?> pinUrl,
+      Value<int> deliveryCharge,
+      Value<String?> trackingUrl,
+      Value<int?> deliveredAt,
+      Value<int> rowid,
+    });
+
+final class $$SubOrdersTableReferences
+    extends BaseReferences<_$AppDatabase, $SubOrdersTable, SubOrderRow> {
+  $$SubOrdersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $OrdersTable _orderIdTable(_$AppDatabase db) =>
+      db.orders.createAlias('sub_orders__order_id__orders__id');
+
+  $$OrdersTableProcessedTableManager get orderId {
+    final $_column = $_itemColumn<String>('order_id')!;
+
+    final manager = $$OrdersTableTableManager(
+      $_db,
+      $_db.orders,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_orderIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$OrderItemsTable, List<OrderItem>>
+  _orderItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.orderItems,
+    aliasName: 'sub_orders__id__order_items__sub_order_id',
+  );
+
+  $$OrderItemsTableProcessedTableManager get orderItemsRefs {
+    final manager = $$OrderItemsTableTableManager(
+      $_db,
+      $_db.orderItems,
+    ).filter((f) => f.subOrderId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_orderItemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$SubOrdersTableFilterComposer
+    extends Composer<_$AppDatabase, $SubOrdersTable> {
+  $$SubOrdersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pinLat => $composableBuilder(
+    column: $table.pinLat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pinLng => $composableBuilder(
+    column: $table.pinLng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinUrl => $composableBuilder(
+    column: $table.pinUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$OrdersTableFilterComposer get orderId {
+    final $$OrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> orderItemsRefs(
+    Expression<bool> Function($$OrderItemsTableFilterComposer f) f,
+  ) {
+    final $$OrderItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.orderItems,
+      getReferencedColumn: (t) => t.subOrderId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrderItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.orderItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SubOrdersTableOrderingComposer
+    extends Composer<_$AppDatabase, $SubOrdersTable> {
+  $$SubOrdersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get pinLat => $composableBuilder(
+    column: $table.pinLat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get pinLng => $composableBuilder(
+    column: $table.pinLng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinUrl => $composableBuilder(
+    column: $table.pinUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$OrdersTableOrderingComposer get orderId {
+    final $$OrdersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableOrderingComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SubOrdersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SubOrdersTable> {
+  $$SubOrdersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get seq =>
+      $composableBuilder(column: $table.seq, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deliveryTime => $composableBuilder(
+    column: $table.deliveryTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fulfilment => $composableBuilder(
+    column: $table.fulfilment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deliveryType => $composableBuilder(
+    column: $table.deliveryType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get addressText => $composableBuilder(
+    column: $table.addressText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get pinLat =>
+      $composableBuilder(column: $table.pinLat, builder: (column) => column);
+
+  GeneratedColumn<double> get pinLng =>
+      $composableBuilder(column: $table.pinLng, builder: (column) => column);
+
+  GeneratedColumn<String> get pinUrl =>
+      $composableBuilder(column: $table.pinUrl, builder: (column) => column);
+
+  GeneratedColumn<int> get deliveryCharge => $composableBuilder(
+    column: $table.deliveryCharge,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get trackingUrl => $composableBuilder(
+    column: $table.trackingUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deliveredAt => $composableBuilder(
+    column: $table.deliveredAt,
+    builder: (column) => column,
+  );
+
+  $$OrdersTableAnnotationComposer get orderId {
+    final $$OrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> orderItemsRefs<T extends Object>(
+    Expression<T> Function($$OrderItemsTableAnnotationComposer a) f,
+  ) {
+    final $$OrderItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.orderItems,
+      getReferencedColumn: (t) => t.subOrderId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrderItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.orderItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SubOrdersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SubOrdersTable,
+          SubOrderRow,
+          $$SubOrdersTableFilterComposer,
+          $$SubOrdersTableOrderingComposer,
+          $$SubOrdersTableAnnotationComposer,
+          $$SubOrdersTableCreateCompanionBuilder,
+          $$SubOrdersTableUpdateCompanionBuilder,
+          (SubOrderRow, $$SubOrdersTableReferences),
+          SubOrderRow,
+          PrefetchHooks Function({bool orderId, bool orderItemsRefs})
+        > {
+  $$SubOrdersTableTableManager(_$AppDatabase db, $SubOrdersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SubOrdersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SubOrdersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SubOrdersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> updatedAtHlc = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<String> orderId = const Value.absent(),
+                Value<int> seq = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> deliveryDate = const Value.absent(),
+                Value<int?> deliveryTime = const Value.absent(),
+                Value<String> fulfilment = const Value.absent(),
+                Value<String?> deliveryType = const Value.absent(),
+                Value<String?> addressText = const Value.absent(),
+                Value<double?> pinLat = const Value.absent(),
+                Value<double?> pinLng = const Value.absent(),
+                Value<String?> pinUrl = const Value.absent(),
+                Value<int> deliveryCharge = const Value.absent(),
+                Value<String?> trackingUrl = const Value.absent(),
+                Value<int?> deliveredAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SubOrdersCompanion(
+                id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
+                orderId: orderId,
+                seq: seq,
+                status: status,
+                deliveryDate: deliveryDate,
+                deliveryTime: deliveryTime,
+                fulfilment: fulfilment,
+                deliveryType: deliveryType,
+                addressText: addressText,
+                pinLat: pinLat,
+                pinLng: pinLng,
+                pinUrl: pinUrl,
+                deliveryCharge: deliveryCharge,
+                trackingUrl: trackingUrl,
+                deliveredAt: deliveredAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String deviceId,
+                required int createdAt,
+                required String updatedAtHlc,
+                Value<int?> deletedAt = const Value.absent(),
+                required String orderId,
+                required int seq,
+                Value<String> status = const Value.absent(),
+                required int deliveryDate,
+                Value<int?> deliveryTime = const Value.absent(),
+                required String fulfilment,
+                Value<String?> deliveryType = const Value.absent(),
+                Value<String?> addressText = const Value.absent(),
+                Value<double?> pinLat = const Value.absent(),
+                Value<double?> pinLng = const Value.absent(),
+                Value<String?> pinUrl = const Value.absent(),
+                Value<int> deliveryCharge = const Value.absent(),
+                Value<String?> trackingUrl = const Value.absent(),
+                Value<int?> deliveredAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SubOrdersCompanion.insert(
+                id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
+                orderId: orderId,
+                seq: seq,
+                status: status,
+                deliveryDate: deliveryDate,
+                deliveryTime: deliveryTime,
+                fulfilment: fulfilment,
+                deliveryType: deliveryType,
+                addressText: addressText,
+                pinLat: pinLat,
+                pinLng: pinLng,
+                pinUrl: pinUrl,
+                deliveryCharge: deliveryCharge,
+                trackingUrl: trackingUrl,
+                deliveredAt: deliveredAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SubOrdersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({orderId = false, orderItemsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (orderItemsRefs) db.orderItems],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (orderId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.orderId,
+                                referencedTable: $$SubOrdersTableReferences
+                                    ._orderIdTable(db),
+                                referencedColumn: $$SubOrdersTableReferences
+                                    ._orderIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (orderItemsRefs)
+                    await $_getPrefetchedData<
+                      SubOrderRow,
+                      $SubOrdersTable,
+                      OrderItem
+                    >(
+                      currentTable: table,
+                      referencedTable: $$SubOrdersTableReferences
+                          ._orderItemsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$SubOrdersTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).orderItemsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.subOrderId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SubOrdersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SubOrdersTable,
+      SubOrderRow,
+      $$SubOrdersTableFilterComposer,
+      $$SubOrdersTableOrderingComposer,
+      $$SubOrdersTableAnnotationComposer,
+      $$SubOrdersTableCreateCompanionBuilder,
+      $$SubOrdersTableUpdateCompanionBuilder,
+      (SubOrderRow, $$SubOrdersTableReferences),
+      SubOrderRow,
+      PrefetchHooks Function({bool orderId, bool orderItemsRefs})
     >;
 typedef $$OrderItemsTableCreateCompanionBuilder =
     OrderItemsCompanion Function({
@@ -18074,22 +19484,13 @@ typedef $$OrderItemsTableCreateCompanionBuilder =
       required int basePrice,
       Value<String?> note,
       required int position,
+      required String subOrderId,
       Value<String> status,
-      Value<int?> deliveryDate,
-      Value<int?> deliveryTime,
-      Value<String?> fulfilment,
-      Value<String?> deliveryType,
-      Value<String?> addressText,
-      Value<double?> pinLat,
-      Value<double?> pinLng,
-      Value<String?> pinUrl,
-      Value<String?> trackingUrl,
       Value<int?> deliveredAt,
       Value<String?> cancelReason,
       Value<String?> itemMessage,
       Value<String?> requirements,
       Value<int> dietaryFlags,
-      Value<int> deliveryCharge,
       Value<int> rowid,
     });
 typedef $$OrderItemsTableUpdateCompanionBuilder =
@@ -18109,22 +19510,13 @@ typedef $$OrderItemsTableUpdateCompanionBuilder =
       Value<int> basePrice,
       Value<String?> note,
       Value<int> position,
+      Value<String> subOrderId,
       Value<String> status,
-      Value<int?> deliveryDate,
-      Value<int?> deliveryTime,
-      Value<String?> fulfilment,
-      Value<String?> deliveryType,
-      Value<String?> addressText,
-      Value<double?> pinLat,
-      Value<double?> pinLng,
-      Value<String?> pinUrl,
-      Value<String?> trackingUrl,
       Value<int?> deliveredAt,
       Value<String?> cancelReason,
       Value<String?> itemMessage,
       Value<String?> requirements,
       Value<int> dietaryFlags,
-      Value<int> deliveryCharge,
       Value<int> rowid,
     });
 
@@ -18160,6 +19552,23 @@ final class $$OrderItemsTableReferences
       $_db.menuItems,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_menuItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $SubOrdersTable _subOrderIdTable(_$AppDatabase db) =>
+      db.subOrders.createAlias('order_items__sub_order_id__sub_orders__id');
+
+  $$SubOrdersTableProcessedTableManager get subOrderId {
+    final $_column = $_itemColumn<String>('sub_order_id')!;
+
+    final manager = $$SubOrdersTableTableManager(
+      $_db,
+      $_db.subOrders,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_subOrderIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -18291,51 +19700,6 @@ class $$OrderItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get deliveryDate => $composableBuilder(
-    column: $table.deliveryDate,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get deliveryTime => $composableBuilder(
-    column: $table.deliveryTime,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get fulfilment => $composableBuilder(
-    column: $table.fulfilment,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get deliveryType => $composableBuilder(
-    column: $table.deliveryType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get addressText => $composableBuilder(
-    column: $table.addressText,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get pinLat => $composableBuilder(
-    column: $table.pinLat,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get pinLng => $composableBuilder(
-    column: $table.pinLng,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get pinUrl => $composableBuilder(
-    column: $table.pinUrl,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get trackingUrl => $composableBuilder(
-    column: $table.trackingUrl,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<int> get deliveredAt => $composableBuilder(
     column: $table.deliveredAt,
     builder: (column) => ColumnFilters(column),
@@ -18358,11 +19722,6 @@ class $$OrderItemsTableFilterComposer
 
   ColumnFilters<int> get dietaryFlags => $composableBuilder(
     column: $table.dietaryFlags,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get deliveryCharge => $composableBuilder(
-    column: $table.deliveryCharge,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18403,6 +19762,29 @@ class $$OrderItemsTableFilterComposer
           }) => $$MenuItemsTableFilterComposer(
             $db: $db,
             $table: $db.menuItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SubOrdersTableFilterComposer get subOrderId {
+    final $$SubOrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subOrderId,
+      referencedTable: $db.subOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SubOrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.subOrders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18543,51 +19925,6 @@ class $$OrderItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get deliveryDate => $composableBuilder(
-    column: $table.deliveryDate,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get deliveryTime => $composableBuilder(
-    column: $table.deliveryTime,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get fulfilment => $composableBuilder(
-    column: $table.fulfilment,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get deliveryType => $composableBuilder(
-    column: $table.deliveryType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get addressText => $composableBuilder(
-    column: $table.addressText,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<double> get pinLat => $composableBuilder(
-    column: $table.pinLat,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<double> get pinLng => $composableBuilder(
-    column: $table.pinLng,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get pinUrl => $composableBuilder(
-    column: $table.pinUrl,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get trackingUrl => $composableBuilder(
-    column: $table.trackingUrl,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get deliveredAt => $composableBuilder(
     column: $table.deliveredAt,
     builder: (column) => ColumnOrderings(column),
@@ -18610,11 +19947,6 @@ class $$OrderItemsTableOrderingComposer
 
   ColumnOrderings<int> get dietaryFlags => $composableBuilder(
     column: $table.dietaryFlags,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get deliveryCharge => $composableBuilder(
-    column: $table.deliveryCharge,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -18655,6 +19987,29 @@ class $$OrderItemsTableOrderingComposer
           }) => $$MenuItemsTableOrderingComposer(
             $db: $db,
             $table: $db.menuItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SubOrdersTableOrderingComposer get subOrderId {
+    final $$SubOrdersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subOrderId,
+      referencedTable: $db.subOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SubOrdersTableOrderingComposer(
+            $db: $db,
+            $table: $db.subOrders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18724,45 +20079,6 @@ class $$OrderItemsTableAnnotationComposer
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
-  GeneratedColumn<int> get deliveryDate => $composableBuilder(
-    column: $table.deliveryDate,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get deliveryTime => $composableBuilder(
-    column: $table.deliveryTime,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get fulfilment => $composableBuilder(
-    column: $table.fulfilment,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get deliveryType => $composableBuilder(
-    column: $table.deliveryType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get addressText => $composableBuilder(
-    column: $table.addressText,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<double> get pinLat =>
-      $composableBuilder(column: $table.pinLat, builder: (column) => column);
-
-  GeneratedColumn<double> get pinLng =>
-      $composableBuilder(column: $table.pinLng, builder: (column) => column);
-
-  GeneratedColumn<String> get pinUrl =>
-      $composableBuilder(column: $table.pinUrl, builder: (column) => column);
-
-  GeneratedColumn<String> get trackingUrl => $composableBuilder(
-    column: $table.trackingUrl,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<int> get deliveredAt => $composableBuilder(
     column: $table.deliveredAt,
     builder: (column) => column,
@@ -18785,11 +20101,6 @@ class $$OrderItemsTableAnnotationComposer
 
   GeneratedColumn<int> get dietaryFlags => $composableBuilder(
     column: $table.dietaryFlags,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get deliveryCharge => $composableBuilder(
-    column: $table.deliveryCharge,
     builder: (column) => column,
   );
 
@@ -18830,6 +20141,29 @@ class $$OrderItemsTableAnnotationComposer
           }) => $$MenuItemsTableAnnotationComposer(
             $db: $db,
             $table: $db.menuItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SubOrdersTableAnnotationComposer get subOrderId {
+    final $$SubOrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subOrderId,
+      referencedTable: $db.subOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SubOrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.subOrders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18907,6 +20241,7 @@ class $$OrderItemsTableTableManager
           PrefetchHooks Function({
             bool orderId,
             bool menuItemId,
+            bool subOrderId,
             bool orderItemStatusEventsRefs,
             bool orderItemAddonsRefs,
           })
@@ -18939,22 +20274,13 @@ class $$OrderItemsTableTableManager
                 Value<int> basePrice = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<String> subOrderId = const Value.absent(),
                 Value<String> status = const Value.absent(),
-                Value<int?> deliveryDate = const Value.absent(),
-                Value<int?> deliveryTime = const Value.absent(),
-                Value<String?> fulfilment = const Value.absent(),
-                Value<String?> deliveryType = const Value.absent(),
-                Value<String?> addressText = const Value.absent(),
-                Value<double?> pinLat = const Value.absent(),
-                Value<double?> pinLng = const Value.absent(),
-                Value<String?> pinUrl = const Value.absent(),
-                Value<String?> trackingUrl = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
                 Value<String?> itemMessage = const Value.absent(),
                 Value<String?> requirements = const Value.absent(),
                 Value<int> dietaryFlags = const Value.absent(),
-                Value<int> deliveryCharge = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion(
                 id: id,
@@ -18972,22 +20298,13 @@ class $$OrderItemsTableTableManager
                 basePrice: basePrice,
                 note: note,
                 position: position,
+                subOrderId: subOrderId,
                 status: status,
-                deliveryDate: deliveryDate,
-                deliveryTime: deliveryTime,
-                fulfilment: fulfilment,
-                deliveryType: deliveryType,
-                addressText: addressText,
-                pinLat: pinLat,
-                pinLng: pinLng,
-                pinUrl: pinUrl,
-                trackingUrl: trackingUrl,
                 deliveredAt: deliveredAt,
                 cancelReason: cancelReason,
                 itemMessage: itemMessage,
                 requirements: requirements,
                 dietaryFlags: dietaryFlags,
-                deliveryCharge: deliveryCharge,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -19007,22 +20324,13 @@ class $$OrderItemsTableTableManager
                 required int basePrice,
                 Value<String?> note = const Value.absent(),
                 required int position,
+                required String subOrderId,
                 Value<String> status = const Value.absent(),
-                Value<int?> deliveryDate = const Value.absent(),
-                Value<int?> deliveryTime = const Value.absent(),
-                Value<String?> fulfilment = const Value.absent(),
-                Value<String?> deliveryType = const Value.absent(),
-                Value<String?> addressText = const Value.absent(),
-                Value<double?> pinLat = const Value.absent(),
-                Value<double?> pinLng = const Value.absent(),
-                Value<String?> pinUrl = const Value.absent(),
-                Value<String?> trackingUrl = const Value.absent(),
                 Value<int?> deliveredAt = const Value.absent(),
                 Value<String?> cancelReason = const Value.absent(),
                 Value<String?> itemMessage = const Value.absent(),
                 Value<String?> requirements = const Value.absent(),
                 Value<int> dietaryFlags = const Value.absent(),
-                Value<int> deliveryCharge = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion.insert(
                 id: id,
@@ -19040,22 +20348,13 @@ class $$OrderItemsTableTableManager
                 basePrice: basePrice,
                 note: note,
                 position: position,
+                subOrderId: subOrderId,
                 status: status,
-                deliveryDate: deliveryDate,
-                deliveryTime: deliveryTime,
-                fulfilment: fulfilment,
-                deliveryType: deliveryType,
-                addressText: addressText,
-                pinLat: pinLat,
-                pinLng: pinLng,
-                pinUrl: pinUrl,
-                trackingUrl: trackingUrl,
                 deliveredAt: deliveredAt,
                 cancelReason: cancelReason,
                 itemMessage: itemMessage,
                 requirements: requirements,
                 dietaryFlags: dietaryFlags,
-                deliveryCharge: deliveryCharge,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -19070,6 +20369,7 @@ class $$OrderItemsTableTableManager
               ({
                 orderId = false,
                 menuItemId = false,
+                subOrderId = false,
                 orderItemStatusEventsRefs = false,
                 orderItemAddonsRefs = false,
               }) {
@@ -19119,6 +20419,20 @@ class $$OrderItemsTableTableManager
                                     referencedColumn:
                                         $$OrderItemsTableReferences
                                             ._menuItemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (subOrderId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.subOrderId,
+                                    referencedTable: $$OrderItemsTableReferences
+                                        ._subOrderIdTable(db),
+                                    referencedColumn:
+                                        $$OrderItemsTableReferences
+                                            ._subOrderIdTable(db)
                                             .id,
                                   )
                                   as T;
@@ -19193,6 +20507,7 @@ typedef $$OrderItemsTableProcessedTableManager =
       PrefetchHooks Function({
         bool orderId,
         bool menuItemId,
+        bool subOrderId,
         bool orderItemStatusEventsRefs,
         bool orderItemAddonsRefs,
       })
@@ -24793,6 +26108,8 @@ class $AppDatabaseManager {
       $$MenuItemsTableTableManager(_db, _db.menuItems);
   $$OrdersTableTableManager get orders =>
       $$OrdersTableTableManager(_db, _db.orders);
+  $$SubOrdersTableTableManager get subOrders =>
+      $$SubOrdersTableTableManager(_db, _db.subOrders);
   $$OrderItemsTableTableManager get orderItems =>
       $$OrderItemsTableTableManager(_db, _db.orderItems);
   $$OrderItemStatusEventsTableTableManager get orderItemStatusEvents =>

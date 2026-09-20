@@ -145,33 +145,44 @@ class AppServicesFixture {
       );
 
   /// Walks a line all the way to delivered, one legal step at a time.
-  Future<void> _deliver(String lineId) async {
+  /// Bake an item, then hand its journey over — which delivers everything on
+  /// it (D29).
+  Future<void> _deliver(String orderId, String lineId) async {
+    // Nothing moves until the order is agreed: a journey follows its order
+    // into confirmed (D29), and before that the kitchen has no claim on it.
+    final o = await s.orders.watchOrder(orderId).first;
+    if (o!.order.confirmedAt == null) await s.orders.confirm(orderId);
+
     for (final step in const [
       LineStatus.confirmed,
       LineStatus.inProduction,
       LineStatus.ready,
-      LineStatus.delivered,   // pickup goes straight here from ready
     ]) {
-      final rows = await s.db
+      final row = await s.db
           .customSelect('SELECT status FROM order_items WHERE id = ?',
               variables: [Variable.withString(lineId)])
           .getSingle();
-      final now = LineStatus.parse(rows.read<String>('status'));
+      final now = LineStatus.parse(row.read<String>('status'));
       if (now.canGoTo(step)) await s.orders.moveLine(lineId, step);
     }
+
+    final v = await s.orders.watchOrder(orderId).first;
+    final sub = v!.subOrders.firstWhere((x) => x.lines.any((l) => l.id == lineId));
+    if (!sub.isPickup) await s.orders.moveSubOrder(sub.id, SubOrderStatus.out);
+    await s.orders.moveSubOrder(sub.id, SubOrderStatus.delivered);
   }
 
   Future<void> deliverEarliest(String orderId) async {
     final v = await s.orders.watchOrder(orderId).first;
-    final live = v!.liveLines.where((l) => !l.status.isDone).toList()
-      ..sort((a, b) => a.deliveryDate!.compareTo(b.deliveryDate!));
-    await _deliver(live.first.id!);
+    final live = v!.liveSubOrders.where((s) => !s.status.isDone).toList()
+      ..sort((a, b) => a.deliveryDate.compareTo(b.deliveryDate));
+    await _deliver(orderId, live.first.lines.first.id!);
   }
 
   Future<void> deliverEverything(String orderId) async {
     final v = await s.orders.watchOrder(orderId).first;
     for (final l in v!.liveLines) {
-      await _deliver(l.id!);
+      await _deliver(orderId, l.id!);
     }
   }
 

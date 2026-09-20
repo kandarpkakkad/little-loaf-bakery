@@ -62,6 +62,7 @@ class CustomerAddresses extends Table with Common, FieldHlc {
 
 // ──────────────────────────────── menu ───────────────────────────────────
 
+
 class MenuItems extends Table with Common, FieldHlc {
   /// The item *is* the category — "Cake", "Croissant", "Focaccia". What used to
   /// be a separate category column said the same thing twice.
@@ -130,6 +131,61 @@ class Orders extends Table with Common, FieldHlc {
       ];
 }
 
+/// One journey: everything going out on the same day, at the same time, to the
+/// same place (D28).
+///
+/// **Written by the repository, never by a person.** Adding or editing an item
+/// finds the row that matches when and where it goes, makes one if there is
+/// none, and removes one left empty. Nobody creates a sub-order; they create
+/// items, and the journeys follow.
+///
+/// It exists as a row rather than a grouping key because a key cannot *hold*
+/// anything — not the status the kitchen moves, not the delivery charge, not
+/// the courier link, not a number somebody can say out loud.
+@DataClassName('SubOrderRow')
+class SubOrders extends Table with Common {
+  TextColumn get orderId => text().references(Orders, #id)();
+
+  /// 1, 2, 3 … within the order, so the kitchen can say "LLB-0001-67FR-2".
+  ///
+  /// **Spent, never reused.** A sub-order that empties takes its number with
+  /// it: a number that comes back meaning something else is worse than a gap.
+  /// It never appears in a customer message — the customer bought one order.
+  IntColumn get seq => integer()();
+
+  TextColumn get status => text().withDefault(const Constant('created'))();
+  IntColumn get deliveryDate => integer()(); // local midnight, epoch ms
+  IntColumn get deliveryTime => integer().nullable()(); // minutes from midnight
+  TextColumn get fulfilment => text()(); // delivery|pickup
+  TextColumn get deliveryType => text().nullable()(); // local|outstation
+  TextColumn get addressText => text().nullable()();
+  RealColumn get pinLat => real().nullable()();
+  RealColumn get pinLng => real().nullable()();
+  TextColumn get pinUrl => text().nullable()();
+
+  /// One journey, one charge, however many boxes are in it. The order's own
+  /// charge is the sum across its sub-orders.
+  IntColumn get deliveryCharge => integer().withDefault(const Constant(0))();
+
+  TextColumn get trackingUrl => text().nullable()();
+  IntColumn get deliveredAt => integer().nullable()();
+
+  @override
+  List<String> get customConstraints => [
+        "CHECK (fulfilment IN ('delivery','pickup'))",
+        "CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation'))",
+        // A pickup goes nowhere, so it carries no distance, no address, no
+        // courier link and nothing to charge for the trip.
+        "CHECK (fulfilment = 'delivery' OR (delivery_type IS NULL "
+            "AND tracking_url IS NULL AND address_text IS NULL "
+            "AND delivery_charge = 0))",
+        "CHECK ((pin_lat IS NULL) = (pin_lng IS NULL))",
+        "CHECK (status IN ('created','confirmed','in_production','ready','out',"
+            "'delivered','cancelled'))",
+        "CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))",
+      ];
+}
+
 class OrderItems extends Table with Common {
   TextColumn get orderId => text().references(Orders, #id)();
   TextColumn get menuItemId => text().references(MenuItems, #id)(); // NOT NULL (D16)
@@ -142,54 +198,33 @@ class OrderItems extends Table with Common {
   TextColumn get note => text().nullable()();
   IntColumn get position => integer()();
 
-  // ── the line's own schedule (D25) ──
-  // A line is what gets made and handed over, so it carries the when, the
-  // where and the how. Nullable so the v9→v10 migration can add them before
-  // backfilling; the repository requires a delivery date.
+  // ── where this item is in its life (D29) ──
+  // When and where it goes belongs to its sub-order: everything in one
+  // journey shares one date, one time, one place and one charge, and a copy
+  // per item was a copy that could disagree with itself.
+  TextColumn get subOrderId => text().references(SubOrders, #id)();
   TextColumn get status => text().withDefault(const Constant('created'))();
-  IntColumn get deliveryDate => integer().nullable()(); // local midnight
-  IntColumn get deliveryTime => integer().nullable()(); // minutes from midnight
-  TextColumn get fulfilment => text().nullable()(); // delivery|pickup
-  TextColumn get deliveryType => text().nullable()(); // local|outstation
-  TextColumn get addressText => text().nullable()();
-  RealColumn get pinLat => real().nullable()();
-  RealColumn get pinLng => real().nullable()();
-  TextColumn get pinUrl => text().nullable()();
-  TextColumn get trackingUrl => text().nullable()();
   IntColumn get deliveredAt => integer().nullable()();
   TextColumn get cancelReason => text().nullable()();
 
-  // ── what this item is for, and what it costs to send (D25 finished) ──
-  // These lived on the order and were asked for twice: once there and once
-  // per item. An order of a birthday cake and a box of buns has one message
-  // piped on one of them, not on both.
+  // ── what this item is for ──
+  // One cake is piped and the box of buns beside it is not; one may be
+  // eggless while the other is not.
   TextColumn get itemMessage => text().nullable()();
   TextColumn get requirements => text().nullable()();
   IntColumn get dietaryFlags => integer().withDefault(const Constant(0))();
 
-  /// What it costs to send this item, in paise.
-  ///
-  /// Stored per item, **charged per drop**: items sharing a day, time,
-  /// fulfilment and address are one journey, so they carry the same figure and
-  /// the order counts it once. See `dropCharge` in domain/orders/model.dart.
-  IntColumn get deliveryCharge => integer().withDefault(const Constant(0))();
-
   @override
   List<String> get customConstraints => [
         'CHECK (qty > 0)',
-        "CHECK (status IN ('created','confirmed','in_production','ready','out','delivered','cancelled'))",
-        "CHECK (fulfilment IS NULL OR fulfilment IN ('delivery','pickup'))",
-        "CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation'))",
-        // a pickup goes nowhere: no delivery type, no tracking link
-        "CHECK (fulfilment IS NULL OR fulfilment = 'delivery' "
-            'OR (delivery_type IS NULL AND tracking_url IS NULL))',
-        'CHECK ((pin_lat IS NULL) = (pin_lng IS NULL))',
-        "CHECK ((status = 'cancelled') = (cancel_reason IS NOT NULL))",
-        "CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))",
-        // a weight is both halves or neither
         'CHECK ((weight_value IS NULL) = (weight_unit IS NULL))',
         "CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen'))",
         'CHECK (weight_value IS NULL OR weight_value > 0)',
+        // No 'out': an item does not travel, its sub-order does (D29).
+        "CHECK (status IN ('created','confirmed','in_production','ready',"
+            "'delivered','cancelled'))",
+        "CHECK ((status = 'cancelled') = (cancel_reason IS NOT NULL))",
+        "CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))",
       ];
 }
 

@@ -153,11 +153,42 @@ class _Detail extends StatelessWidget {
             ),
           ),
 
-          const SectionLabel('Items'),
-          LoafCard(
-            child: Column(
-              children: [
-                for (final l in view.lines) ...[
+          // Grouped into the journeys they travel on (D28). An order of a
+          // cake on Friday and a box on Sunday is two trips, and reading it as
+          // one flat list left no way to see which was which — or to say the
+          // Friday van had left.
+          for (final sub in view.subOrders) ...[
+            SectionLabel(
+              view.subOrders.length == 1
+                  ? 'Items'
+                  : (sub.isPickup ? 'Pickup' : 'Delivery'),
+              trailing: view.subOrders.length == 1
+                  ? null
+                  : Micro(sub.reference(o.orderNo)),
+            ),
+            LoafCard(
+              child: Column(
+                children: [
+                  // When and where this lot goes, said once for all of it
+                  // rather than repeated on every item.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.sm),
+                    child: Row(
+                      children: [
+                        Icon(Icons.event, size: 14, color: c.ink3),
+                        const SizedBox(width: Space.xs),
+                        Expanded(
+                          child: Micro([
+                            dayLabel(sub.deliveryDate),
+                            timeLabel(sub.deliveryTime),
+                            if (sub.addressText != null) sub.addressText!,
+                          ].join(' · ')),
+                        ),
+                        _SubChip(status: sub.status, isPickup: sub.isPickup),
+                      ],
+                    ),
+                  ),
+                for (final l in sub.lines) ...[
                   InkWell(
                     onTap: () => _editItem(context, view, l),
                     child: Padding(
@@ -220,17 +251,11 @@ class _Detail extends StatelessWidget {
                                     spacing: Space.sm,
                                     crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
+                                      // No date here: the journey above says
+                                      // when and where this lot goes, and
+                                      // repeating it per item was three copies
+                                      // of one fact.
                                       _LineChip(status: l.status),
-                                      if (l.deliveryDate != null)
-                                        Micro([
-                                          _dateLabel(
-                                              DateTime.fromMillisecondsSinceEpoch(
-                                                  l.deliveryDate!)),
-                                          if (l.deliveryTime != null)
-                                            timeLabel(l.deliveryTime),
-                                          if (l.fulfilment == Fulfilment.pickup)
-                                            'pickup',
-                                        ].join(' · ')),
                                     ],
                                   ),
                                 ),
@@ -249,8 +274,23 @@ class _Detail extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (l != view.lines.last) Divider(color: c.ruleSoft),
+                  if (l != sub.lines.last) Divider(color: c.ruleSoft),
                 ],
+
+                // The journey's own move: loading the van, and saying it
+                // arrived. Offered only once everything on it is ready.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SubOrderNextStep(view: view, sub: sub),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        LoafCard(
+          child: Column(
+            children: [
                 // Adding to a live order is an edit, not a new order -- the
                 // customer rang back, they did not place a second one.
                 if (view.status != OrderStatus.completed && !view.isCancelled)
@@ -467,92 +507,34 @@ Future<void> _move(BuildContext context, OrderView view, OrderStatus to) async {
   if (kind != null) await _offerMessage(context, view, kind);
 }
 
-/// Move every line of one drop together, then offer the one message that
-/// describes it.
+/// The one step this **item** can take next, as a button.
 ///
-/// A drop is a journey: lines sharing a day, a time and a destination. Moving
-/// them one at a time would be three taps and three identical texts for what
-/// the customer experienced as one doorbell.
-Future<void> moveDrop(
-  BuildContext context,
-  OrderView view,
-  Drop drop,
-  LineStatus to,
-) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final orders = context.app.orders;
-
-  // Only what actually moved. A drop can hold an item that is already
-  // delivered, or cancelled, and naming those in the message would tell the
-  // customer a box just arrived that arrived last Tuesday — or one that was
-  // called off.
-  final moved = <OrderLine>[];
-  try {
-    for (final line in drop.lines) {
-      if (!line.status.canGoTo(to)) continue;
-      await orders.moveLine(line.id!, to);
-      moved.add(line);
-    }
-  } on StateError catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    return;
-  }
-  if (moved.isEmpty) return;
-  if (!context.mounted) return;
-
-  final kind = switch (to) {
-    LineStatus.out => MessageKind.outForDelivery,
-    LineStatus.delivered => MessageKind.delivery,
-    _ => null,
-  };
-  if (kind == null) return;
-
-  // The message names what arrived and what is still coming, so the customer
-  // is never told "your order has been delivered" while a box is outstanding.
-  final fresh = await orders.watchOrder(view.order.id).first;
-  if (fresh == null || !context.mounted) return;
-  await _offerMessage(context, fresh, kind, dropLines: moved);
-}
-
-/// The one step this item can take next, as a button.
-///
-/// Baking is per item; handing over is per **drop**. So "Start" and "Ready"
-/// move this item alone, while "Send out" and "Delivered" move everything
-/// travelling with it — two cakes going to the same house at 4pm leave in one
-/// van, and marking them separately would send the customer two texts about
-/// one doorbell.
+/// The kitchen's two moves and nothing else: start it, and it is ready. Going
+/// out and arriving belong to the journey it is on (D29) — a cake does not
+/// travel on its own, and marking one delivered while the box beside it in the
+/// same van was not would be a lie about one doorbell.
 class LineNextStep extends StatelessWidget {
   const LineNextStep({super.key, required this.view, required this.line});
 
   final OrderView view;
   final OrderLine line;
 
-  /// The single step worth offering. Cancelling is deliberately not here — it
-  /// needs a reason, and a destructive action does not belong on the same
-  /// gesture as the ordinary next step.
+  /// Cancelling is deliberately not here — it needs a reason, and a
+  /// destructive action does not belong on the same gesture as the ordinary
+  /// next step.
   LineStatus? get _next {
-    final next = line.nextStatuses.where((s) => s != LineStatus.cancelled);
-    if (next.isEmpty) return null;
-    // ready → {out, delivered}: a delivery goes out, a pickup is collected.
-    if (next.contains(LineStatus.out)) return LineStatus.out;
-    if (next.contains(LineStatus.delivered)) return LineStatus.delivered;
-    return next.first;
+    final next = line.nextStatuses.where(
+        (s) => s != LineStatus.cancelled && s != LineStatus.delivered);
+    return next.isEmpty ? null : next.first;
   }
 
   /// Verbs, deliberately. The chip beside this says where the item *is*; a
   /// button reading the same word would be two different claims in one row.
   String _label(LineStatus to) => switch (to) {
-        LineStatus.confirmed => 'Confirm',
         LineStatus.inProduction => 'Start',
         LineStatus.ready => 'Mark ready',
-        LineStatus.out => 'Send out',
-        LineStatus.delivered =>
-          line.fulfilment == Fulfilment.pickup ? 'Mark collected' : 'Mark delivered',
         _ => to.label,
       };
-
-  bool _isHandover(LineStatus to) =>
-      to == LineStatus.out || to == LineStatus.delivered;
 
   @override
   Widget build(BuildContext context) {
@@ -561,28 +543,79 @@ class LineNextStep extends StatelessWidget {
     // action — confirming one item of three is not a thing that happens.
     if (to == null || to == LineStatus.confirmed) return const SizedBox.shrink();
 
-    final drop = dropFor(line, view.liveLines);
-    final travelsWith = _isHandover(to) ? drop.lines.length : 1;
-
     return TextButton(
-      onPressed: () => _go(context, to, drop),
-      child: Text(
-        travelsWith > 1 ? '${_label(to)} ($travelsWith)' : _label(to),
-      ),
+      onPressed: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        try {
+          await context.app.orders.moveLine(line.id!, to);
+        } on StateError catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text(e.message)));
+        }
+      },
+      child: Text(_label(to)),
+    );
+  }
+}
+
+/// The journey's own move: send it out, and say it arrived (D29).
+///
+/// The two things no item can tell you — a cake does not know the van has
+/// left. Delivering it delivers everything on it, and sends **one** message
+/// naming exactly those things: two cakes to one house at four o'clock were
+/// one doorbell, and three texts about it would be three too many.
+class SubOrderNextStep extends StatelessWidget {
+  const SubOrderNextStep({super.key, required this.view, required this.sub});
+
+  final OrderView view;
+  final SubOrder sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final to = sub.status.nextFor(isPickup: sub.isPickup);
+    if (to == null) return const SizedBox.shrink();
+
+    final count = sub.liveLines.length;
+    final label = switch (to) {
+      SubOrderStatus.out => 'Send out',
+      SubOrderStatus.delivered =>
+        sub.isPickup ? 'Mark collected' : 'Mark delivered',
+      _ => to.label,
+    };
+
+    return FilledButton.tonal(
+      onPressed: () => _go(context, to),
+      child: Text(count > 1 ? '$label ($count)' : label),
     );
   }
 
-  Future<void> _go(BuildContext context, LineStatus to, Drop drop) async {
-    if (_isHandover(to)) {
-      await moveDrop(context, view, drop, to);
-      return;
-    }
+  Future<void> _go(BuildContext context, SubOrderStatus to) async {
     final messenger = ScaffoldMessenger.of(context);
+    final orders = context.app.orders;
+
+    // What is on it *now*, before the move. Afterwards every one of them is
+    // delivered, and the message would name them all whatever happened.
+    final moving = sub.liveLines;
+
     try {
-      await context.app.orders.moveLine(line.id!, to);
+      await orders.moveSubOrder(sub.id, to);
     } on StateError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
     }
+    if (!context.mounted) return;
+
+    final kind = switch (to) {
+      SubOrderStatus.out => MessageKind.outForDelivery,
+      SubOrderStatus.delivered => MessageKind.delivery,
+      _ => null,
+    };
+    if (kind == null) return;
+
+    // The message names what went and what is still coming, so the customer is
+    // never told "your order has been delivered" while a box is outstanding.
+    final fresh = await orders.watchOrder(view.order.id).first;
+    if (fresh == null || !context.mounted) return;
+    await _offerMessage(context, fresh, kind, dropLines: moving);
   }
 }
 
@@ -602,7 +635,8 @@ Future<void> _editItem(
   final messenger = ScaffoldMessenger.of(context);
   final edited = await editLine(
     context,
-    existing: _draftOf(line),
+    existing: _draftOf(
+        line, view.subOrders.where((s) => s.id == line.subOrderId).firstOrNull),
     customerId: view.customer.id,
     status: line.status,
   );
@@ -636,7 +670,12 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
     context,
     // Every item already on the order, so the new one can join any journey
     // they are on rather than only the most recent.
-    siblings: [for (final l in view.lines) _draftOf(l)],
+    // Every item already on the order, so the new one can be given the same
+    // date and place as any of them rather than only the most recent.
+    siblings: [
+      for (final sub in view.subOrders)
+        for (final l in sub.lines) _draftOf(l, sub),
+    ],
     customerId: view.customer.id,
   );
   if (added == null) return;
@@ -652,7 +691,10 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
   await _offerMessage(context, fresh, MessageKind.confirmation, isUpdate: true);
 }
 
-DraftLine _draftOf(OrderLine l) => DraftLine(
+/// An item as the editor wants it: what it is, plus when and where its
+/// journey goes — because that is what a person edits, even though the journey
+/// is what stores it (D28).
+DraftLine _draftOf(OrderLine l, SubOrder? sub) => DraftLine(
       menuItemId: l.menuItemId,
       itemName: l.itemName,
       flavour: l.flavour,
@@ -661,15 +703,52 @@ DraftLine _draftOf(OrderLine l) => DraftLine(
       basePrice: l.basePrice,
       note: l.note,
       addons: l.addons,
-      deliveryDate: l.deliveryDate,
-      deliveryTime: l.deliveryTime,
-      fulfilment: l.fulfilment,
-      deliveryType: l.deliveryType,
-      addressText: l.addressText,
-      pinLat: l.pinLat,
-      pinLng: l.pinLng,
-      pinUrl: l.pinUrl,
+      itemMessage: l.itemMessage,
+      requirements: l.requirements,
+      dietaryFlags: l.dietaryFlags,
+      // When and where comes from the journey it is on (D28).
+      deliveryDate: sub?.deliveryDate,
+      deliveryTime: sub?.deliveryTime,
+      fulfilment: sub?.fulfilment,
+      deliveryType: sub?.deliveryType,
+      addressText: sub?.addressText,
+      pinLat: sub?.pinLat,
+      pinLng: sub?.pinLng,
+      pinUrl: sub?.pinUrl,
+      deliveryCharge: sub?.deliveryCharge,
     );
+
+/// Where one journey has got to. Read beside the items it carries, so it is
+/// the same size as their own chips rather than shouting over them.
+class _SubChip extends StatelessWidget {
+  const _SubChip({required this.status, required this.isPickup});
+
+  final SubOrderStatus status;
+  final bool isPickup;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final (fg, bg) = switch (status) {
+      SubOrderStatus.cancelled => (c.bad, c.badSoft),
+      SubOrderStatus.delivered => (c.good, c.goodSoft),
+      SubOrderStatus.out || SubOrderStatus.ready => (c.accent, c.accentSoft),
+      _ => (c.ink3, c.surface2),
+    };
+    final label = status == SubOrderStatus.delivered && isPickup
+        ? 'Collected'
+        : status.label;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.sm, vertical: 2),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.pill)),
+      child: Text(label,
+          style: context.text.labelSmall!.copyWith(color: fg)),
+    );
+  }
+}
 
 /// Where one item is in its own life. Small, because it is read alongside the
 /// item rather than instead of it.
@@ -684,7 +763,7 @@ class _LineChip extends StatelessWidget {
     final (fg, bg) = switch (status) {
       LineStatus.cancelled => (c.bad, c.badSoft),
       LineStatus.delivered => (c.good, c.goodSoft),
-      LineStatus.out || LineStatus.ready => (c.accent, c.accentSoft),
+      LineStatus.ready => (c.accent, c.accentSoft),
       _ => (c.ink3, c.surface2),
     };
     return Container(

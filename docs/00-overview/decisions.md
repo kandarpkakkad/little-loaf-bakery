@@ -219,3 +219,50 @@ would make "what do they owe?" a sum across rows that are delivered on different
 **Consequence:** a cancelled line leaves the total — so cancelling a line after payment can
 put the order in credit, which §2 makes explicit rather than letting it read as a negative
 balance.
+
+### D28 · An order holds sub-orders; sub-orders hold items
+**Chose:** three levels. An **order** is one sale to one customer. A **sub-order** is one
+journey — everything going out on the same day, at the same time, to the same place. An
+**item** is one thing that gets made.
+
+**Because:** the grouping already existed and was derived on the fly from a key of
+`date · time · fulfilment · address`. A derived key can be grouped by, but it cannot *hold*
+anything: not a status the kitchen moves, not a delivery charge, not a courier link, not an id
+somebody can say out loud. Every one of those had to be faked onto the items and kept in step
+by hand, and each was a place for two items in one van to disagree.
+
+**A sub-order is maintained, never authored.** Nobody creates one. The order form still asks
+each item when and where it goes, exactly as before; the repository finds the sub-order that
+matches and puts the item in it, making one if none exists and removing one left empty. It
+surfaces in the **kitchen**, where the unit of work really is "this lot, going here, then" —
+and nowhere in taking or editing an order.
+
+**Called a Delivery on screen**, or a Pickup when that is what it is. It carries an id of
+`<order-no>-<n>` for the kitchen to refer to. **That id never goes in a customer message**:
+the customer bought one order, and telling them it has been filed as three is the bakery's
+paperwork leaking.
+
+**Cost:** three status machines instead of two, and a table that is written by the system
+rather than by a person — so its correctness rests on the maintenance being right rather than
+on somebody looking at it.
+
+### D29 · Three status machines, each derived from the one below
+**Chose:**
+
+| | Moves | Derivation |
+|---|---|---|
+| **Item** | `created → confirmed → in production → ready → delivered` | The kitchen moves it to in production and ready. Delivered arrives from its sub-order |
+| **Sub-order** | `created → confirmed → in production → ready → [out] → delivered` | In production as soon as **any** item is. Ready when **every** live item is. Out and delivered are moved by a person — out is skipped for a pickup |
+| **Order** | `created → confirmed → in production → delivered → completed` | In production as soon as **any** sub-order is. Delivered when **every** live sub-order is. Completed is manual and needs a zero balance |
+
+**Because:** each level answers a different question. "Is this cake baked" is the item's. "Is
+this van loaded" is the sub-order's. "Is this sale finished" is the order's. Deriving upward
+means they cannot disagree, and the only things a person moves are the ones a person actually
+decides: start it, it is ready, it has gone, it arrived, we are square.
+
+**The order has no ready and no out.** Half a ready order is not a thing, and an order does
+not travel — its sub-orders do.
+
+**Cancelling stays at the order and the item** (D28): those are the levels where a reason
+exists. A sub-order is cancelled when every item in it is, because nobody cancels a journey —
+they cancel what was on it.

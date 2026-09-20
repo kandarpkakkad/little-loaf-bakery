@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 11;
+const int kSchemaVersion = 12;
 
 @DriftDatabase(
   tables: [
@@ -13,6 +13,7 @@ const int kSchemaVersion = 11;
     CustomerAddresses,
     MenuItems,
     Orders,
+    SubOrders,
     OrderItems,
     OrderItemStatusEvents,
     OrderItemAddons,
@@ -68,152 +69,52 @@ class AppDatabase extends _$AppDatabase {
   /// The first migration to run against real data on two devices at once, so
   /// the order of the steps is the whole difficulty. See
   /// docs/01-platform/storage/lld.md §5b.
+  /// One entry per version transition, forward only.
+  ///
+  /// **The history before v12 is gone**, and deliberately. v12 made the
+  /// journey a table of its own (D28), which moved nine columns off every
+  /// item and rebuilt two tables to change their CHECKs. Carrying v9 and v10
+  /// rows through that would have meant inventing a sub-order per distinct
+  /// schedule and renumbering them — code written once, run never, and
+  /// impossible to test against rows that will not exist, because the app is
+  /// being started again from empty.
+  ///
+  /// A database older than v11 therefore fails to open with "no migration step
+  /// from schema vN", which is the truth: reinstall.
   static final Map<int, Future<void> Function(Migrator)> _steps = {
-    9: _v9ToV10,
-    10: _v10ToV11,
+    11: _v11ToV12,
   };
 
-  /// What an item is for moves down to the item (D25, finished).
+  /// The journey becomes a row of its own (D28).
   ///
-  /// The message piped on it, its special requirements, its dietary flags and
-  /// what it costs to send were all asked for at order level *and* per item.
-  /// Each order's values are copied onto every one of its items, so nothing a
-  /// person typed is lost — an order with one message ends up with that
-  /// message on each item, which is what it already meant.
-  static Future<void> _v10ToV11(Migrator m) async {
+  /// Rebuilds the order side of the schema rather than carrying it across.
+  /// See the note on [_steps] for why.
+  static Future<void> _v11ToV12(Migrator m) async {
     final db = m.database as AppDatabase;
-    final items = db.orderItems;
 
-    await m.addColumn(items, items.itemMessage);
-    await m.addColumn(items, items.requirements);
-    await m.addColumn(items, items.dietaryFlags);
-    await m.addColumn(items, items.deliveryCharge);
-
-    await db.customStatement('''
-      UPDATE order_items SET
-        item_message  = (SELECT o.item_message  FROM orders o WHERE o.id = order_items.order_id),
-        requirements  = (SELECT o.requirements  FROM orders o WHERE o.id = order_items.order_id),
-        dietary_flags = COALESCE((SELECT o.dietary_flags FROM orders o WHERE o.id = order_items.order_id), 0)
-    ''');
-
-    // The charge is per journey, not per item, so it lands on **one** item of
-    // each journey and the rest of that journey carry zero. Splitting it
-    // evenly would invent figures nobody agreed; putting it on all of them
-    // would charge one delivery several times.
-    await db.customStatement('''
-      UPDATE order_items SET delivery_charge = COALESCE((
-        SELECT o.delivery_charge FROM orders o WHERE o.id = order_items.order_id
-      ), 0)
-      WHERE id IN (
-        SELECT MIN(i.id) FROM order_items i
-         WHERE i.order_id = order_items.order_id
-           AND i.deleted_at IS NULL
-         GROUP BY i.order_id,
-                  COALESCE(i.delivery_date, -1),
-                  COALESCE(i.delivery_time, -1),
-                  COALESCE(i.fulfilment, ''),
-                  COALESCE(i.address_text, '')
-      )
-    ''');
-  }
-
-  /// Scheduling moves from the order down to the line (D25-D27).
-  static Future<void> _v9ToV10(Migrator m) async {
-    final db = m.database as AppDatabase;
-    final items = db.orderItems;
-    final orders = db.orders;
-
-    // 1 - additive only, so a v9 build that reads this file after a rollback
-    //     still works.
-    for (final c in [
-      items.status,
-      items.deliveryDate,
-      items.deliveryTime,
-      items.fulfilment,
-      items.deliveryType,
-      items.addressText,
-      items.pinLat,
-      items.pinLng,
-      items.pinUrl,
-      items.trackingUrl,
-      items.deliveredAt,
-      items.cancelReason,
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    for (final t in [
+      'order_item_addons',
+      'order_item_status_events',
+      'order_items',
+      'order_status_events',
+      'payments',
+      'invoices',
+      'sub_orders',
+      'orders',
     ]) {
-      await m.addColumn(items, c);
+      await db.customStatement('DROP TABLE IF EXISTS $t');
     }
-    await m.addColumn(orders, orders.confirmedAt);
-    await m.addColumn(orders, orders.completedAt);
+
+    await m.createTable(db.orders);
+    await m.createTable(db.subOrders);
+    await m.createTable(db.orderItems);
+    await m.createTable(db.orderItemAddons);
+    await m.createTable(db.orderStatusEvents);
     await m.createTable(db.orderItemStatusEvents);
-
-    // 2 - every existing line inherits its order's schedule. This is what
-    //     makes a one-date order still mean the same thing afterwards.
-    await db.customStatement('''
-      UPDATE order_items SET
-        delivery_date = (SELECT o.delivery_date FROM orders o WHERE o.id = order_id),
-        delivery_time = (SELECT o.delivery_time FROM orders o WHERE o.id = order_id),
-        fulfilment    = (SELECT o.fulfilment    FROM orders o WHERE o.id = order_id),
-        delivery_type = (SELECT o.delivery_type FROM orders o WHERE o.id = order_id),
-        address_text  = (SELECT o.address_text  FROM orders o WHERE o.id = order_id),
-        pin_lat       = (SELECT o.pin_lat       FROM orders o WHERE o.id = order_id),
-        pin_lng       = (SELECT o.pin_lng       FROM orders o WHERE o.id = order_id),
-        pin_url       = (SELECT o.pin_url       FROM orders o WHERE o.id = order_id),
-        tracking_url  = (SELECT o.tracking_url  FROM orders o WHERE o.id = order_id)
-    ''');
-
-    // 3 - and its order's status, mapped down. The order vocabulary is wider
-    //     than the line's: created/confirmed both collapse to "not started",
-    //     and completed lands on delivered.
-    await db.customStatement('''
-      UPDATE order_items SET status = CASE
-        (SELECT o.status FROM orders o WHERE o.id = order_id)
-          WHEN 'created'       THEN 'created'
-          WHEN 'confirmed'     THEN 'confirmed'
-          WHEN 'in_production' THEN 'in_production'
-          WHEN 'ready'         THEN 'ready'
-          WHEN 'out'           THEN 'out'
-          WHEN 'delivered'     THEN 'delivered'
-          WHEN 'completed'     THEN 'delivered'
-          WHEN 'cancelled'     THEN 'cancelled'
-          ELSE 'created'
-        END
-    ''');
-
-    // 4 - the two columns a CHECK pairs with a status.
-    await db.customStatement('''
-      UPDATE order_items
-         SET delivered_at = COALESCE(
-               (SELECT o.delivered_at FROM orders o WHERE o.id = order_id),
-               (SELECT o.created_at   FROM orders o WHERE o.id = order_id))
-       WHERE status = 'delivered'
-    ''');
-    await db.customStatement('''
-      UPDATE order_items
-         SET cancel_reason = COALESCE(
-               (SELECT o.cancel_reason FROM orders o WHERE o.id = order_id),
-               'cancelled before per-line cancellation existed')
-       WHERE status = 'cancelled'
-    ''');
-
-    // 5 - confirmed_at / completed_at, which the derivation needs and the old
-    //     model never stored. Recovered from the status history where there is
-    //     one, from the row's own timestamps where there is not.
-    await db.customStatement('''
-      UPDATE orders SET confirmed_at = COALESCE(
-        (SELECT MIN(e.at) FROM order_status_events e
-          WHERE e.order_id = orders.id AND e.to_status = 'confirmed'),
-        CASE WHEN status = 'created' THEN NULL ELSE created_at END)
-    ''');
-    await db.customStatement('''
-      UPDATE orders SET completed_at = (
-        SELECT MIN(e.at) FROM order_status_events e
-         WHERE e.order_id = orders.id AND e.to_status = 'completed')
-    ''');
-
-    await db.customStatement(
-      'CREATE INDEX IF NOT EXISTS ix_items_due '
-      'ON order_items(delivery_date, delivery_time) '
-      "WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled')",
-    );
+    await m.createTable(db.payments);
+    await m.createTable(db.invoices);
+    await db.customStatement('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _createIndexes(Migrator m) async {
@@ -224,10 +125,13 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX ix_orders_customer ON orders(customer_id) WHERE deleted_at IS NULL',
       'CREATE UNIQUE INDEX ux_orders_no ON orders(order_no) WHERE deleted_at IS NULL',
       'CREATE INDEX ix_items_order ON order_items(order_id, position)',
-      // the app's main sort lives here now: "what is due next" is a
-      // question about lines, not orders (D25)
-      'CREATE INDEX ix_items_due ON order_items(delivery_date, delivery_time) '
+      'CREATE INDEX ix_items_sub ON order_items(sub_order_id)',
+      // the app's main sort lives here now: "what is due next" is a question
+      // about journeys, not orders and not items (D28)
+      'CREATE INDEX ix_subs_due ON sub_orders(delivery_date, delivery_time) '
           "WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled')",
+      'CREATE UNIQUE INDEX ux_sub_seq ON sub_orders(order_id, seq) '
+          'WHERE deleted_at IS NULL',
       'CREATE INDEX ix_item_status ON order_item_status_events(order_item_id, at)',
       'CREATE INDEX ix_items_menu ON order_items(menu_item_id)',
       'CREATE INDEX ix_addons_item ON order_item_addons(order_item_id, position)',

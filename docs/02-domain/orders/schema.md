@@ -90,49 +90,33 @@ CREATE TABLE order_items (
   weight_value       REAL,               -- number and unit, so a bake sheet can total it
   weight_unit        TEXT,               -- g|kg|pcs|dozen
 
-  -- ── the line's own schedule (D25) ──
-  -- Migration: 01-platform/storage/lld.md §5b (v9 → v10).
-  -- A line is what gets made and handed over, so it carries the when, the
-  -- where and the how. Nullable only so an existing row can be backfilled;
-  -- once built, delivery_date is required.
-  status             TEXT NOT NULL DEFAULT 'in_production',
-  delivery_date      INTEGER,            -- local midnight, epoch ms
-  delivery_time      INTEGER,            -- minutes from midnight; NULL = any time
-  fulfilment         TEXT,               -- delivery|pickup
-  delivery_type      TEXT,               -- local|outstation; NULL for pickup
-  address_text       TEXT,
-  pin_lat            REAL,
-  pin_lng            REAL,
-  pin_url            TEXT,
-  tracking_url       TEXT,
+  -- ── what this item is, and where it is in its life (D28, D29) ──
+  -- When and where it goes belongs to its sub-order, not here: everything in
+  -- one journey shares one date, one time, one place and one charge, and
+  -- keeping a copy per item was a copy that could disagree with itself.
+  sub_order_id       TEXT NOT NULL REFERENCES sub_orders(id),
+  status             TEXT NOT NULL DEFAULT 'created',
   delivered_at       INTEGER,
   cancel_reason      TEXT,               -- required when status = 'cancelled'
   qty                INTEGER NOT NULL DEFAULT 1,
   base_price         INTEGER NOT NULL,   -- paise, per unit
-  note               TEXT,
+  note               TEXT,               -- for the kitchen
+  item_message       TEXT,               -- piped on this one
+  requirements       TEXT,
+  dietary_flags      INTEGER NOT NULL DEFAULT 0,
   position           INTEGER NOT NULL,
   -- common columns
   CHECK (qty > 0),
   CHECK ((weight_value IS NULL) = (weight_unit IS NULL)),
   CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen')),
   CHECK (weight_value IS NULL OR weight_value > 0),
-  -- D25:
-  CHECK (status IN ('in_production','ready','out','delivered','cancelled')),
-  CHECK (fulfilment IS NULL OR fulfilment IN ('delivery','pickup')),
-  CHECK (delivery_type IS NULL OR delivery_type IN ('local','outstation')),
-  -- a pickup goes nowhere, so it carries no delivery type and no tracking link
-  CHECK (fulfilment IS NULL OR fulfilment = 'delivery'
-         OR (delivery_type IS NULL AND tracking_url IS NULL)),
-  CHECK ((pin_lat IS NULL) = (pin_lng IS NULL)),
+  -- No 'out': an item does not travel, its sub-order does (D29).
+  CHECK (status IN ('created','confirmed','in_production','ready','delivered','cancelled')),
   CHECK ((status = 'cancelled') = (cancel_reason IS NOT NULL)),
   CHECK ((status = 'delivered') = (delivered_at IS NOT NULL))
 );
 CREATE INDEX ix_items_order ON order_items(order_id, position);
--- D25: the app's main sort key lives here now, because "what is due next" is
--- a question about lines. The list sorts on the EARLIEST outstanding line;
--- the order's own delivery_date holds the LAST one. Two questions.
-CREATE INDEX ix_items_due ON order_items(delivery_date, delivery_time)
-  WHERE deleted_at IS NULL AND status NOT IN ('delivered','cancelled');
+CREATE INDEX ix_items_sub   ON order_items(sub_order_id);
 CREATE INDEX ix_items_menu  ON order_items(menu_item_id);   -- price history + sales by product
 ```
 

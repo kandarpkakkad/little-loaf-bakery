@@ -120,10 +120,17 @@ void main() {
       await f.services.orders.moveLine(l.id!, LineStatus.ready);
     }
 
+    // Two doors is two journeys, so neither button speaks for both. Counting
+    // the rendered buttons would only count what fits on screen, so the claim
+    // is checked where it is actually made.
+    final v = await view(id);
+    expect(v.subOrders, hasLength(2));
+    expect(v.subOrders.every((s) => s.lines.length == 1), isTrue);
+
     await pump(tester, id);
-    expect(find.text('Send out'), findsNWidgets(2),
-        reason: 'two destinations are two journeys, so neither is clubbed');
-    expect(find.text('Send out (2)'), findsNothing);
+    expect(find.text('Send out'), findsWidgets);
+    expect(find.text('Send out (2)'), findsNothing,
+        reason: 'nothing here moves two items at once');
     await drain(tester);
   });
 
@@ -131,14 +138,14 @@ void main() {
     final id = await order([draft('Cake', date: 1000)]);
     await f.services.orders.confirm(id);
     final v = await view(id);
-    for (final st in [
-      LineStatus.inProduction,
-      LineStatus.ready,
-      LineStatus.out,
-      LineStatus.delivered,
-    ]) {
+    for (final st in [LineStatus.inProduction, LineStatus.ready]) {
       await f.services.orders.moveLine(v.lines.first.id!, st);
     }
+    // Handing over belongs to the journey, and it delivers everything on it.
+    await f.services.orders
+        .moveSubOrder(v.subOrders.single.id, SubOrderStatus.out);
+    await f.services.orders
+        .moveSubOrder(v.subOrders.single.id, SubOrderStatus.delivered);
 
     await pump(tester, id);
     for (final label in [

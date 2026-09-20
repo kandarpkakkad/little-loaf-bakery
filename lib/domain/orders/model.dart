@@ -2,9 +2,12 @@ import '../../common/money.dart';
 
 /// What a single line of an order is doing (D25).
 ///
-/// A line is what gets made and handed over, so the line has the status. The
-/// order's is derived from these — see [deriveOrderStatus].
-enum LineStatus {
+/// Where one journey is in its life (D29).
+///
+/// Derived from its items up to **ready**, then moved by a person: somebody
+/// loads the van, and somebody says it arrived. A pickup skips `out` — nobody
+/// takes a collection anywhere.
+enum SubOrderStatus {
   created,
   confirmed,
   inProduction,
@@ -14,11 +17,75 @@ enum LineStatus {
   cancelled;
 
   static const _wire = {
+    SubOrderStatus.created: 'created',
+    SubOrderStatus.confirmed: 'confirmed',
+    SubOrderStatus.inProduction: 'in_production',
+    SubOrderStatus.ready: 'ready',
+    SubOrderStatus.out: 'out',
+    SubOrderStatus.delivered: 'delivered',
+    SubOrderStatus.cancelled: 'cancelled',
+  };
+
+  String get wire => _wire[this]!;
+
+  static SubOrderStatus parse(String s) => _wire.entries
+      .firstWhere((e) => e.value == s,
+          orElse: () => const MapEntry(SubOrderStatus.created, ''))
+      .key;
+
+  String get label => switch (this) {
+        SubOrderStatus.created => 'Created',
+        SubOrderStatus.confirmed => 'Confirmed',
+        SubOrderStatus.inProduction => 'In production',
+        SubOrderStatus.ready => 'Ready',
+        SubOrderStatus.out => 'Out for delivery',
+        SubOrderStatus.delivered => 'Delivered',
+        SubOrderStatus.cancelled => 'Cancelled',
+      };
+
+  bool get isLive => this != SubOrderStatus.cancelled;
+  bool get isDone =>
+      this == SubOrderStatus.delivered || this == SubOrderStatus.cancelled;
+
+  /// Past the point where the items decide: somebody has picked this up and
+  /// moved it, so the derivation stops overwriting it.
+  bool get isMoved =>
+      this == SubOrderStatus.out || this == SubOrderStatus.delivered;
+
+  /// The button a person is offered next, if any. `out` only for a delivery.
+  SubOrderStatus? nextFor({required bool isPickup}) => switch (this) {
+        SubOrderStatus.ready =>
+          isPickup ? SubOrderStatus.delivered : SubOrderStatus.out,
+        SubOrderStatus.out => SubOrderStatus.delivered,
+        _ => null,
+      };
+
+  /// What the button says. A pickup is collected, not delivered.
+  String actionFor({required bool isPickup}) => switch (this) {
+        SubOrderStatus.out => 'Send out',
+        SubOrderStatus.delivered => isPickup ? 'Collected' : 'Delivered',
+        _ => label,
+      };
+}
+
+/// Where one item is in its life (D29).
+///
+/// The kitchen moves it to **in production** and **ready**. It never goes
+/// *out* — an item does not travel, its sub-order does — and it becomes
+/// **delivered** when that sub-order does, not on its own.
+enum LineStatus {
+  created,
+  confirmed,
+  inProduction,
+  ready,
+  delivered,
+  cancelled;
+
+  static const _wire = {
     LineStatus.created: 'created',
     LineStatus.confirmed: 'confirmed',
     LineStatus.inProduction: 'in_production',
     LineStatus.ready: 'ready',
-    LineStatus.out: 'out',
     LineStatus.delivered: 'delivered',
     LineStatus.cancelled: 'cancelled',
   };
@@ -46,16 +113,15 @@ enum LineStatus {
   bool get isEditable =>
       this == LineStatus.created || this == LineStatus.confirmed;
 
-  /// `ready → delivered` skipping `out` is the **pickup** path: nothing goes
-  /// out for delivery when the customer collects it.
+  /// The kitchen's two moves, and the two that arrive from elsewhere.
+  ///
+  /// `confirmed` comes from the order being confirmed, and `delivered` from
+  /// the sub-order going out — neither is a button on the item.
   static const _allowed = {
-    // created and confirmed follow the ORDER: an item is confirmed when the
-    // order is, not by itself.
     LineStatus.created: {LineStatus.confirmed, LineStatus.cancelled},
     LineStatus.confirmed: {LineStatus.inProduction, LineStatus.cancelled},
     LineStatus.inProduction: {LineStatus.ready, LineStatus.cancelled},
-    LineStatus.ready: {LineStatus.out, LineStatus.delivered, LineStatus.cancelled},
-    LineStatus.out: {LineStatus.delivered, LineStatus.cancelled},
+    LineStatus.ready: {LineStatus.delivered, LineStatus.cancelled},
     LineStatus.delivered: <LineStatus>{},   // no cancel after handover
     LineStatus.cancelled: <LineStatus>{},
   };
@@ -68,7 +134,6 @@ enum LineStatus {
         LineStatus.confirmed => 'Confirmed',
         LineStatus.inProduction => 'In production',
         LineStatus.ready => 'Ready',
-        LineStatus.out => 'Out for delivery',
         LineStatus.delivered => 'Delivered',
         LineStatus.cancelled => 'Cancelled',
       };
@@ -249,6 +314,115 @@ class Addon {
   final Money price;
 }
 
+/// One journey, with everything travelling on it (D28).
+///
+/// Maintained by the repository, never authored: items say when and where they
+/// go, and the matching sub-order is found or made. It is a row rather than a
+/// grouping key because a key cannot hold a status, a charge, a courier link
+/// or a number the kitchen can say out loud.
+class SubOrder {
+  const SubOrder({
+    required this.id,
+    required this.seq,
+    required this.status,
+    required this.deliveryDate,
+    required this.fulfilment,
+    this.deliveryTime,
+    this.deliveryType,
+    this.addressText,
+    this.pinLat,
+    this.pinLng,
+    this.pinUrl,
+    this.deliveryCharge = Money.zero,
+    this.trackingUrl,
+    this.deliveredAt,
+    this.lines = const [],
+  });
+
+  final String id;
+
+  /// 1, 2, 3 … within its order. Spent, never reused.
+  final int seq;
+
+  final SubOrderStatus status;
+  final int deliveryDate;
+  final int? deliveryTime;
+  final Fulfilment fulfilment;
+  final DeliveryType? deliveryType;
+  final String? addressText;
+  final double? pinLat;
+  final double? pinLng;
+  final String? pinUrl;
+
+  /// One journey, one charge, however many boxes are in it.
+  final Money deliveryCharge;
+
+  final String? trackingUrl;
+  final int? deliveredAt;
+
+  /// What is travelling on it.
+  final List<OrderLine> lines;
+
+  bool get isPickup => fulfilment == Fulfilment.pickup;
+  bool get isLive => status.isLive;
+  bool get hasPin => pinLat != null && pinLng != null;
+
+  List<OrderLine> get liveLines => [for (final l in lines) if (l.isLive) l];
+
+  /// What the kitchen calls it: `LLB-0001-67FR-2`.
+  ///
+  /// **Never in a customer message.** They bought one order; how the bakery
+  /// filed it is not their business.
+  String reference(String orderNo) => '$orderNo-$seq';
+
+  /// The key that decides which journey an item belongs to: same day, same
+  /// time, same way out, same place.
+  static String keyOf({
+    required int date,
+    int? time,
+    required Fulfilment fulfilment,
+    String? addressText,
+  }) =>
+      [date, time ?? '-', fulfilment.name, addressText ?? '-'].join('|');
+
+  String get key => keyOf(
+        date: deliveryDate,
+        time: deliveryTime,
+        fulfilment: fulfilment,
+        addressText: addressText,
+      );
+}
+
+/// Where a journey has got to, given what is on it.
+///
+/// Derived up to **ready**; past that it is whatever a person moved it to,
+/// because loading a van and arriving are facts nobody can infer from a cake.
+SubOrderStatus deriveSubOrderStatus(
+  SubOrderStatus stored,
+  Iterable<OrderLine> lines, {
+  required bool orderConfirmed,
+}) {
+  final all = lines.toList();
+  final live = [for (final l in all) if (l.isLive) l];
+
+  // Everything on it was called off, so the journey was too. Nobody cancels a
+  // journey directly (D28) — they cancel what was on it.
+  if (all.isNotEmpty && live.isEmpty) return SubOrderStatus.cancelled;
+
+  if (stored.isMoved) return stored;
+  if (!orderConfirmed) return SubOrderStatus.created;
+  if (live.isEmpty) return SubOrderStatus.confirmed;
+
+  if (live.every((l) => l.status == LineStatus.ready ||
+      l.status == LineStatus.delivered)) {
+    return SubOrderStatus.ready;
+  }
+  if (live.any((l) => l.status.index >= LineStatus.inProduction.index)) {
+    return SubOrderStatus.inProduction;
+  }
+  return SubOrderStatus.confirmed;
+}
+
 class OrderLine {
   const OrderLine({
     required this.menuItemId,
@@ -256,29 +430,25 @@ class OrderLine {
     required this.qty,
     required this.basePrice,
     this.id,
+    this.subOrderId,
     this.flavour,
     this.weight,
     this.note,
     this.addons = const [],
-    this.status = LineStatus.inProduction,
-    this.deliveryDate,
-    this.deliveryTime,
-    this.fulfilment,
-    this.deliveryType,
-    this.addressText,
-    this.pinLat,
-    this.pinLng,
-    this.pinUrl,
-    this.trackingUrl,
+    this.status = LineStatus.created,
     this.deliveredAt,
     this.itemMessage,
     this.requirements,
     this.dietaryFlags = 0,
-    this.deliveryCharge = Money.zero,
   });
 
   /// Null for a line that has not been saved yet.
   final String? id;
+
+  /// Which journey it is on. Null only on a draft, before the repository has
+  /// found or made one.
+  final String? subOrderId;
+
   final String menuItemId;
   final String itemName;
   final String? flavour;
@@ -288,38 +458,21 @@ class OrderLine {
   final String? note;
   final List<Addon> addons;
 
-  // ── the line's own schedule (D25) ──
   final LineStatus status;
-  final int? deliveryDate;
-  final int? deliveryTime;
-  final Fulfilment? fulfilment;
-  final DeliveryType? deliveryType;
-  final String? addressText;
-  final double? pinLat;
-  final double? pinLng;
-  final String? pinUrl;
-  final String? trackingUrl;
 
-  // ── what this item is for (D25 finished) ──
+  /// When this item actually went. Reporting dates a sale by this rather than
+  /// by when it was promised.
+  final int? deliveredAt;
+
+  // ── what this item is for ──
   final String? itemMessage;
   final String? requirements;
   final int dietaryFlags;
 
-  /// What it costs to send this item. Charged **per drop**, not per item —
-  /// see [dropCharge].
-  final Money deliveryCharge;
-
-  /// When this item actually went. Reporting dates a sale by this rather
-  /// than by when it was promised.
-  final int? deliveredAt;
-
   bool get isLive => status.isLive;
-  bool get hasPin => pinLat != null && pinLng != null;
 
-  /// A pickup never goes out for delivery, so that step is not offered.
-  Set<LineStatus> get nextStatuses => fulfilment == Fulfilment.pickup
-      ? status.next.where((s) => s != LineStatus.out).toSet()
-      : status.next;
+  /// The kitchen's moves. Going out and arriving belong to the sub-order.
+  Set<LineStatus> get nextStatuses => status.next;
 
   /// base × qty + add-ons. Add-ons are priced **for the line**, not per unit.
   Money get total =>
@@ -327,9 +480,6 @@ class OrderLine {
       addons.fold(Money.zero, (a, x) => a + x.price);
 }
 
-/// Everything needed to compute an order's money. Deliberately not the drift
-/// row: totals are derived, never stored, so two devices cannot disagree about
-/// a number neither one holds.
 class OrderTotals {
   const OrderTotals({
     required this.lines,
@@ -386,146 +536,35 @@ PaymentStatus paymentStatusOf(OrderTotals t, {required bool cancelled}) {
 
 // ─────────────────────── derived from the lines (D26) ───────────────────────
 
-/// The order's status, computed from its lines.
+/// The order's status, from its journeys (D29).
 ///
-/// Nothing writes this. Two hand-maintained statuses disagree eventually, and
-/// the disagreement is invisible until someone reads an order marked delivered
-/// while a cake is still in the oven — so there is only one.
+/// In production as soon as **any** journey is; delivered when **every** live
+/// one is. There is no ready and no out at order level: half a ready order is
+/// not a thing, and an order does not travel — its journeys do.
 ///
-/// [confirmedAt] and [completedAt] are the two moments a person does write,
-/// because neither is a fact about lines: confirming is a conversation with the
-/// customer, and completing is deliberate.
+/// `confirmed` and `completed` are the two a person sets, and they arrive here
+/// as timestamps rather than as a status somebody typed.
 OrderStatus deriveOrderStatus(
-  Iterable<OrderLine> lines, {
+  Iterable<SubOrder> subs, {
   int? confirmedAt,
   int? completedAt,
 }) {
-  final live = lines.where((l) => l.isLive).toList();
+  final all = subs.toList();
+  final live = [for (final s in all) if (s.isLive) s];
 
-  // Every line cancelled means the order is cancelled, however it got there.
-  if (lines.isNotEmpty && live.isEmpty) return OrderStatus.cancelled;
+  // Every journey called off means the order was.
+  if (all.isNotEmpty && live.isEmpty) return OrderStatus.cancelled;
   if (confirmedAt == null) return OrderStatus.created;
+  if (completedAt != null) return OrderStatus.completed;
 
-  // Delivered when the LAST live line lands, whichever way it went out.
-  if (live.isNotEmpty && live.every((l) => l.status == LineStatus.delivered)) {
-    return completedAt != null ? OrderStatus.completed : OrderStatus.delivered;
+  if (live.isNotEmpty &&
+      live.every((s) => s.status == SubOrderStatus.delivered)) {
+    return OrderStatus.delivered;
   }
-  // In production the moment ANY line starts. The order has no `ready` or
-  // `out` of its own — those are facts about a single item, and an order whose
-  // cake is ready while its cookies are still mixing is neither.
-  if (live.any((l) => l.status.hasStarted)) return OrderStatus.inProduction;
+  if (live.any((s) => s.status.index >= SubOrderStatus.inProduction.index)) {
+    return OrderStatus.inProduction;
+  }
   return OrderStatus.confirmed;
-}
-
-/// The line that finishes the order: the last one still to be handed over.
-///
-/// Its fulfilment decides how the final status is worded — an order whose last
-/// item is collected ends "Collected", one whose last item is driven out ends
-/// "Delivered", whatever the others were.
-OrderLine? finishingLine(Iterable<OrderLine> lines) {
-  OrderLine? last;
-  for (final l in lines) {
-    if (!l.isLive) continue;
-    if (last == null) {
-      last = l;
-      continue;
-    }
-    final a = l.deliveryDate ?? 0, b = last.deliveryDate ?? 0;
-    if (a > b || (a == b && (l.deliveryTime ?? 0) > (last.deliveryTime ?? 0))) {
-      last = l;
-    }
-  }
-  return last;
-}
-
-/// When this order is finished: the **last** line still outstanding.
-///
-/// An order with a cake on Friday and a snack box on Sunday answers Sunday —
-/// the order is not done until everything has gone. Null when nothing is
-/// outstanding, which means it is waiting on money rather than on the kitchen,
-/// and sorts last.
-///
-/// This is the order's own deadline, not its next task. Work that is due
-/// sooner lives on the lines, and the Kitchen reads those directly — see
-/// [deriveNextLineDate].
-int? deriveDueDate(Iterable<OrderLine> lines) {
-  int? latest;
-  for (final l in lines) {
-    if (l.status.isDone) continue;
-    final d = l.deliveryDate;
-    if (d == null) continue;
-    if (latest == null || d > latest) latest = d;
-  }
-  return latest;
-}
-
-/// The latest time on [deriveDueDate]'s day — the moment the order completes.
-/// Null means "any time", which sorts after the timed ones.
-int? deriveDueTime(Iterable<OrderLine> lines) {
-  final day = deriveDueDate(lines);
-  if (day == null) return null;
-  int? latest;
-  for (final l in lines) {
-    if (l.status.isDone || l.deliveryDate != day) continue;
-    final t = l.deliveryTime;
-    if (t == null) continue;
-    if (latest == null || t > latest) latest = t;
-  }
-  return latest;
-}
-
-/// The time of day of the earliest outstanding line on [deriveNextLineDate]'s
-/// day. Breaks ties within a day; null means "any time" and sorts after the
-/// timed ones.
-int? deriveNextLineTime(Iterable<OrderLine> lines) {
-  final day = deriveNextLineDate(lines);
-  if (day == null) return null;
-  int? earliest;
-  for (final l in lines) {
-    if (l.status.isDone || l.deliveryDate != day) continue;
-    final t = l.deliveryTime;
-    if (t == null) continue;
-    if (earliest == null || t < earliest) earliest = t;
-  }
-  return earliest;
-}
-
-/// The **earliest** outstanding line: what this order needs next.
-///
-/// Kept apart from [deriveDueDate] because the two answer different questions,
-/// and an order spanning two days needs both. A cake on Friday and a snack box
-/// on Sunday is due Sunday, but it needs somebody on Friday — and anything
-/// asking "what is coming up" has to use this one or it will miss the cake.
-int? deriveNextLineDate(Iterable<OrderLine> lines) {
-  int? earliest;
-  for (final l in lines) {
-    if (l.status.isDone) continue;
-    final d = l.deliveryDate;
-    if (d == null) continue;
-    if (earliest == null || d < earliest) earliest = d;
-  }
-  return earliest;
-}
-
-// ─────────────────────────── drops (D25) ───────────────────────────────────
-
-/// Lines that travel together: same day, same time, same destination.
-///
-/// One van run is one message. Two cakes going to the same house at 4pm on
-/// Friday are a single handover, and telling the customer twice is noise —
-/// but a box going somewhere else on Sunday is a different event entirely.
-class Drop {
-  const Drop({required this.key, required this.lines});
-
-  final String key;
-  final List<OrderLine> lines;
-
-  int? get deliveryDate => lines.first.deliveryDate;
-  int? get deliveryTime => lines.first.deliveryTime;
-  Fulfilment? get fulfilment => lines.first.fulfilment;
-  String? get addressText => lines.first.addressText;
-  String? get trackingUrl =>
-      lines.map((l) => l.trackingUrl).whereType<String>().firstOrNull;
 }
 
 /// The dietary flags set on an item, in words.
@@ -539,63 +578,91 @@ List<String> dietaryLabels(int flags) => [
         if (flags & flag != 0) label,
     ];
 
-/// What a drop costs to send.
+/// The journey that finishes the order: the last one still to be handed over.
 ///
-/// The **maximum** of its items' charges, not an arbitrary one. The repository
-/// keeps them equal when anything writes, so in practice they all agree — but
-/// two devices can disagree (one adds an item to Friday while the other
-/// re-prices Friday), and last-writer-wins will not reconcile that on its own.
-/// Taking the max is deterministic without extra machinery, and it errs toward
-/// charging rather than silently under-charging.
-Money dropCharge(Drop drop) {
-  var most = 0;
-  for (final l in drop.lines) {
-    if (l.isLive && l.deliveryCharge.paise > most) most = l.deliveryCharge.paise;
+/// Its fulfilment decides how the final status is worded — an order whose last
+/// journey is collected ends "Collected", one driven out ends "Delivered",
+/// whatever the others were.
+SubOrder? finishingSubOrder(Iterable<SubOrder> subs) {
+  SubOrder? last;
+  for (final s in subs) {
+    if (!s.isLive) continue;
+    if (last == null) {
+      last = s;
+      continue;
+    }
+    final a = s.deliveryDate, b = last.deliveryDate;
+    if (a > b || (a == b && (s.deliveryTime ?? 0) > (last.deliveryTime ?? 0))) {
+      last = s;
+    }
   }
-  return Money(most);
+  return last;
+}
+
+/// When this order is finished: the **last** journey still outstanding.
+///
+/// An order with a cake on Friday and a snack box on Sunday answers Sunday —
+/// it is not done until everything has gone. Null when nothing is outstanding,
+/// which means it is waiting on money rather than on the kitchen, and sorts
+/// last.
+int? deriveDueDate(Iterable<SubOrder> subs) {
+  int? latest;
+  for (final s in subs) {
+    if (s.status.isDone) continue;
+    if (latest == null || s.deliveryDate > latest) latest = s.deliveryDate;
+  }
+  return latest;
+}
+
+/// The latest time on [deriveDueDate]'s day — the moment the order completes.
+int? deriveDueTime(Iterable<SubOrder> subs) {
+  final day = deriveDueDate(subs);
+  if (day == null) return null;
+  int? latest;
+  for (final s in subs) {
+    if (s.status.isDone || s.deliveryDate != day) continue;
+    final t = s.deliveryTime;
+    if (t == null) continue;
+    if (latest == null || t > latest) latest = t;
+  }
+  return latest;
+}
+
+/// When this order is next needed: the **earliest** journey still outstanding.
+///
+/// This is what every list sorts on. A cake on Friday and a box on Sunday
+/// reads as due Sunday and sorts on Friday — because Friday is when somebody
+/// has to do something about it.
+int? deriveNextDate(Iterable<SubOrder> subs) {
+  int? earliest;
+  for (final s in subs) {
+    if (s.status.isDone) continue;
+    if (earliest == null || s.deliveryDate < earliest) earliest = s.deliveryDate;
+  }
+  return earliest;
+}
+
+/// The time of day of the earliest outstanding journey. Breaks ties within a
+/// day; null means "any time" and sorts after the timed ones.
+int? deriveNextTime(Iterable<SubOrder> subs) {
+  final day = deriveNextDate(subs);
+  if (day == null) return null;
+  int? earliest;
+  for (final s in subs) {
+    if (s.status.isDone || s.deliveryDate != day) continue;
+    final t = s.deliveryTime;
+    if (t == null) continue;
+    if (earliest == null || t < earliest) earliest = t;
+  }
+  return earliest;
 }
 
 /// What the whole order costs to send: **one charge per journey**.
-///
-/// Two cakes going out together on Friday are charged once; a Friday and a
-/// Sunday delivery are charged twice. Summing the items instead would charge
-/// one van twice for having two boxes in it.
-Money deliveryTotal(Iterable<OrderLine> lines) {
+Money deliveryTotal(Iterable<SubOrder> subs) {
   var total = 0;
-  for (final d in dropsOf(lines.where((l) => l.isLive))) {
-    total += dropCharge(d).paise;
+  for (final s in subs) {
+    if (s.isLive) total += s.deliveryCharge.paise;
   }
   return Money(total);
 }
 
-/// Groups [lines] into the handovers they actually represent.
-///
-/// Keyed on day, time **and** address: same day and time but two addresses is
-/// two journeys, and the address is what makes it so.
-List<Drop> dropsOf(Iterable<OrderLine> lines) {
-  final byKey = <String, List<OrderLine>>{};
-  for (final l in lines) {
-    final key = [
-      l.deliveryDate ?? '-',
-      l.deliveryTime ?? 'any',
-      l.fulfilment?.name ?? '-',
-      l.addressText ?? '-',
-    ].join('|');
-    byKey.putIfAbsent(key, () => []).add(l);
-  }
-
-  final drops = [
-    for (final e in byKey.entries) Drop(key: e.key, lines: e.value),
-  ];
-  // Soonest first, so "what goes out next" is the top of the list.
-  drops.sort((a, b) {
-    final d = (a.deliveryDate ?? 0).compareTo(b.deliveryDate ?? 0);
-    if (d != 0) return d;
-    return (a.deliveryTime ?? 1 << 30).compareTo(b.deliveryTime ?? 1 << 30);
-  });
-  return drops;
-}
-
-/// The drop a given line belongs to.
-Drop dropFor(OrderLine line, Iterable<OrderLine> all) =>
-    dropsOf(all).firstWhere((d) => d.lines.any((l) => l.id == line.id));

@@ -84,24 +84,23 @@ class _KitchenScreenState extends State<KitchenScreen> {
           if (all == null) {
             return const Pullable(child: CircularProgressIndicator());
           }
-          // A board of lines, not of orders. An order with a cake on Friday
-          // and a box on Sunday has to put the cake on Friday's board — its
-          // own date is the Sunday one (D25), so filtering by that would hide
-          // the cake from the week it is baked in.
+          // A board of **journeys**, not of orders and not of loose items
+          // (D28). An order with a cake on Friday and a box on Sunday puts the
+          // Friday journey on Friday's board — its own date is the Sunday one,
+          // so filtering by that would hide the cake from the week it is baked
+          // in. And a journey is the unit the kitchen actually works to: this
+          // lot, going there, then.
           final due = [
             for (final o in all)
-              for (final l in o.linesDueBetween(0, horizon)) (order: o, line: l),
+              for (final s in o.subOrdersDueBetween(0, horizon))
+                (order: o, sub: s),
           ];
 
-          // The board only draws items that have *started* — in production,
-          // ready, out. So "nothing due" is not the only empty case: an order
-          // sitting unconfirmed has items due and none of them started, and
-          // asking `due.isEmpty` there rendered a blank screen with no
-          // explanation at all.
-          // Work reaches the kitchen when the order is confirmed, so anything
+          // Work reaches the kitchen when the order is confirmed, so a journey
           // still merely created is not theirs yet.
-          final onBoard =
-              due.where((w) => w.line.status != LineStatus.created).toList();
+          final onBoard = due
+              .where((w) => w.sub.status != SubOrderStatus.created)
+              .toList();
           final boardIsEmpty = _view == 0 ? onBoard.isEmpty : due.isEmpty;
 
           if (boardIsEmpty) {
@@ -122,9 +121,9 @@ class _KitchenScreenState extends State<KitchenScreen> {
   }
 }
 
-/// Grouped by status, so the board reads left to right as work moving through.
-/// One item of one order — what the kitchen actually works on.
-typedef Work = ({OrderView order, OrderLine line});
+/// Grouped by status, so the board reads top to bottom as work moving through.
+/// One journey of one order — what the kitchen actually works to.
+typedef Work = ({OrderView order, SubOrder sub});
 
 class _Board extends StatelessWidget {
   const _Board({required this.work});
@@ -133,18 +132,18 @@ class _Board extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final byStatus = <LineStatus, List<Work>>{};
+    final byStatus = <SubOrderStatus, List<Work>>{};
     for (final w in work) {
-      byStatus.putIfAbsent(w.line.status, () => []).add(w);
+      byStatus.putIfAbsent(w.sub.status, () => []).add(w);
     }
     // Soonest first within a column: the board is read top-down under time
     // pressure, so the next thing out of the oven belongs at the top.
     for (final list in byStatus.values) {
       list.sort((a, b) {
-        final d = (a.line.deliveryDate ?? 0).compareTo(b.line.deliveryDate ?? 0);
+        final d = a.sub.deliveryDate.compareTo(b.sub.deliveryDate);
         if (d != 0) return d;
-        return (a.line.deliveryTime ?? 1 << 30)
-            .compareTo(b.line.deliveryTime ?? 1 << 30);
+        return (a.sub.deliveryTime ?? 1 << 30)
+            .compareTo(b.sub.deliveryTime ?? 1 << 30);
       });
     }
 
@@ -160,10 +159,10 @@ class _Board extends StatelessWidget {
           // once somebody had already started it — so the board showed what
           // was under way and never what was coming.
           for (final status in [
-            LineStatus.confirmed,
-            LineStatus.inProduction,
-            LineStatus.ready,
-            LineStatus.out,
+            SubOrderStatus.confirmed,
+            SubOrderStatus.inProduction,
+            SubOrderStatus.ready,
+            SubOrderStatus.out,
           ])
             if (byStatus[status] != null) ...[
               SectionLabel('${status.label} · ${byStatus[status]!.length}'),
@@ -188,12 +187,7 @@ class _WorkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final l = work.line;
-    final sub = [
-      if (l.flavour != null) l.flavour!,
-      if (l.weight != null) l.weight!.label,
-      if (l.qty > 1) '× ${l.qty}',
-    ].join(' · ');
+    final sub = work.sub;
 
     return InkWell(
       onTap: () => Navigator.push(
@@ -203,39 +197,76 @@ class _WorkCard extends StatelessWidget {
       ),
       child: LoafCard(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l.itemName, style: context.text.titleMedium),
-          if (sub.isNotEmpty) Micro(sub),
-          const SizedBox(height: Space.sm),
-          Row(
-            children: [
-              Icon(Icons.event, size: 14, color: c.ink3),
-              const SizedBox(width: Space.xs),
-              Text(
-                [
-                  if (l.deliveryDate != null)
-                    _dayLabel(DateTime.fromMillisecondsSinceEpoch(l.deliveryDate!)),
-                  if (l.deliveryTime != null) timeLabel(l.deliveryTime),
-                  if (l.fulfilment == Fulfilment.pickup) 'pickup',
-                ].join(' · '),
-                style: context.text.bodySmall!.copyWith(color: c.ink2),
-              ),
-            ],
-          ),
-          Text(work.order.customer.name,
-              style: context.text.bodySmall!.copyWith(color: c.ink3)),
-            if (l.note != null)
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // What the kitchen calls this lot. Theirs, not the customer's —
+            // it never goes in a message (D28).
+            Row(
+              children: [
+                Expanded(
+                  child: Text(sub.reference(work.order.order.orderNo),
+                      style: context.text.titleMedium),
+                ),
+                Micro(sub.isPickup ? 'Pickup' : 'Delivery'),
+              ],
+            ),
+            const SizedBox(height: Space.xs),
+            Row(
+              children: [
+                Icon(Icons.event, size: 14, color: c.ink3),
+                const SizedBox(width: Space.xs),
+                Text(
+                  [
+                    dayLabel(sub.deliveryDate),
+                    timeLabel(sub.deliveryTime),
+                  ].join(' · '),
+                  style: context.text.bodySmall!.copyWith(color: c.ink2),
+                ),
+              ],
+            ),
+            Text(work.order.customer.name,
+                style: context.text.bodySmall!.copyWith(color: c.ink3)),
+
+            const SizedBox(height: Space.sm),
+            // Everything travelling on it, each with its own next step: the
+            // kitchen bakes items, and the journey follows them.
+            for (final l in sub.liveLines)
               Padding(
-                padding: const EdgeInsets.only(top: Space.xs),
-                child: Text(l.note!,
-                    style: context.text.bodySmall!.copyWith(color: c.warn)),
+                padding: const EdgeInsets.only(bottom: Space.xs),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text([
+                            l.itemName,
+                            if (l.flavour != null) l.flavour!,
+                            if (l.weight != null) l.weight!.label,
+                            if (l.qty > 1) '× ${l.qty}',
+                          ].join(' · ')),
+                          if (l.note != null)
+                            Text(l.note!,
+                                style: context.text.bodySmall!
+                                    .copyWith(color: c.warn)),
+                          if (l.itemMessage != null)
+                            Micro('Piped: "${l.itemMessage!}"'),
+                          if (dietaryLabels(l.dietaryFlags).isNotEmpty)
+                            Micro(dietaryLabels(l.dietaryFlags).join(', ')),
+                        ],
+                      ),
+                    ),
+                    LineNextStep(view: work.order, line: l),
+                  ],
+                ),
               ),
-            // The board is where the work happens, so the next step is here
-            // rather than one tap away inside the order.
+
+            // The journey's own move — loading the van, and saying it
+            // arrived. Offered only once everything on it is ready.
             Align(
               alignment: Alignment.centerRight,
-              child: LineNextStep(view: work.order, line: l),
+              child: SubOrderNextStep(view: work.order, sub: sub),
             ),
           ],
         ),
@@ -244,13 +275,6 @@ class _WorkCard extends StatelessWidget {
   }
 }
 
-String _dayLabel(DateTime d) {
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${d.day} ${months[d.month - 1]}';
-}
 
 /// Every line across every order, added up. What to actually make.
 class _BakeSheet extends StatelessWidget {
@@ -267,17 +291,18 @@ class _BakeSheet extends StatelessWidget {
     // Only the lines actually due in the horizon. Adding up every line of
     // every order would put next month's cake on today's sheet.
     for (final w in work) {
-      final l = w.line;
-      final key = [
-        l.itemName,
-        if (l.flavour != null) l.flavour!,
-        if (l.weight != null) l.weight!.label,
-      ].join(' · ');
-      totals[key] = (totals[key] ?? 0) + l.qty;
-      for (final d in Dietary.labels(w.order.order.dietaryFlags)) {
-        notes.putIfAbsent(key, () => {}).add(d);
+      for (final l in w.sub.liveLines) {
+        final key = [
+          l.itemName,
+          if (l.flavour != null) l.flavour!,
+          if (l.weight != null) l.weight!.label,
+        ].join(' · ');
+        totals[key] = (totals[key] ?? 0) + l.qty;
+        for (final d in dietaryLabels(l.dietaryFlags)) {
+          notes.putIfAbsent(key, () => {}).add(d);
+        }
+        if (l.note != null) notes.putIfAbsent(key, () => {}).add(l.note!);
       }
-      if (l.note != null) notes.putIfAbsent(key, () => {}).add(l.note!);
     }
 
     final keys = totals.keys.toList()..sort();

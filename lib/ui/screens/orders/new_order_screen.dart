@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
+import '../../../common/money.dart';
 import '../../../common/phone.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
@@ -121,11 +122,27 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         discountValue: _discountType == DiscountType.percent
             ? ((double.tryParse(_discount.text.trim()) ?? 0) * 100).round()
             : moneyFromField(_discount.text).paise,
-        // One charge per journey, worked out from the items — two cakes going
-        // out together are charged once.
-        deliveryCharge: deliveryTotal([for (final l in _lines) l.toLine()]),
+        // One charge per journey (D28): items sharing a day, a time and a
+        // place go out together, so their charge is counted once. Worked out
+        // here from the drafts, because the journeys themselves do not exist
+        // until the order is saved.
+        deliveryCharge: _draftDeliveryTotal(),
         paid: moneyFromField(_advance.text),
       );
+
+  /// What the delivery will come to, counting each journey once.
+  Money _draftDeliveryTotal() {
+    final byJourney = <String, int>{};
+    for (final l in _lines) {
+      final key = l.subOrderKey;
+      if (key == null || l.fulfilment == Fulfilment.pickup) continue;
+      final paise = l.deliveryCharge?.paise ?? 0;
+      // The highest anything on that journey names, so a second item added
+      // without a charge cannot quietly zero the trip.
+      if (paise > (byJourney[key] ?? 0)) byJourney[key] = paise;
+    }
+    return Money(byJourney.values.fold(0, (a, b) => a + b));
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;

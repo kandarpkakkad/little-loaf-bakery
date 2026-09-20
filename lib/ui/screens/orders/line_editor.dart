@@ -110,14 +110,22 @@ class _LineSheetState extends State<_LineSheet> {
   /// of an order goes out together.
   DraftLine? get _seed => widget.existing ?? widget.siblings.lastOrNull;
 
-  /// The journeys this order already has.
+  /// The distinct schedules the other items already use.
   ///
-  /// Items sharing a day, a time, a fulfilment and an address go out together
-  /// — one trip, charged once. Offering them by name is what lets the fourth
-  /// item join the *first* item's journey rather than only the one above it.
-  List<Drop> get _journeys =>
-      dropsOf(widget.siblings.map((l) => l.toLine()).where((l) =>
-          l.deliveryDate != null));
+  /// Offering them by name is what lets the fourth item be given the *first*
+  /// item's date and place rather than only the one above it — and matching
+  /// one exactly is what puts them in the same journey (D28), so they go out
+  /// together and are charged once.
+  List<DraftLine> get _journeys {
+    final seen = <String>{};
+    final out = <DraftLine>[];
+    for (final l in widget.siblings) {
+      final key = l.subOrderKey;
+      if (key == null || !seen.add(key)) continue;
+      out.add(l);
+    }
+    return out;
+  }
 
   /// Which journey this item is on, or null when it is making its own.
   int? _journey;
@@ -198,10 +206,9 @@ class _LineSheetState extends State<_LineSheet> {
   ///
   /// Copying the *charge* too is what makes two items in one delivery cost one
   /// delivery — the order counts a journey once however many boxes are in it.
-  void _join(Drop drop) {
-    final o = drop.lines.first;
+  void _join(DraftLine o) {
     setState(() {
-      _journey = _journeys.indexWhere((d) => d.key == drop.key);
+      _journey = _journeys.indexWhere((d) => d.subOrderKey == o.subOrderKey);
       _date = o.deliveryDate == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(o.deliveryDate!);
@@ -210,8 +217,9 @@ class _LineSheetState extends State<_LineSheet> {
           : TimeOfDay(hour: o.deliveryTime! ~/ 60, minute: o.deliveryTime! % 60);
       _fulfilment = o.fulfilment ?? Fulfilment.delivery;
       _deliveryType = o.deliveryType ?? DeliveryType.local;
-      _charge = dropCharge(drop);
-      _chargeField.text = moneyToField(_charge!);
+      _charge = o.deliveryCharge;
+      _chargeField.text =
+          _charge == null ? '' : moneyToField(_charge!);
       _address = o.addressText == null
           ? null
           : AddressDraft(
@@ -769,10 +777,9 @@ class _LineAddress extends StatelessWidget {
 }
 
 /// A journey, said the way someone would say it: when it goes, and how.
-String _journeyLabel(Drop drop) {
-  final when = drop.deliveryDate == null
-      ? 'No date'
-      : _dayLabel(DateTime.fromMillisecondsSinceEpoch(drop.deliveryDate!));
+String _journeyLabel(DraftLine drop) {
+  final when =
+      drop.deliveryDate == null ? 'No date' : dayLabel(drop.deliveryDate!);
   final at = timeLabel(drop.deliveryTime);
   final how = drop.fulfilment == Fulfilment.pickup
       ? 'Pickup'
@@ -783,8 +790,7 @@ String _journeyLabel(Drop drop) {
 }
 
 /// What is already going on that journey, so it is recognisable at a glance.
-String _journeyItems(Drop drop) =>
-    drop.lines.map((l) => l.itemName).join(', ');
+String _journeyItems(DraftLine drop) => drop.itemName;
 
 /// One journey to join, or the choice to make a new one.
 class _JourneyOption extends StatelessWidget {

@@ -218,18 +218,23 @@ void main() {
       }
     });
 
-    test('a pickup is handed over by moving its item', () async {
+    test('a pickup is collected, and the order follows', () async {
       final orders = f.services.orders;
       await orders.moveTo(orderId, OrderStatus.confirmed);
       var v = await orders.watchOrder(orderId).first;
 
+      // The kitchen bakes the item; the journey is what gets collected, and
+      // collecting it delivers what was on it (D29).
       for (final l in v!.lines) {
         await orders.updateLine(l.id!, fulfilment: Fulfilment.pickup);
-        for (final st in const [LineStatus.inProduction, LineStatus.ready,
-            LineStatus.delivered]) {
+        for (final st in const [LineStatus.inProduction, LineStatus.ready]) {
           await orders.moveLine(l.id!, st);
         }
       }
+
+      v = await orders.watchOrder(orderId).first;
+      await orders.moveSubOrder(
+          v!.subOrders.single.id, SubOrderStatus.delivered);
 
       v = await orders.watchOrder(orderId).first;
       expect(v!.status, OrderStatus.delivered);
@@ -246,8 +251,13 @@ void main() {
       await orders.moveLine(l.id!, LineStatus.inProduction);
       await orders.moveLine(l.id!, LineStatus.ready);
 
-      expect(() => orders.moveLine(l.id!, LineStatus.out), throwsStateError,
-          reason: 'nobody is taking a pickup anywhere');
+      final v2 = await orders.watchOrder(orderId).first;
+      expect(
+        () => orders.moveSubOrder(
+            v2!.subOrders.single.id, SubOrderStatus.out),
+        throwsStateError,
+        reason: 'nobody is taking a pickup anywhere',
+      );
     });
   });
 

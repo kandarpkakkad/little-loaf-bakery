@@ -47,29 +47,62 @@ void main() {
   Future<OrderView> view(String id) =>
       f.services.orders.watchOrder(id).first.then((v) => v!);
 
-  /// Walks a line forward one legal step at a time. The lifecycle has real
-  /// intermediate states now, and a test that skipped them would be asserting
-  /// against a machine that does not exist.
+  /// The journey an item is travelling on.
+  SubOrder subOf(OrderView v, OrderLine l) =>
+      v.subOrders.firstWhere((s) => s.id == l.subOrderId);
+
+  /// Walks an item as far as [to], through whichever level actually moves it.
+  ///
+  /// The kitchen bakes — created → confirmed → in production → ready — and
+  /// then the **journey** goes out and arrives, which is what delivers
+  /// everything on it (D29). An item has no delivered button of its own.
   Future<void> advance(String lineId, LineStatus to) async {
-    const order = [
-      LineStatus.created,
+    const baking = [
       LineStatus.confirmed,
       LineStatus.inProduction,
       LineStatus.ready,
-      LineStatus.out,
-      LineStatus.delivered,
     ];
-    for (final step in order.skip(1)) {
+    for (final step in baking) {
+      if (step.index > to.index) break;
       final rows = await f.rows('order_items');
       final now = LineStatus.parse(
           rows.firstWhere((r) => r['id'] == lineId)['status'] as String);
-      if (now.index >= to.index) break;
-      if (step.index <= now.index) continue;
-      // pickup skips 'out'
+      if (now.index >= step.index) continue;
       if (!now.canGoTo(step)) continue;
       await f.services.orders.moveLine(lineId, step);
-      if (step == to) break;
     }
+    if (to != LineStatus.delivered) return;
+
+    // A van leaves when everything on it is ready, so anything else sharing
+    // this journey is baked too — the model refuses otherwise, and rightly.
+    final item = (await f.rows('order_items'))
+        .firstWhere((r) => r['id'] == lineId);
+    final subId = item['sub_order_id'] as String;
+
+    for (final r in await f.rows('order_items')) {
+      if (r['sub_order_id'] != subId || r['id'] == lineId) continue;
+      final now = LineStatus.parse(r['status'] as String);
+      if (!now.isLive) continue;
+      for (final st in const [LineStatus.inProduction, LineStatus.ready]) {
+        if (LineStatus.parse((await f.rows('order_items'))
+                .firstWhere((x) => x['id'] == r['id'])['status'] as String)
+            .canGoTo(st)) {
+          await f.services.orders.moveLine(r['id'] as String, st);
+        }
+      }
+    }
+
+    final sub = (await f.rows('sub_orders')).firstWhere((r) => r['id'] == subId);
+    // Everything on one journey goes at once, so a second item on it is
+    // already delivered by the time this is asked again.
+    if (SubOrderStatus.parse(sub['status'] as String) ==
+        SubOrderStatus.delivered) {
+      return;
+    }
+    if (sub['fulfilment'] != Fulfilment.pickup.name) {
+      await f.services.orders.moveSubOrder(subId, SubOrderStatus.out);
+    }
+    await f.services.orders.moveSubOrder(subId, SubOrderStatus.delivered);
   }
 
   test('two lines keep two different dates', () async {
@@ -79,12 +112,17 @@ void main() {
     ]);
 
     final v = await view(id);
-    expect(v.lines.map((l) => l.deliveryDate), [1000, 5000]);
-    expect(v.lines[0].fulfilment, Fulfilment.delivery);
-    expect(v.lines[1].fulfilment, Fulfilment.pickup);
-    expect(v.lines[0].addressText, '14 Turner Rd');
-    expect(v.lines[1].deliveryType, isNull,
+    // Two dates means two journeys, made by the repository rather than by
+    // anybody asking for them (D28).
+    expect(v.subOrders, hasLength(2));
+    expect(v.subOrders.map((s) => s.deliveryDate), [1000, 5000]);
+    expect(v.subOrders.map((s) => s.seq), [1, 2]);
+    expect(v.subOrders[0].fulfilment, Fulfilment.delivery);
+    expect(v.subOrders[1].fulfilment, Fulfilment.pickup);
+    expect(v.subOrders[0].addressText, '14 Turner Rd');
+    expect(v.subOrders[1].deliveryType, isNull,
         reason: 'a pickup carries no delivery type');
+    expect(v.lines.map((l) => subOf(v, l).deliveryDate), [1000, 5000]);
   });
 
   test('the order is due when its last outstanding line is', () async {
@@ -94,11 +132,11 @@ void main() {
     ]);
     var v = await view(id);
     expect(v.dueDate, 5000, reason: 'the order is not done until Sunday');
-    expect(v.nextLineDate, 1000, reason: 'but Friday still needs a baker');
+    expect(v.nextDate, 1000, reason: 'but Friday still needs a baker');
 
     // delivering the far one shortens the order
     await f.services.orders.confirm(id);
-    final far = v.lines.firstWhere((l) => l.deliveryDate == 5000);
+    final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 5000);
     await advance(far.id!, LineStatus.delivered);
 
     v = await view(id);
@@ -119,11 +157,13 @@ void main() {
     v = await view(id);
     expect(v.status, OrderStatus.inProduction, reason: 'one baker started');
 
-    for (final l in v.lines) {
-      await advance(l.id!, LineStatus.delivered);
-    }
+    // Both items share a day and a place, so they share a journey — handing
+    // it over delivers both at once (D29).
+    await advance(v.lines.first.id!, LineStatus.delivered);
     v = await view(id);
     expect(v.status, OrderStatus.delivered);
+    expect(v.lines.every((l) => l.status == LineStatus.delivered), isTrue,
+        reason: 'they travelled together, so they arrived together');
   });
 
   test('an illegal line move is refused', () async {
@@ -136,15 +176,20 @@ void main() {
     );
   });
 
-  test('a pickup line is never sent out for delivery', () async {
+  test('a pickup journey is never sent out for delivery', () async {
     final id = await order([
       draft('Croissants', date: 1000, fulfilment: Fulfilment.pickup),
     ]);
-    final v = await view(id);
+    var v = await view(id);
     await f.services.orders.confirm(id);
     await advance(v.lines.first.id!, LineStatus.ready);
+
+    v = await view(id);
+    final sub = v.subOrders.single;
+    expect(sub.status.nextFor(isPickup: true), SubOrderStatus.delivered,
+        reason: 'nobody takes a collection anywhere');
     expect(
-      () => f.services.orders.moveLine(v.lines.first.id!, LineStatus.out),
+      () => f.services.orders.moveSubOrder(sub.id, SubOrderStatus.out),
       throwsStateError,
     );
   });
@@ -195,14 +240,14 @@ void main() {
     moved = await f.services.orders.moveAllLines(id, LineStatus.ready);
     expect(moved, 2);
 
-    // only the delivery line can go out; the pickup is skipped, not refused
-    final outMoved = await f.services.orders.moveAllLines(id, LineStatus.out);
-    expect(outMoved, 1);
-
+    // Going out belongs to the journey now, so there is nothing left for
+    // moveAllLines to do — the items are as far as the kitchen takes them.
     final v = await view(id);
     final byName = {for (final l in v.lines) l.itemName: l.status};
-    expect(byName['Cake'], LineStatus.out);
+    expect(byName['Cake'], LineStatus.ready);
     expect(byName['Buns'], LineStatus.ready);
+    expect(v.subOrders.every((s) => s.status == SubOrderStatus.ready), isTrue,
+        reason: 'both journeys are loaded and waiting');
   });
 
   test("a line created without a date inherits the order's", () async {
@@ -217,20 +262,24 @@ void main() {
       deliveryDate: 4242,
     );
     final v = await view(id);
-    expect(v.lines.single.deliveryDate, 4242);
+    expect(subOf(v, v.lines.single).deliveryDate, 4242);
     expect(v.dueDate, 4242);
   });
 
-  test('confirming is refused when a line has no date at all', () async {
-    // Reachable only from outside create(): a row migrated from v9, or an op
-    // from a peer that predates per-line scheduling.
-    final id = await order([draft('Cake', date: 1000)]);
-    final v = await view(id);
-    await f.services.db.customStatement(
-      'UPDATE order_items SET delivery_date = NULL WHERE id = ?',
-      [v.lines.single.id],
+  test('an item cannot exist without a date, because a journey needs one',
+      () async {
+    // A date is what puts an item on a journey (D28), so there is no way to
+    // save one without it — the repository refuses before anything is written.
+    expect(
+      () => f.services.orders.create(
+        customerId: customerId,
+        lines: [
+          DraftLine(
+              menuItemId: menuId, itemName: 'Cake', basePrice: Money.rupees(500))
+        ],
+      ),
+      throwsStateError,
     );
-    expect(() => f.services.orders.confirm(id), throwsStateError);
   });
 
   test('completing is refused while the order is in credit', () async {
@@ -239,15 +288,17 @@ void main() {
     await f.services.orders.addPayment(
         orderId: id, amount: Money.rupees(1000), kind: 'advance', mode: 'upi');
 
+    // Cancel first: both items share a journey, so delivering it would take
+    // the buns with it and there would be nothing left to call off.
     var v = await view(id);
-    for (final l in v.lines) {
-      if (l.itemName == 'Buns') {
-        await f.services.orders
-            .moveLine(l.id!, LineStatus.cancelled, reason: 'out of flour');
-      } else {
-        await advance(l.id!, LineStatus.delivered);
-      }
-    }
+    await f.services.orders.moveLine(
+        v.lines.firstWhere((l) => l.itemName == 'Buns').id!,
+        LineStatus.cancelled,
+        reason: 'out of flour');
+    await advance(
+        v.lines.firstWhere((l) => l.itemName == 'Cake').id!,
+        LineStatus.delivered);
+
     v = await view(id);
     expect(v.status, OrderStatus.delivered);
     expect(v.totals.inCredit, isTrue);
@@ -263,13 +314,13 @@ void main() {
       expect(v.dueDate, 2000);
 
       // push the far item out by a week
-      final far = v.lines.firstWhere((l) => l.deliveryDate == 2000);
+      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 2000);
       await f.services.orders.updateLine(far.id!, deliveryDate: 9000);
 
       v = await view(id);
       expect(v.dueDate, 9000,
           reason: 'derived, so it follows the item without being told');
-      expect(v.nextLineDate, 1000, reason: 'the near item did not move');
+      expect(v.nextDate, 1000, reason: 'the near item did not move');
     });
 
     test('moving the last item earlier pulls the order in', () async {
@@ -278,7 +329,7 @@ void main() {
       var v = await view(id);
       expect(v.dueDate, 8000);
 
-      final far = v.lines.firstWhere((l) => l.deliveryDate == 8000);
+      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 8000);
       await f.services.orders.updateLine(far.id!, deliveryDate: 1500);
 
       v = await view(id);
@@ -296,17 +347,24 @@ void main() {
       expect(v.totals.subtotal, Money.rupees(600));
     });
 
-    test('switching an item to pickup drops its delivery type', () async {
+    test('switching an item to pickup moves it to a pickup journey', () async {
       final id = await order([draft('Cake', date: 1000)]);
       var v = await view(id);
-      expect(v.lines.first.deliveryType, DeliveryType.local);
+      expect(v.subOrders.single.deliveryType, DeliveryType.local);
 
       await f.services.orders
           .updateLine(v.lines.first.id!, fulfilment: Fulfilment.pickup);
+
       v = await view(id);
-      expect(v.lines.first.fulfilment, Fulfilment.pickup);
-      expect(v.lines.first.deliveryType, isNull,
+      // The old delivery journey had nothing left on it, so it went with the
+      // item (D28) — an empty journey would sit on the board with nothing to
+      // make.
+      expect(v.subOrders, hasLength(1));
+      expect(v.subOrders.single.fulfilment, Fulfilment.pickup);
+      expect(v.subOrders.single.deliveryType, isNull,
           reason: 'a pickup goes nowhere, so it carries no delivery type');
+      expect(v.subOrders.single.seq, 2,
+          reason: 'the number the empty journey took is spent, not reused');
     });
 
     test('a delivered item cannot be edited', () async {
@@ -413,10 +471,10 @@ void main() {
       );
 
       final v = await view(id);
-      final l = v.lines.single;
-      expect(l.deliveryDate, 6000);
-      expect(l.deliveryTime, 1020);
-      expect(l.addressText, 'The office');
+      final journey = subOf(v, v.lines.single);
+      expect(journey.deliveryDate, 6000);
+      expect(journey.deliveryTime, 1020);
+      expect(journey.addressText, 'The office');
       expect(v.dueDate, 6000, reason: 'and the order follows it');
     });
 

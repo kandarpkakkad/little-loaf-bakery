@@ -2,52 +2,57 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/money.dart';
 import 'package:little_loaf/domain/orders/model.dart';
 
-/// The line state machine, and the order status derived from it (D25, D26).
+/// The three status machines, each derived from the one below (D28, D29).
 void main() {
-  OrderLine line(
-    LineStatus status, {
-    int? date,
-    int? time,
-    Fulfilment? fulfilment,
-    int price = 100,
-  }) =>
-      OrderLine(
+  var n = 0;
+
+  OrderLine line(LineStatus status, {int price = 100}) => OrderLine(
+        id: 'l${n++}',
         menuItemId: 'm1',
         itemName: 'Cake',
         qty: 1,
         basePrice: Money.rupees(price),
         status: status,
+      );
+
+  SubOrder sub(
+    SubOrderStatus status, {
+    int date = 100,
+    int? time,
+    Fulfilment fulfilment = Fulfilment.delivery,
+    int charge = 0,
+    List<OrderLine> lines = const [],
+  }) =>
+      SubOrder(
+        id: 's${n++}',
+        seq: 1,
+        status: status,
         deliveryDate: date,
         deliveryTime: time,
         fulfilment: fulfilment,
+        deliveryCharge: Money(charge),
+        lines: lines,
       );
 
-  group('the line state machine', () {
+  group('the item state machine', () {
     test('runs forward and stops at the ends', () {
       expect(LineStatus.created.canGoTo(LineStatus.confirmed), isTrue);
       expect(LineStatus.confirmed.canGoTo(LineStatus.inProduction), isTrue);
       expect(LineStatus.inProduction.canGoTo(LineStatus.ready), isTrue);
-      expect(LineStatus.ready.canGoTo(LineStatus.out), isTrue);
-      expect(LineStatus.out.canGoTo(LineStatus.delivered), isTrue);
+      expect(LineStatus.ready.canGoTo(LineStatus.delivered), isTrue);
       expect(LineStatus.delivered.next, isEmpty, reason: 'terminal');
       expect(LineStatus.cancelled.next, isEmpty, reason: 'terminal');
     });
 
-    test('a delivered line cannot be cancelled', () {
+    test('an item never goes out for delivery', () {
+      // It does not travel on its own — its sub-order does (D29). The enum
+      // has no such value to reach.
+      expect(LineStatus.values.map((s) => s.wire), isNot(contains('out')));
+    });
+
+    test('a delivered item cannot be cancelled', () {
       expect(LineStatus.delivered.canGoTo(LineStatus.cancelled), isFalse,
           reason: 'no cancel after handover');
-    });
-
-    test('ready goes straight to delivered — that is the pickup path', () {
-      expect(LineStatus.ready.canGoTo(LineStatus.delivered), isTrue);
-    });
-
-    test('a pickup is never offered "out for delivery"', () {
-      final pickup = line(LineStatus.ready, fulfilment: Fulfilment.pickup);
-      final delivery = line(LineStatus.ready, fulfilment: Fulfilment.delivery);
-      expect(pickup.nextStatuses, isNot(contains(LineStatus.out)));
-      expect(pickup.nextStatuses, contains(LineStatus.delivered));
-      expect(delivery.nextStatuses, contains(LineStatus.out));
     });
 
     test('what an item is stays editable until work starts', () {
@@ -59,189 +64,255 @@ void main() {
       expect(LineStatus.confirmed.hasStarted, isFalse);
     });
 
-    test('the finishing item decides how the order ends', () {
-      final lines = [
-        line(LineStatus.ready, date: 100, fulfilment: Fulfilment.delivery),
-        line(LineStatus.ready, date: 900, fulfilment: Fulfilment.pickup),
-      ];
-      expect(finishingLine(lines)!.fulfilment, Fulfilment.pickup,
-          reason: 'the last one to be handed over is collected');
-    });
-
     test('a status from a newer build is read as not-started, not a crash', () {
       expect(LineStatus.parse('teleported'), LineStatus.created);
     });
   });
 
-  group('the order status is derived', () {
-    test('no confirmation yet means created, whatever the lines say', () {
-      expect(deriveOrderStatus([line(LineStatus.ready)]), OrderStatus.created);
-    });
-
-    test('confirmed while every line is still waiting', () {
+  group('a journey follows its items', () {
+    test('nothing confirmed yet means created, whatever the items say', () {
       expect(
-        deriveOrderStatus([line(LineStatus.confirmed)], confirmedAt: 1),
-        OrderStatus.confirmed,
+        deriveSubOrderStatus(SubOrderStatus.created, [line(LineStatus.ready)],
+            orderConfirmed: false),
+        SubOrderStatus.created,
       );
     });
 
-    test('the first item to start puts the order in production', () {
+    test('confirmed while everything on it is still waiting', () {
+      expect(
+        deriveSubOrderStatus(
+            SubOrderStatus.confirmed, [line(LineStatus.confirmed)],
+            orderConfirmed: true),
+        SubOrderStatus.confirmed,
+      );
+    });
+
+    test('the first item to start puts the journey in production', () {
+      expect(
+        deriveSubOrderStatus(
+          SubOrderStatus.confirmed,
+          [line(LineStatus.confirmed), line(LineStatus.inProduction)],
+          orderConfirmed: true,
+        ),
+        SubOrderStatus.inProduction,
+        reason: 'one baker has started, so the journey has',
+      );
+    });
+
+    test('ready only when every live item is', () {
+      expect(
+        deriveSubOrderStatus(
+          SubOrderStatus.confirmed,
+          [line(LineStatus.ready), line(LineStatus.inProduction)],
+          orderConfirmed: true,
+        ),
+        SubOrderStatus.inProduction,
+        reason: 'one cake still in the oven holds the van',
+      );
+      expect(
+        deriveSubOrderStatus(
+          SubOrderStatus.confirmed,
+          [line(LineStatus.ready), line(LineStatus.ready)],
+          orderConfirmed: true,
+        ),
+        SubOrderStatus.ready,
+      );
+    });
+
+    test('once a person has moved it, the items stop deciding', () {
+      // Nothing about a cake can tell you the van has left.
+      expect(
+        deriveSubOrderStatus(
+            SubOrderStatus.out, [line(LineStatus.ready)], orderConfirmed: true),
+        SubOrderStatus.out,
+      );
+      expect(
+        deriveSubOrderStatus(SubOrderStatus.delivered,
+            [line(LineStatus.delivered)], orderConfirmed: true),
+        SubOrderStatus.delivered,
+      );
+    });
+
+    test('everything on it cancelled cancels the journey', () {
+      expect(
+        deriveSubOrderStatus(
+            SubOrderStatus.confirmed, [line(LineStatus.cancelled)],
+            orderConfirmed: true),
+        SubOrderStatus.cancelled,
+        reason: 'nobody cancels a journey — they cancel what was on it',
+      );
+    });
+
+    test('a delivery goes out; a pickup is collected straight from ready', () {
+      expect(SubOrderStatus.ready.nextFor(isPickup: false), SubOrderStatus.out);
+      expect(SubOrderStatus.ready.nextFor(isPickup: true),
+          SubOrderStatus.delivered);
+      expect(SubOrderStatus.out.nextFor(isPickup: false),
+          SubOrderStatus.delivered);
+      expect(SubOrderStatus.delivered.nextFor(isPickup: false), isNull);
+    });
+  });
+
+  group('an order follows its journeys', () {
+    test('no confirmation yet means created, whatever the journeys say', () {
+      expect(deriveOrderStatus([sub(SubOrderStatus.ready)]),
+          OrderStatus.created);
+    });
+
+    test('the first journey to start puts the order in production', () {
       expect(
         deriveOrderStatus(
-          [line(LineStatus.confirmed), line(LineStatus.inProduction)],
+          [sub(SubOrderStatus.confirmed), sub(SubOrderStatus.inProduction)],
           confirmedAt: 1,
         ),
         OrderStatus.inProduction,
-        reason: 'one baker has started, so the order has',
       );
     });
 
     test('the order never reads ready or out', () {
-      // Those are facts about one item. An order whose cake is ready while its
-      // cookies are still mixing is neither.
-      for (final st in [LineStatus.ready, LineStatus.out]) {
+      // Half a ready order is not a thing, and an order does not travel.
+      for (final st in [SubOrderStatus.ready, SubOrderStatus.out]) {
         expect(
-          deriveOrderStatus(
-            [line(LineStatus.confirmed), line(st)],
-            confirmedAt: 1,
-          ),
+          deriveOrderStatus([sub(SubOrderStatus.confirmed), sub(st)],
+              confirmedAt: 1),
           OrderStatus.inProduction,
         );
       }
     });
 
-    test('delivered only when every live line is', () {
-      final partly = [line(LineStatus.delivered), line(LineStatus.out)];
-      expect(deriveOrderStatus(partly, confirmedAt: 1), OrderStatus.inProduction,
-          reason: 'one line still out — the order is not delivered');
-
-      final all = [line(LineStatus.delivered), line(LineStatus.delivered)];
-      expect(deriveOrderStatus(all, confirmedAt: 1), OrderStatus.delivered);
-    });
-
-    test('a cancelled line does not hold delivery back', () {
+    test('delivered only when every live journey is', () {
       expect(
         deriveOrderStatus(
-          [line(LineStatus.delivered), line(LineStatus.cancelled)],
-          confirmedAt: 1,
-        ),
+            [sub(SubOrderStatus.delivered), sub(SubOrderStatus.out)],
+            confirmedAt: 1),
+        OrderStatus.inProduction,
+        reason: 'one van still out — the order is not delivered',
+      );
+      expect(
+        deriveOrderStatus(
+            [sub(SubOrderStatus.delivered), sub(SubOrderStatus.delivered)],
+            confirmedAt: 1),
         OrderStatus.delivered,
       );
     });
 
-    test('every line cancelled cancels the order', () {
+    test('a cancelled journey does not hold delivery back', () {
       expect(
-        deriveOrderStatus([line(LineStatus.cancelled)], confirmedAt: 1),
+        deriveOrderStatus(
+            [sub(SubOrderStatus.delivered), sub(SubOrderStatus.cancelled)],
+            confirmedAt: 1),
+        OrderStatus.delivered,
+      );
+    });
+
+    test('every journey cancelled cancels the order', () {
+      expect(
+        deriveOrderStatus([sub(SubOrderStatus.cancelled)], confirmedAt: 1),
         OrderStatus.cancelled,
       );
-      // and before it was ever confirmed
-      expect(deriveOrderStatus([line(LineStatus.cancelled)]),
+      expect(deriveOrderStatus([sub(SubOrderStatus.cancelled)]),
           OrderStatus.cancelled);
     });
 
     test('completed is delivered plus the deliberate moment', () {
-      final lines = [line(LineStatus.delivered)];
-      expect(deriveOrderStatus(lines, confirmedAt: 1), OrderStatus.delivered);
-      expect(deriveOrderStatus(lines, confirmedAt: 1, completedAt: 2),
+      final subs = [sub(SubOrderStatus.delivered)];
+      expect(deriveOrderStatus(subs, confirmedAt: 1), OrderStatus.delivered);
+      expect(deriveOrderStatus(subs, confirmedAt: 1, completedAt: 2),
           OrderStatus.completed);
     });
-  });
 
-  group('the due date is the LAST line still outstanding', () {
-    test('the order is not done until everything has gone', () {
-      final lines = [
-        line(LineStatus.delivered, date: 900), // done — does not hold it open
-        line(LineStatus.ready, date: 300),
-        line(LineStatus.inProduction, date: 200),
+    test('the finishing journey decides how the order ends', () {
+      final subs = [
+        sub(SubOrderStatus.ready, date: 100, fulfilment: Fulfilment.delivery),
+        sub(SubOrderStatus.ready, date: 900, fulfilment: Fulfilment.pickup),
       ];
-      expect(deriveDueDate(lines), 300);
-    });
-
-    test('shortens as the far line is delivered', () {
-      var lines = [
-        line(LineStatus.ready, date: 200),
-        line(LineStatus.inProduction, date: 500),
-      ];
-      expect(deriveDueDate(lines), 500, reason: 'Sunday is when it finishes');
-
-      lines = [
-        line(LineStatus.ready, date: 200),
-        line(LineStatus.delivered, date: 500),
-      ];
-      expect(deriveDueDate(lines), 200, reason: 'only Friday left to do');
-    });
-
-    test('nothing outstanding has no due date, so it sorts last', () {
-      expect(deriveDueDate([line(LineStatus.delivered, date: 100)]), isNull);
-      expect(deriveDueDate([line(LineStatus.cancelled, date: 100)]), isNull);
-    });
-
-    test('the time is the last one on the finishing day', () {
-      final lines = [
-        line(LineStatus.ready, date: 100, time: 600),
-        line(LineStatus.ready, date: 200, time: 540),
-        line(LineStatus.ready, date: 200, time: 900),
-      ];
-      expect(deriveDueDate(lines), 200);
-      expect(deriveDueTime(lines), 900,
-          reason: 'the moment the order completes, on the day it completes');
+      expect(finishingSubOrder(subs)!.fulfilment, Fulfilment.pickup,
+          reason: 'the last one to be handed over is collected');
     });
   });
 
-  group('the next line is a separate question', () {
-    test('an order spanning two days is due later than it is needed', () {
-      final lines = [
-        line(LineStatus.inProduction, date: 200), // Friday's cake
-        line(LineStatus.inProduction, date: 500), // Sunday's box
+  group('dates, and what they are for', () {
+    test('due is the LAST journey still outstanding', () {
+      final subs = [
+        sub(SubOrderStatus.delivered, date: 900), // done — does not hold it
+        sub(SubOrderStatus.ready, date: 300),
+        sub(SubOrderStatus.inProduction, date: 200),
       ];
-      expect(deriveDueDate(lines), 500, reason: 'it finishes Sunday');
-      expect(deriveNextLineDate(lines), 200,
-          reason: 'but somebody is baking on Friday');
+      expect(deriveDueDate(subs), 300);
     });
 
-    test('they agree on a single-day order', () {
-      final lines = [line(LineStatus.ready, date: 300)];
-      expect(deriveDueDate(lines), deriveNextLineDate(lines));
+    test('next is the EARLIEST, which is what the lists sort on', () {
+      final subs = [
+        sub(SubOrderStatus.ready, date: 500),
+        sub(SubOrderStatus.confirmed, date: 200),
+      ];
+      expect(deriveDueDate(subs), 500, reason: 'Sunday is when it finishes');
+      expect(deriveNextDate(subs), 200,
+          reason: 'Friday is when somebody has to do something');
     });
 
-    test('both ignore what is already done', () {
-      final lines = [
-        line(LineStatus.delivered, date: 100),
-        line(LineStatus.ready, date: 400),
-      ];
-      expect(deriveNextLineDate(lines), 400);
-      expect(deriveDueDate(lines), 400);
+    test('nothing outstanding has no date, so it sorts last', () {
+      expect(deriveDueDate([sub(SubOrderStatus.delivered, date: 100)]), isNull);
+      expect(deriveNextDate([sub(SubOrderStatus.delivered, date: 100)]), isNull);
     });
   });
 
-  group('money (D27)', () {
-    OrderTotals totals(List<OrderLine> lines, {Money paid = Money.zero}) =>
-        OrderTotals(lines: lines, paid: paid);
-
-    test('a cancelled line leaves the total', () {
-      final t = totals([
-        line(LineStatus.delivered, price: 1000),
-        line(LineStatus.cancelled, price: 400),
-      ]);
-      expect(t.subtotal, Money.rupees(1000));
+  group('one charge per journey', () {
+    test('two items in one van are charged once', () {
+      final one = sub(SubOrderStatus.confirmed,
+          charge: 5000,
+          lines: [line(LineStatus.confirmed), line(LineStatus.confirmed)]);
+      expect(deliveryTotal([one]), Money.rupees(50));
     });
 
-    test('cancelling after payment puts the order in credit', () {
-      final t = totals(
-        [line(LineStatus.delivered, price: 1000), line(LineStatus.cancelled, price: 400)],
-        paid: Money.rupees(1400),
+    test('two journeys are charged twice', () {
+      expect(
+        deliveryTotal([
+          sub(SubOrderStatus.confirmed, date: 100, charge: 5000),
+          sub(SubOrderStatus.confirmed, date: 200, charge: 5000),
+        ]),
+        Money.rupees(100),
       );
-      expect(t.hasBalance, isFalse);
-      expect(t.inCredit, isTrue);
-      expect(t.creditDue, Money.rupees(400),
-          reason: 'owed back to the customer, not a negative balance');
     });
 
-    test('an ordinary part-paid order is not in credit', () {
-      final t = totals([line(LineStatus.ready, price: 1000)],
-          paid: Money.rupees(400));
-      expect(t.inCredit, isFalse);
-      expect(t.balanceDue, Money.rupees(600));
+    test('a cancelled journey costs nothing to send', () {
+      expect(
+        deliveryTotal([
+          sub(SubOrderStatus.delivered, charge: 5000),
+          sub(SubOrderStatus.cancelled, date: 200, charge: 5000),
+        ]),
+        Money.rupees(50),
+      );
+    });
+  });
+
+  group('the journey key', () {
+    test('same day, time, way out and place is one journey', () {
+      final a = SubOrder.keyOf(
+          date: 100,
+          time: 600,
+          fulfilment: Fulfilment.delivery,
+          addressText: '14 Turner Rd');
+      final b = SubOrder.keyOf(
+          date: 100,
+          time: 600,
+          fulfilment: Fulfilment.delivery,
+          addressText: '14 Turner Rd');
+      expect(a, b);
+    });
+
+    test('a different address on the same day is a different journey', () {
+      final a = SubOrder.keyOf(
+          date: 100, fulfilment: Fulfilment.delivery, addressText: 'here');
+      final b = SubOrder.keyOf(
+          date: 100, fulfilment: Fulfilment.delivery, addressText: 'there');
+      expect(a, isNot(b), reason: 'two doors is two journeys');
+    });
+
+    test('collecting and delivering on one day are two journeys', () {
+      final a = SubOrder.keyOf(date: 100, fulfilment: Fulfilment.delivery);
+      final b = SubOrder.keyOf(date: 100, fulfilment: Fulfilment.pickup);
+      expect(a, isNot(b));
     });
   });
 }
