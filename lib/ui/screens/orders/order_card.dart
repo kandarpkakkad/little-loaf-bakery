@@ -78,7 +78,7 @@ class OrderCard extends StatelessWidget {
                 if (showDate)
                   _dateLabel(DateTime.fromMillisecondsSinceEpoch(view.soldOn)),
                 timeLabel(shown?.deliveryTime),
-                _handover(view),
+                ..._handover(view),
               ].join(' · '),
               style: context.text.bodySmall!.copyWith(color: c.ink2),
             ),
@@ -160,18 +160,27 @@ String _items(OrderView view) {
       .join(', ');
 }
 
-/// How this order is handed over, across **all** its journeys.
+/// How this order is handed over, and whether more of it comes later.
 ///
-/// `orders.fulfilment` is a cache of the finishing journey, so a card built
-/// from it said "Delivery" for an order half of which the customer collected.
-String _handover(OrderView view) {
-  final live = [for (final s in view.subOrders) if (s.isLive) s];
-  if (live.isEmpty) return 'Delivery';
-  final pickups = live.where((s) => s.isPickup).length;
-  final deliveries = live.length - pickups;
-  if (pickups > 0 && deliveries > 0) return 'Delivery + pickup';
-  if (live.length == 1) return pickups == 1 ? 'Pickup' : 'Delivery';
-  return pickups > 0 ? '$pickups pickups' : '$deliveries deliveries';
+/// The first token describes the journey the card is **filed under** — the
+/// same rule as the time beside it, and the reason it cannot be
+/// `orders.fulfilment`, which is a cache of the *finishing* journey and said
+/// "Delivery" for an order half of which the customer collected.
+///
+/// The second counts what else is still to happen, so a Friday delivery does
+/// not hide a Sunday pickup. It counts only what is **outstanding**: once
+/// Friday has gone the card is about Sunday, and saying "delivery + pickup"
+/// then would be describing work already done.
+List<String> _handover(OrderView view) {
+  final shown = view.shownJourney;
+  final later = [
+    for (final s in view.subOrders)
+      if (s.isLive && !s.status.isDone && s.id != shown?.id) s,
+  ].length;
+  return [
+    (shown?.isPickup ?? false) ? 'Pickup' : 'Delivery',
+    if (later > 0) '+$later more',
+  ];
 }
 
 String _dateLabel(DateTime d) {
