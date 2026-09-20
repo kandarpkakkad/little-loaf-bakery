@@ -8,11 +8,25 @@ name: Debug build
 # version that is higher than the last one and the app agrees with its own file
 # name. A pull request builds without bumping: the version belongs to main, not
 # to a branch that may never land.
+#
+# Documentation does not build an APK. A push that only touches docs, a README
+# or a licence is skipped entirely — no build, and no version bump, because a
+# version that moved without the code moving says something untrue. A push that
+# touches code *and* docs still builds: paths-ignore only skips when every
+# changed file matches.
 on:
   push:
     branches: [main]
+    paths-ignore: &not-code
+      - 'docs/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.vscode/**'
+      - '.idea/**'
   pull_request:
     branches: [main]
+    paths-ignore: *not-code
   workflow_dispatch:
     inputs:
       version:
