@@ -663,8 +663,18 @@ class _LineSheetState extends State<_LineSheet> {
                     ));
                     return;
                   }
+                  // The list was loaded when the sheet opened. Something can
+                  // be deactivated in Config on the other device in between,
+                  // and losing a half-typed item to "no element" would be a
+                  // poor way to find out.
                   final picked =
-                      widget.menu.firstWhere((m) => m.id == _menuItemId);
+                      widget.menu.where((m) => m.id == _menuItemId).firstOrNull;
+                  if (picked == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('That menu item is no longer available'),
+                    ));
+                    return;
+                  }
                   // Blank, 0 and junk all mean "no weight given".
                   final typed = double.tryParse(_weight.text.trim());
                   final weightValue =

@@ -1063,8 +1063,14 @@ class OrderRepository {
           .getSingle();
       final isPickup = row.fulfilment == Fulfilment.pickup.name;
 
-      final lines = await _subOrdersOf(row.orderId);
-      final me = lines.firstWhere((s) => s.id == subOrderId);
+      // Live journeys only. One can be pruned out from under a screen — an
+      // item moved to another day on the other device empties this trip — and
+      // "no element" is a poor way to learn that.
+      final current = await _subOrdersOf(row.orderId);
+      final me = current.where((s) => s.id == subOrderId).firstOrNull;
+      if (me == null) {
+        throw StateError('That delivery no longer exists — it was emptied');
+      }
 
       if (me.status.nextFor(isPickup: isPickup) != to) {
         throw StateError('${me.status.label} cannot become ${to.label}');
