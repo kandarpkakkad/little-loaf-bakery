@@ -50,7 +50,10 @@ app.*.map.json
 key.properties
 *.jks
 *.keystore
-backup/
+# Anchored. Unanchored, this matched lib/platform/backup/ too, and the
+# snapshot code was silently never committed — the build failed on a folder
+# that existed locally and nowhere else.
+/backup/
 
 # OAuth client_secret_*.json downloaded from Google Cloud. The app itself needs
 # none of them — Android clients carry no secret, and the web client is used
