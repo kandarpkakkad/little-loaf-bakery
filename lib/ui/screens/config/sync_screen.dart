@@ -30,9 +30,40 @@ class _SyncScreenState extends State<SyncScreen> {
   Future<void> _connect() async {
     final ok = await _sync.connect();
     if (!mounted || ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not connect to Google Drive')),
-    );
+
+    // The reason, not just the fact. "Could not connect" on its own sent
+    // somebody looking at their wifi when the answer was that this build is
+    // signed with a key Google has never been told about.
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Could not connect: ${_sync.status.lastReport?.error}'),
+      duration: const Duration(seconds: 8),
+      action: SnackBarAction(
+        label: 'Why',
+        onPressed: () => showDialog<void>(
+          context: context,
+          builder: (d) => AlertDialog(
+            title: const Text('Drive would not connect'),
+            content: SingleChildScrollView(
+              child: Text(
+                '${_sync.status.lastReport?.error}\n\n'
+                'The usual causes, in order:\n\n'
+                '• This build is signed with a key Google does not know. '
+                'Android OAuth clients are matched on package name and '
+                'signing certificate, and a debug APK built by CI is signed '
+                'with a throwaway key made on the build machine.\n\n'
+                '• The consent screen is still in Testing and this account is '
+                'not on its test-user list.\n\n'
+                '• No Play Services, or no network.',
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(d), child: const Text('Close')),
+            ],
+          ),
+        ),
+      ),
+    ));
   }
 
   Future<void> _syncNow() async {

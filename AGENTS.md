@@ -101,6 +101,23 @@ sites must use an explicit `.label`. `Weight` had neither, a `List<Object>`
 joined without complaint, and customers saw `INSTANCE OF 'WEIGHT'` where the
 weight should have been.
 
+### An error message says the reason, not the fact
+
+A caught exception is evidence. Putting `Text('Could not connect to Google
+Drive')` on screen and dropping the exception into a field nobody renders
+costs the owner an afternoon: a signing-certificate mismatch, an unpublished
+consent screen and flight mode all produce the identical sentence.
+
+If you catch it, show it — or show something that distinguishes the cases.
+
+### The debug APK from CI is signed with a key Google has never seen
+
+Nothing commits a debug keystore, so the runner's Android plugin makes a fresh
+one per build. Android OAuth clients are matched on package name **and**
+signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
+build**. Test Drive on a locally built debug APK or on a release APK. This is
+not a bug to fix in Dart.
+
 ### Derived values are never read back from their cache
 
 Several columns exist only because they are NOT NULL and an older peer still
