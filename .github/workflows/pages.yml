@@ -24,6 +24,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
+      # Naming any permission sets every unnamed one to none, so checkout's
+      # read has to be explicit. It only worked without this because the
+      # repository is public and anyone can read it.
+      contents: read
       pages: write
       id-token: write
     environment:
