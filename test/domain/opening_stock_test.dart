@@ -93,4 +93,53 @@ void main() {
     expect(sugar.level, 5, reason: 'the count, plus what was bought');
     expect(sugar.lastRate, Money.rupees(60));
   });
+
+  group('two movements in the same millisecond', () {
+    // This is how the bug reached CI: counting the shelf and recording the
+    // delivery that just arrived are one action to the person doing it, and
+    // on a fast machine they land on the same timestamp. The level was
+    // computed by asking "is this later than the count?", the answer for an
+    // equal timestamp was no, and the purchase was silently dropped.
+    StockMovement at(int ms, StockKind kind, double qty, {String id = ''}) =>
+        StockMovement(id: id, kind: kind, qty: qty, at: ms);
+
+    test('a purchase sharing the count\'s timestamp still counts', () {
+      expect(
+        levelOf([
+          at(1000, StockKind.count, 3, id: 'a'),
+          at(1000, StockKind.stockIn, 2, id: 'b'),
+        ]),
+        5,
+      );
+    });
+
+    test('a count sharing a purchase\'s timestamp still resets', () {
+      expect(
+        levelOf([
+          at(1000, StockKind.stockIn, 2, id: 'a'),
+          at(1000, StockKind.count, 3, id: 'b'),
+        ]),
+        3,
+        reason: 'the count came second, and a count is a reset point',
+      );
+    });
+
+    test('the answer does not depend on what order they are passed in', () {
+      final a = at(1000, StockKind.count, 3, id: 'a');
+      final b = at(1000, StockKind.stockIn, 2, id: 'b');
+      expect(levelOf([a, b]), levelOf([b, a]),
+          reason: 'ids are uuid v7, so they order by the moment they were made');
+    });
+
+    test('the bar reference is sliced the same way', () {
+      expect(
+        referenceOf([
+          at(1000, StockKind.count, 3, id: 'a'),
+          at(1000, StockKind.stockIn, 2, id: 'b'),
+        ]),
+        5,
+        reason: 'full is the level right after the last delivery',
+      );
+    });
+  });
 }

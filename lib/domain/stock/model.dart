@@ -21,8 +21,17 @@ class StockMovement {
     required this.kind,
     required this.qty,
     required this.at,
+    this.id = '',
     this.amount,
   });
+
+  /// The transaction's id, used only to break a tie on [at].
+  ///
+  /// Two movements recorded in the same millisecond — a count and the purchase
+  /// that follows it, which is a normal thing to do — otherwise sort in an
+  /// arbitrary order, and a count is a reset point, so the order decides the
+  /// answer. Ids are UUID v7, which sort by the moment they were made.
+  final String id;
 
   final StockKind kind;
 
@@ -35,22 +44,31 @@ class StockMovement {
   final Money? amount; // only on stockIn, and optional
 }
 
+/// Movements oldest first, ties broken by id.
+///
+/// The tie is not hypothetical: counting the shelf and then recording the
+/// delivery that just arrived happens inside one millisecond easily enough,
+/// and until this was ordered properly the purchase was silently dropped.
+int _byWhen(StockMovement a, StockMovement b) {
+  final t = a.at.compareTo(b.at);
+  return t != 0 ? t : a.id.compareTo(b.id);
+}
+
 /// Current level: everything since the most recent count, on top of that count.
 double levelOf(List<StockMovement> movements) {
-  final sorted = [...movements]..sort((a, b) => a.at.compareTo(b.at));
-  var base = 0.0;
-  var baseAt = -1;
+  final sorted = [...movements]..sort(_byWhen);
 
-  for (final m in sorted) {
-    if (m.kind == StockKind.count) {
-      base = m.qty;
-      baseAt = m.at;
-    }
+  // Found by position rather than by timestamp. Asking "is this movement
+  // later than the count?" cannot answer for one recorded in the same
+  // millisecond, and answering "no" throws the purchase away.
+  var lastCount = -1;
+  for (var i = 0; i < sorted.length; i++) {
+    if (sorted[i].kind == StockKind.count) lastCount = i;
   }
 
-  var level = base;
-  for (final m in sorted) {
-    if (m.kind == StockKind.count || m.at <= baseAt) continue;
+  var level = lastCount < 0 ? 0.0 : sorted[lastCount].qty;
+  for (var i = lastCount + 1; i < sorted.length; i++) {
+    final m = sorted[i];
     level += m.kind == StockKind.stockIn ? m.qty : -m.qty;
   }
   return level;
@@ -60,13 +78,17 @@ double levelOf(List<StockMovement> movements) {
 /// mark. Nothing to configure: the bar answers "how much of what I last bought
 /// is left?" docs/00-overview/decisions.md D18.
 double referenceOf(List<StockMovement> movements) {
-  final sorted = [...movements]..sort((a, b) => a.at.compareTo(b.at));
-  final lastIn = sorted.lastWhere(
-    (m) => m.kind == StockKind.stockIn,
-    orElse: () => const StockMovement(kind: StockKind.count, qty: -1, at: -1),
-  );
-  if (lastIn.at < 0) return 0; // never stocked in
-  return levelOf(sorted.where((m) => m.at <= lastIn.at).toList());
+  final sorted = [...movements]..sort(_byWhen);
+
+  var lastIn = -1;
+  for (var i = 0; i < sorted.length; i++) {
+    if (sorted[i].kind == StockKind.stockIn) lastIn = i;
+  }
+  if (lastIn < 0) return 0; // never stocked in
+
+  // Sliced by position, for the same reason as above: a count sharing the
+  // stock-in's millisecond must not be dragged in or left out by luck.
+  return levelOf(sorted.sublist(0, lastIn + 1));
 }
 
 /// What the bar is drawn against.

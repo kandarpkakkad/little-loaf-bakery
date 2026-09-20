@@ -67,6 +67,7 @@ class StockRepository {
         final t = row.readTableOrNull(db.stockTransactions);
         if (t != null) {
           byMaterial[m.id]!.add(StockMovement(
+            id: t.id,
             kind: StockKind.parse(t.kind),
             qty: t.qty,
             at: t.at,
