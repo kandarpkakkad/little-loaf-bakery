@@ -37,12 +37,55 @@ String compose(Order o, MessageKind k) => switch (k) {
   invoice         => Invoicing.render(o.invoice!, o, config),
 };
 
+// CANCELLED LINES ARE NEVER LISTED, in any message. Only OrderTotals filtered
+// them, so every listing disagreed with the sum beneath it: the invoice
+// itemised two 800 rows over an 800 subtotal, a bill the customer can add up.
+List<OrderItem> subject(Order o) => (drop ?? o.lines).where((l) => l.isLive);
+
 String _onItsWay(Order o) =>
   'Hi ${o.customer.firstName}, your order is on its way 🚚\n\n'
   'Order: ${o.orderNo}\n'
-  'Track it here: ${o.trackingUrl}\n\n'
+  'Track it here: ${journey.trackingUrl}\n\n'
   '— ${config.businessName}';
 // Bare on purpose. WhatsApp linkifies the URL itself; no shortening, no wrapping.
+// The link is the JOURNEY'S, not the order's. orders.tracking_url is a cache of
+// the FINISHING journey's (repository `_refreshOrderCache`), so reading it sent
+// Friday's van off under Sunday's tracking link — and gated whether the message
+// was offered at all on a URL belonging to a different trip.
+
+// One heading per journey, when there is more than one. An order is a set of
+// handovers, each with its own day, time, way out and place; quoting a single
+// date over a list of everything told a customer expecting a cake on Friday
+// that their order was coming on Sunday. That date was `deriveDueDate`, which
+// is the LAST outstanding journey, so the first handover went unmentioned.
+//
+// A single-journey order keeps the flat shape — one line at the bottom, no
+// heading — because that is nearly every order and a heading over one group
+// reads like a form.
+String _confirmation(Order o) {
+  final journeys = o.subOrders.where((j) => j.isLive && j.liveLines.isNotEmpty)
+      .sortedBy((j) => j.deliveryDate);
+  return [
+    isUpdate ? '...has been updated 🍞' : '...is confirmed 🍞', '',
+    'Order: ${o.orderNo}',
+    if (journeys.length > 1)
+      for (final j in journeys) ...[
+        '', '*${j.isPickup ? "Collect" : "Delivery"}: ${when(j)}*',
+        if (!j.isPickup && j.addressText != null) j.addressText!,
+        ...itemLines(j.liveLines),
+      ]
+    else ...[
+      ...itemLines(subject(o)), '',
+      '${isPickup ? "Collect" : "Delivery"}: ${when(journeys.firstOrNull)}',
+      if (!isPickup && addressText != null) addressText!,
+    ],
+    '', moneyLine(o), '',
+    'Please check the details above and tell us if anything is wrong.',
+  ].join('\n');
+}
+// "Delivery:" was unconditional, so an order the customer was coming to fetch
+// was told it would be delivered. The address is likewise suppressed for a
+// pickup — there is nothing to tell someone driving to the bakery.
 
 // Three openings and three endings, chosen by two questions: is anything still
 // outstanding, and did the customer come and fetch this one?

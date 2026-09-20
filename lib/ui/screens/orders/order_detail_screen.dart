@@ -498,13 +498,16 @@ Future<void> _move(BuildContext context, OrderView view, OrderStatus to) async {
 
   // Moving is one act; telling the customer is another. The app offers the
   // message that the new status makes sense of, and a person still presses send.
-  final kind = switch (to) {
-    OrderStatus.confirmed => MessageKind.confirmation,
-    OrderStatus.out => MessageKind.outForDelivery,
-    OrderStatus.delivered => MessageKind.delivery,
-    _ => null,
-  };
-  if (kind != null) await _offerMessage(context, view, kind);
+  //
+  // Going out and arriving are not here: they are facts about a journey, and
+  // `kAllowedTransitions` has not offered them at order level since D28.
+  if (to != OrderStatus.confirmed) return;
+
+  // Composed from the order as it now is, not the copy this screen was holding
+  // before the move.
+  final fresh = await app.orders.watchOrder(view.order.id).first;
+  if (fresh == null || !context.mounted) return;
+  await _offerMessage(context, fresh, MessageKind.confirmation);
 }
 
 /// The one step this **item** can take next, as a button.
@@ -616,7 +619,9 @@ class SubOrderNextStep extends StatelessWidget {
     final fresh = await orders.watchOrder(view.order.id).first;
     if (fresh == null || !context.mounted) return;
     await _offerMessage(context, fresh, kind,
-        dropLines: moving, isPickup: sub.isPickup);
+        dropLines: moving,
+        isPickup: sub.isPickup,
+        trackingUrl: sub.trackingUrl);
   }
 }
 
@@ -917,6 +922,7 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
     bool? isPickup,
+    String? trackingUrl,
     bool isUpdate = false}) async {
   // Both resolved before either await: reaching through context afterwards is
   // what the async-gap lint is about.
@@ -929,6 +935,7 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     orderNo: o.orderNo,
     totals: view.totals,
     lines: view.lines,
+    journeys: view.subOrders,
     businessName: s.businessName,
     // the order's own date is just the default new lines copy now (D25), so
     // the message quotes when the order is actually next due
@@ -936,10 +943,11 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
         view.dueDate ?? o.deliveryDate)),
     deliveryTimeLabel: timeLabel(view.dueTime ?? o.deliveryTime),
     addressText: o.addressText,
-    trackingUrl: o.trackingUrl,
+    // The moving journey's link when there is one; the order's cache — which
+    // is the finishing journey's — only as a fallback.
+    trackingUrl: trackingUrl ?? o.trackingUrl,
     upiId: s.upiId,
     paymentPhone: s.paymentPhone,
-    hadBalance: view.totals.hasBalance,
     lastPayment: justPaid,
     dropLines: dropLines,
     // A message about one journey takes that journey's word for it; a message
@@ -960,11 +968,13 @@ Future<void> _offerMessage(
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
     bool? isPickup,
+    String? trackingUrl,
     bool isUpdate = false}) async {
   final ctx = await _messageContext(context, view,
       justPaid: justPaid,
       dropLines: dropLines,
       isPickup: isPickup,
+      trackingUrl: trackingUrl,
       isUpdate: isUpdate);
   if (!context.mounted || !isOffered(kind, ctx)) return;
   final text = compose(kind, ctx);

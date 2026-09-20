@@ -26,7 +26,6 @@ MessageContext _ctx({
   String? tracking,
   String? upi = 'littleloaf@okaxis',
   String? phone = '+91 98… 1102',
-  bool hadBalance = true,
   Money? lastPayment,
   bool isUpdate = false,
 }) =>
@@ -48,7 +47,6 @@ MessageContext _ctx({
       trackingUrl: tracking,
       upiId: upi,
       paymentPhone: phone,
-      hadBalance: hadBalance,
       lastPayment: lastPayment,
       isUpdate: isUpdate,
     );
@@ -68,9 +66,14 @@ void main() {
     test('payment received is offered after every payment', () {
       // It used to be offered only when a balance existed, which meant a
       // partial payment never produced one at all — the order sits at the same
-      // status before and after, so nothing status-driven ever fired.
-      expect(isOffered(MessageKind.paymentReceived, _ctx(hadBalance: true)), isTrue);
-      expect(isOffered(MessageKind.paymentReceived, _ctx(hadBalance: false)), isTrue);
+      // status before and after, so nothing status-driven ever fired. The
+      // `hadBalance` flag that encoded that rule is gone; nothing reads the
+      // payment history to decide any more.
+      expect(isOffered(MessageKind.paymentReceived, _ctx()), isTrue);
+      expect(
+          isOffered(MessageKind.paymentReceived,
+              _ctx(lastPayment: Money.rupees(100))),
+          isTrue);
     });
   });
 

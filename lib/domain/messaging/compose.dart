@@ -19,9 +19,9 @@ class MessageContext {
     this.trackingUrl,
     this.upiId,
     this.paymentPhone,
-    this.hadBalance = false,
     this.lastPayment,
     this.dropLines = const [],
+    this.journeys = const [],
     this.isPickup = false,
     this.isUpdate = false,
     this.invoiceNo,
@@ -37,10 +37,6 @@ class MessageContext {
   final String? trackingUrl;
   final String? upiId, paymentPhone;
 
-  /// Whether a balance existed *before* the final payment — by the time
-  /// Completed is reached the balance is zero by definition.
-  final bool hadBalance;
-
   /// What was just handed over, when this message follows a payment.
   final Money? lastPayment;
 
@@ -51,6 +47,14 @@ class MessageContext {
   /// on the Friday would be a lie about the Sunday box. Empty means the whole
   /// order, which is what a single-drop order always is.
   final List<OrderLine> dropLines;
+
+  /// Every journey in this order: a day, a time, a way out and a place, with
+  /// what travels on it. A message about the whole order reads this; a message
+  /// about one handover reads [dropLines].
+  ///
+  /// Empty means the caller had none to give, and the message falls back to the
+  /// single date and address it was handed.
+  final List<SubOrder> journeys;
 
   /// Whether this handover was collected rather than delivered. Nothing
   /// "arrives" when the customer drove to the bakery for it.
@@ -118,9 +122,14 @@ String compose(MessageKind kind, MessageContext c) => switch (kind) {
       MessageKind.invoice => _invoice(c),
     };
 
-/// What is on this message: the lines being dropped, or all of them.
+/// What is on this message: the lines being dropped, or all of them —
+/// **never a cancelled one**.
+///
+/// Only `OrderTotals` filtered cancelled lines, so every listing disagreed
+/// with the sum underneath it. On the invoice that was two ₹800 items over a
+/// ₹800 subtotal: a bill the customer can add up, and it was wrong.
 List<OrderLine> _subject(MessageContext c) =>
-    c.dropLines.isEmpty ? c.lines : c.dropLines;
+    [for (final l in c.dropLines.isEmpty ? c.lines : c.dropLines) if (l.isLive) l];
 
 /// What an item is called, in one line. Shared with `_itemLines` so a cake
 /// cannot be "Cake · Chocolate · 500 g" in one part of a message and a bare
@@ -142,8 +151,10 @@ String _stillToCome(MessageContext c) =>
 /// belong to rather than once at the bottom: an order of a piped birthday cake
 /// and a plain box of buns has one message, and printing it under "your order"
 /// left the customer to guess which one it was for.
-List<String> _itemLines(MessageContext c) => [
-      for (final l in _subject(c)) ...[
+List<String> _itemLines(MessageContext c) => _linesOf(_subject(c));
+
+List<String> _linesOf(Iterable<OrderLine> lines) => [
+      for (final l in lines) ...[
         '${_itemLabel(l)} × ${l.qty}',
         if (l.addons.isNotEmpty)
           '  + ${l.addons.map((a) => a.name).join(', ')}',
@@ -182,26 +193,78 @@ List<String> _clause(String label, Money amount) {
   return text == null ? const [] : ['$label $text'];
 }
 
-String _confirmation(MessageContext c) => [
-      if (c.isUpdate)
-        'Hi ${c.customerFirstName}, your order has been updated 🍞'
-      else
-        'Hi ${c.customerFirstName}, your order with ${c.businessName} is confirmed 🍞',
-      '',
-      'Order: ${c.orderNo}',
+/// The journeys worth naming: live, and with something on them.
+List<SubOrder> _liveJourneys(MessageContext c) => [
+      for (final j in c.journeys)
+        if (j.isLive && j.liveLines.isNotEmpty) j,
+    ]..sort((a, b) => a.deliveryDate.compareTo(b.deliveryDate));
+
+/// "Fri 22 Sep, 4:00 pm". The time is dropped when there is none rather than
+/// printed as "Any time", which is a thing to show the baker, not the customer.
+String _when(int date, int? time) =>
+    [dayLabel(date), if (time != null) timeLabel(time)].join(', ');
+
+/// One heading per journey, with what travels on it underneath.
+///
+/// An order can be two handovers on two days to two places. Quoting one date
+/// over a list of everything told a customer expecting a cake on Friday that
+/// their order was coming on Sunday.
+List<String> _journeySections(List<SubOrder> journeys) => [
+      for (final j in journeys) ...[
+        '',
+        '*${j.isPickup ? 'Collect' : 'Delivery'}: '
+            '${_when(j.deliveryDate, j.deliveryTime)}*',
+        if (!j.isPickup && j.addressText != null) j.addressText!,
+        ..._linesOf(j.liveLines),
+      ],
+    ];
+
+/// When and where, for an order that is a single handover — the common case,
+/// which keeps the shape it always had rather than growing a heading.
+List<String> _whenAndWhere(MessageContext c, SubOrder? only) {
+  final pickup = only?.isPickup ?? c.isPickup;
+  final label = pickup ? 'Collect' : 'Delivery';
+  final address = only == null ? c.addressText : only.addressText;
+  return [
+    if (only != null)
+      '$label: ${_when(only.deliveryDate, only.deliveryTime)}'
+    else if (c.deliveryDateLabel != null)
+      '$label: ${c.deliveryDateLabel}'
+          '${c.deliveryTimeLabel != null ? ', ${c.deliveryTimeLabel}' : ''}',
+    // Nothing to show a customer who is coming to fetch it themselves.
+    if (!pickup && address != null) address,
+  ];
+}
+
+String _confirmation(MessageContext c) {
+  final journeys = _liveJourneys(c);
+  final grouped = journeys.length > 1;
+  return [
+    if (c.isUpdate)
+      'Hi ${c.customerFirstName}, your order has been updated 🍞'
+    else
+      'Hi ${c.customerFirstName}, your order with ${c.businessName} is confirmed 🍞',
+    '',
+    'Order: ${c.orderNo}',
+    if (grouped)
+      ..._journeySections(journeys)
+    else ...[
       ..._itemLines(c),
       '',
-      if (c.deliveryDateLabel != null)
-        'Delivery: ${c.deliveryDateLabel}'
-            '${c.deliveryTimeLabel != null ? ', ${c.deliveryTimeLabel}' : ''}',
-      if (c.addressText != null) c.addressText!,
-      '',
-      _moneyLine(c),
-      '',
-      'Please check the details above and tell us if anything is wrong.',
-    ].join('\n');
+      ..._whenAndWhere(c, journeys.isEmpty ? null : journeys.first),
+    ],
+    '',
+    _moneyLine(c),
+    '',
+    'Please check the details above and tell us if anything is wrong.',
+  ].join('\n');
+}
 
 /// Deliberately bare. The customer wants the link, not a restatement.
+///
+/// [MessageContext.trackingUrl] is the **moving journey's** link. The order
+/// caches one too, but it is the finishing journey's — sending Friday's van
+/// off quoted the link for Sunday's.
 String _onItsWay(MessageContext c) => [
       'Hi ${c.customerFirstName}, your order is on its way 🚚',
       '',
@@ -304,7 +367,9 @@ String _invoice(MessageContext c) {
   final t = c.totals;
   final mono = <String>[];
 
-  for (final l in c.lines) {
+  // Live lines only. `OrderTotals` has always excluded cancelled ones, so
+  // itemising them here put two ₹800 rows above an ₹800 subtotal.
+  for (final l in c.lines.where((l) => l.isLive)) {
     mono.add(l.itemName); // own line — may wrap harmlessly
     final sub = [
       if (l.flavour != null) l.flavour!,

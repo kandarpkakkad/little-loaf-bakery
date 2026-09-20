@@ -118,6 +118,22 @@ signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
 build**. Test Drive on a locally built debug APK or on a release APK. This is
 not a bug to fix in Dart.
 
+### An order-level column describes the *finishing* journey, not the order
+
+`orders.tracking_url`, `address_text`, `delivery_date`, `fulfilment` are caches
+written from whichever journey finishes the order (`_refreshOrderCache`). Read
+one while acting on a *particular* journey and you get a different trip's
+answer: Friday's van went out under Sunday's tracking link, and a two-day order
+was confirmed with only the later date.
+
+Acting on one journey? Take the value from that journey.
+
+### Cancelled lines are excluded from totals, so exclude them from listings too
+
+`OrderTotals` filters `isLive`; nothing else did. The invoice itemised two ₹800
+rows above an ₹800 subtotal — a bill the customer can add up, and it was wrong.
+Any listing of `lines` beside a sum must filter the same way the sum does.
+
 ### Compose a message from state read *after* the write
 
 Every customer-facing message is built from a snapshot, and taking it at the
