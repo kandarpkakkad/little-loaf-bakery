@@ -218,6 +218,26 @@ tool/mint_refresh_token.py
 Without them the announcement step skips with a notice and the first device to
 install the new build announces it instead.
 
+### The push token
+
+`main` is protected, and GitHub will not let a user-owned repository grant the
+Actions bot a rule bypass — so the bot's own identity cannot push the version
+bump once the strict rules are on. Both pipelines therefore check out with
+`RELEASE_TOKEN`, a **fine-grained personal access token** acting as the repo
+admin, falling back to the built-in token only while that secret is absent.
+
+Create it at **Settings → Developer settings → Personal access tokens →
+Fine-grained tokens**:
+
+| | |
+|---|---|
+| Repository access | Only select repositories → `little-loaf-bakery` |
+| Permissions | Repository permissions → **Contents: Read and write** |
+| Expiry | Your call. It must be rotated when it lapses, or releases stop |
+
+Then `gh secret set RELEASE_TOKEN`. Nothing else needs that token, and it
+reaches one repository and one permission.
+
 Releases are consumed on-device by [Obtainium](https://github.com/ImranR98/Obtainium),
 which watches the repo and offers each new tag.
 

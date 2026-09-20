@@ -38,6 +38,12 @@ jobs:
           # A dispatch works on main, because it is going to commit the bump
           # there. A tag build checks out the tag and changes nothing.
           ref: ${{ github.event_name == 'push' && github.ref || 'main' }}
+          # Prefers RELEASE_TOKEN — a fine-grained PAT acting as the repo
+          # admin — and falls back to the built-in token only while that
+          # secret is absent. GitHub will not let a user-owned repository
+          # grant the Actions bot a rule bypass, so the bot's own identity
+          # cannot push once main is protected; the admin's can.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - uses: actions/setup-java@v4
         with:

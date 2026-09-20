@@ -49,6 +49,12 @@ jobs:
           # The default checkout is a detached HEAD at the pushed sha, which
           # cannot be pushed from. The branch is needed to commit the bump.
           ref: ${{ github.head_ref || github.ref_name }}
+          # Prefers RELEASE_TOKEN — a fine-grained PAT acting as the repo
+          # admin — and falls back to the built-in token only while that
+          # secret is absent. GitHub will not let a user-owned repository
+          # grant the Actions bot a rule bypass, so the bot's own identity
+          # cannot push once main is protected; the admin's can.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       # Bumps the patch and commits it. [skip ci] keeps this from triggering
       # another run of this same workflow, which would bump again, forever.
