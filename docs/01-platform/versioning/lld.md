@@ -55,8 +55,10 @@ that one number twice — a debug APK and the signed release APK — so what you
 ship are the same build. Bump `kMinSupported` **by hand, in a normal commit, only** if the
 change is genuinely breaking; nothing moves it automatically, because it locks devices out.
 
-Install on one device: it finds itself newer than `app.json` and writes the new floor there,
-which is how the rest of the fleet learns. Android asks once to allow installs from the
+The pipeline then writes `app.json` in Drive itself (`tool/publish_app_json.py`), so devices
+hear about the build on their next sync rather than waiting for somebody to install it. If the
+Drive secrets are not set the step is skipped with a notice, and the first device to install
+the new build announces it instead — the same as before. Android asks once to allow installs from the
 browser; one toggle, and it persists.
 
 **Every push to main bumps the patch**, so a debug APK always carries a version higher than
@@ -69,6 +71,35 @@ ever increases the build number: Android refuses an APK whose `versionCode` is n
 the installed one, so a build number that went backwards would be an update nobody can
 install.
 
+## 4b. The Drive credential, once
+
+The release runner has no Google account of its own, so it borrows one. Three repository
+secrets, all from the **same Cloud project as the app** — `drive.file` grants access to files
+the *app* created, and the app is the project rather than any one client in it, which is the
+only reason a Web client can touch a folder the Android client made.
+
+| Secret | What |
+|---|---|
+| `GOOGLE_CLIENT_ID` | The **Web** OAuth client — the same one the app passes as `serverClientId` |
+| `GOOGLE_CLIENT_SECRET` | Its secret, from the Cloud console |
+| `GOOGLE_REFRESH_TOKEN` | A refresh token for the bakery account, scoped `drive.file` |
+
+Getting the refresh token, once:
+
+1. In the Cloud console, add `https://developers.google.com/oauthplayground` as an authorised
+   redirect URI on the Web client.
+2. Open the OAuth Playground → the gear icon → *Use your own OAuth credentials*, and paste the
+   client id and secret.
+3. Step 1: enter the scope `https://www.googleapis.com/auth/drive.file`. Authorise as the
+   bakery account.
+4. Step 2: *Exchange authorisation code for tokens*. Copy the **refresh token**.
+5. Put all three in GitHub → Settings → Secrets and variables → Actions.
+6. Remove the Playground redirect URI again.
+
+**While the OAuth project is in Testing, Google expires refresh tokens after seven days.**
+The release will then fail at the announcement step with a clear message, and the fix is to
+repeat the steps above — or to publish the consent screen, which stops the expiry.
+
 ## 5. Edge cases
 
 | Case | Handling |
@@ -77,7 +108,8 @@ install.
 | Clock wrong, `published_at` in the future | Ignored; only version integers are compared |
 | Two devices both newer than `latest_version` | Both write; last wins; the values are the same anyway |
 | Downgrade installed deliberately | It sees `kAppVersion < min_supported` and blocks — correct |
-| APK URL requires sign-in | Expected. The phone's browser is signed into the bakery account |
+| APK URL requires sign-in | **While the repository is private this is a GitHub sign-in, not a Google one**, and the bakery account is unlikely to have one. The block screen still shows the link; installing the APK by hand is the fallback it names |
+| Drive secrets missing or expired | The announcement step skips (missing) or fails loudly (expired). The release is already published either way, and a device that installs it still announces the version |
 
 ## 6. What to test
 

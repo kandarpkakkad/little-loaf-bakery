@@ -155,6 +155,59 @@ class DriveAppConfig implements ReleaseSource {
       store.writeAppConfig(jsonEncode(info.toJson()));
 }
 
+/// What the other devices in this bakery are running.
+///
+/// Every device publishes its version in its own `device.json` on every sync,
+/// so this needs no new file and no extra write. It answers a question neither
+/// other source can: not "what has been released" but "what is actually
+/// installed around here" — which is what decides whether this build can still
+/// talk to the others.
+///
+/// The floor it reports is the strictest any peer asks for. A newer build
+/// carrying a higher `kMinSupported` therefore propagates its requirement
+/// simply by syncing once.
+class PeerVersions implements ReleaseSource {
+  PeerVersions(this.store, {required this.deviceId});
+
+  final RemoteStore store;
+  final String deviceId;
+
+  @override
+  Future<ReleaseInfo?> read() async {
+    try {
+      String? newest;
+      String? floor;
+
+      for (final peer in await store.listDevices()) {
+        if (peer == deviceId) continue;
+        final text = await store.readDeviceMeta(peer);
+        if (text == null) continue;
+        final meta = jsonDecode(text) as Map<String, Object?>;
+
+        final version = meta['app_version'];
+        if (version is String && version.isNotEmpty) {
+          if (newest == null || isOlder(newest, version)) newest = version;
+        }
+        final min = meta['min_supported'];
+        if (min is String && min.isNotEmpty) {
+          if (floor == null || isOlder(floor, min)) floor = min;
+        }
+      }
+
+      if (newest == null && floor == null) return null;
+      return ReleaseInfo(
+        // A floor with no version attached still has to travel, and `latest`
+        // is required. Reporting the floor as the latest would be a lie that
+        // triggers an update banner, so it reports the floor as itself.
+        latest: newest ?? floor!,
+        minSupported: floor,
+      );
+    } on Exception {
+      return null;
+    }
+  }
+}
+
 /// Whether this build may still run.
 ///
 /// Reads both sources, because they answer different questions: GitHub knows

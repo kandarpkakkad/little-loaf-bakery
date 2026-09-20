@@ -47,6 +47,22 @@ onto a phone without a store.
 A breaking schema change usually bumps both: the journal guard stops bad reads immediately,
 the version gate makes sure nobody stays on the old build.
 
+## Three sources, not two
+
+| Source | Answers | Carries a floor? |
+|---|---|---|
+| **GitHub Releases** | what has been *published* | No — a release has nowhere to put one |
+| **`app.json`** in Drive | what the release pipeline announced | Yes |
+| **peers' `device.json`** | what is actually *installed* around here | Yes — the strictest any peer asks for |
+
+The third needs no new file and no extra read: `device.json` is already written on every sync
+and already read from every peer on every sync, so the version rides along for free. It is
+also the one that cannot go stale, because a device rewrites it every time it syncs — and it
+answers the question the other two cannot, which is not "what exists" but "what is this
+bakery actually running".
+
+A newer build therefore propagates its own `kMinSupported` simply by syncing once.
+
 ## `app.json`
 ```jsonc
 { "latest_version": 14, "min_supported_version": 12,

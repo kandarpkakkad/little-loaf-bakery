@@ -464,6 +464,10 @@ class _PeerFacts extends StatelessWidget {
         _Fact('Other devices found', '${report.peersSeen}'),
         if (report.peersSeen > 0)
           _Fact('Read successfully', '${report.peersRead}'),
+        // A tablet three versions behind looks exactly like a tablet that is
+        // not syncing, until you can see this.
+        for (final e in report.peerVersions.entries)
+          _Fact('${e.key.substring(0, 8)}… is on', e.value),
         if (report.isolated)
           Padding(
             padding: const EdgeInsets.only(top: Space.sm),

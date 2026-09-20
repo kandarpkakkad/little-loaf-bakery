@@ -3,10 +3,17 @@ import 'version_gate.dart';
 
 /// The version gate, assembled from whatever this device can actually reach.
 ///
-/// GitHub is always asked — it needs no account and answers for a device that
-/// has never connected Drive. `app.json` is asked only when Drive is connected,
-/// because that is the only way to reach it, and it is the source that carries
-/// the floor. Neither answering is a normal outcome, not an error.
+/// Three sources, each answering a different question:
+///
+/// - **GitHub** — what has been *released*. Needs no account, so it answers on
+///   a device that has never connected Drive.
+/// - **`app.json`** — what the fleet has been told, written by the release
+///   pipeline and by any app that finds itself newer.
+/// - **the peers' own `device.json`** — what is actually *installed* around
+///   here. This is the one that cannot be stale or forgotten, because a device
+///   writes it every time it syncs.
+///
+/// None of them answering is a normal outcome, not an error.
 class AppUpdates {
   AppUpdates(this._sync, {ReleaseSource? github})
       : _github = github ?? GitHubReleases();
@@ -28,7 +35,11 @@ class AppUpdates {
     final drive = store == null ? null : DriveAppConfig(store);
 
     return VersionGate(
-      sources: [_github, if (drive != null) drive],
+      sources: [
+        _github,
+        if (store != null) PeerVersions(store, deviceId: _sync.deviceId),
+        if (drive != null) drive,
+      ],
       publishTo: drive,
       // Everything this device knows goes out while it still can.
       onBlocked: () => _sync.syncNow(),

@@ -221,6 +221,74 @@ void main() {
     });
   });
 
+  group('what the other devices are running', () {
+    InMemoryRemoteStore withPeers(Map<String, Map<String, Object?>> peers) {
+      final store = InMemoryRemoteStore();
+      peers.forEach((id, meta) => store.meta[id] = jsonEncode({
+            'device_id': id,
+            'last_seen_at': 0,
+            'cursors': <String, int>{},
+            ...meta,
+          }));
+      return store;
+    }
+
+    test('reports the newest version anyone is on', () async {
+      final store = withPeers({
+        'phone': {'app_version': '0.1.2'},
+        'tablet': {'app_version': '0.1.9'},
+        'counter': {'app_version': '0.1.4'},
+      });
+
+      final info = await PeerVersions(store, deviceId: 'me').read();
+      expect(info!.latest, '0.1.9');
+    });
+
+    test('this device does not count as a peer', () async {
+      final store = withPeers({
+        'me': {'app_version': '9.9.9'},
+        'phone': {'app_version': '0.1.2'},
+      });
+
+      final info = await PeerVersions(store, deviceId: 'me').read();
+      expect(info!.latest, '0.1.2',
+          reason: 'asking yourself what version you are is not an answer');
+    });
+
+    test('the strictest floor any peer asks for wins', () async {
+      final store = withPeers({
+        'phone': {'app_version': '0.2.0', 'min_supported': '0.2.0'},
+        'tablet': {'app_version': '0.1.1', 'min_supported': '0.1.0'},
+      });
+
+      final info = await PeerVersions(store, deviceId: 'me').read();
+      expect(info!.minSupported, '0.2.0',
+          reason: 'a newer build propagates its requirement by syncing once');
+    });
+
+    test('a fleet of one has nothing to say', () async {
+      final store = withPeers({'me': {'app_version': '0.1.2'}});
+      expect(await PeerVersions(store, deviceId: 'me').read(), isNull);
+    });
+
+    test('peers from before versions were published are skipped', () async {
+      final store = withPeers({'old': <String, Object?>{}});
+      expect(await PeerVersions(store, deviceId: 'me').read(), isNull,
+          reason: 'an older build writes no version, and silence is not zero');
+    });
+
+    test('a peer on a newer build blocks one below its floor', () async {
+      final store = withPeers({
+        'tablet': {'app_version': '0.3.0', 'min_supported': '0.3.0'},
+      });
+
+      final r = await gate([PeerVersions(store, deviceId: 'me')],
+              app: '0.2.0')
+          .check();
+      expect(r.blocks, isTrue);
+    });
+  });
+
   test('the constants match pubspec.yaml', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final line = RegExp(r'^version:\s*(.+)$', multiLine: true)

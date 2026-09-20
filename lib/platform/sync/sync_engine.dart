@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../common/hlc.dart';
+import '../versioning/version.dart';
 import '../storage/database.dart';
 import '../backup/snapshot.dart';
 import 'apply.dart';
@@ -22,6 +23,7 @@ class SyncReport {
     this.peersSeen = 0,
     this.peersNeedingUpgrade = const [],
     this.peerErrors = const {},
+    this.peerVersions = const {},
     this.error,
   });
 
@@ -49,6 +51,10 @@ class SyncReport {
   /// Peers writing a journal this build is too old to read. Listed rather than
   /// thrown: one peer ahead of us must not stop the others syncing.
   final List<String> peersNeedingUpgrade;
+
+  /// What each peer is running, by device id. A tablet three versions behind
+  /// looks exactly like a tablet that is not syncing, until you can see this.
+  final Map<String, String> peerVersions;
 
   final Object? error;
 
@@ -93,6 +99,10 @@ class SyncEngine {
   int _compactedThrough = -1;
   bool _compactedThisRun = false;
 
+  /// What each peer said it was running, from the last time we read its
+  /// `device.json`. Reported rather than stored: it is a fact about right now.
+  final Map<String, String> _peerVersions = {};
+
   /// The reader version a peer must be at to read what we write. Bumped only
   /// when the journal format changes in a way an older build would misread —
   /// adding fields does not count, because unknown fields are ignored.
@@ -121,6 +131,7 @@ class SyncEngine {
         peersSeen: pull.seen,
         peersNeedingUpgrade: pull.needUpgrade,
         peerErrors: pull.errors,
+        peerVersions: Map.of(_peerVersions),
       );
     } catch (e) {
       return SyncReport(error: e);
@@ -165,6 +176,8 @@ class SyncEngine {
   Future<List<int>> _peerCursorsOnUs() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final out = <int>[];
+    _peerVersions.clear();
+
     for (final peer in await store.listDevices()) {
       if (peer == deviceId) continue;
       final text = await store.readDeviceMeta(peer);
@@ -175,6 +188,15 @@ class SyncEngine {
         continue;
       }
       final meta = jsonDecode(text) as Map<String, Object?>;
+
+      // Recorded whatever its liveness: a phone nobody has touched for two
+      // months is still worth naming on the sync screen, and the version it
+      // was last on is the useful half of that.
+      final version = meta['app_version'];
+      if (version is String && version.isNotEmpty) {
+        _peerVersions[peer] = version;
+      }
+
       final seen = (meta['last_seen_at'] as num?)?.toInt() ?? 0;
       if (!isLivePeer(lastSeenAtMs: seen, nowMs: now)) continue;
       final cursors = meta['cursors'] as Map? ?? const {};
@@ -242,8 +264,14 @@ class SyncEngine {
         schemaV: row.schemaV,
       );
 
-  /// Our cursors and a heartbeat, so peers know what we have read and can
-  /// compact behind us — and know we are still here, so they do not.
+  /// Our cursors, a heartbeat, and what we are running.
+  ///
+  /// Peers use the cursors to compact behind us and the heartbeat to know we
+  /// are still here, so they do not. The version is here rather than in a file
+  /// of its own because this one is already written on every sync and already
+  /// read from every peer on every sync — so it costs nothing, and a version
+  /// mismatch is exactly the kind of thing that makes orders look like they
+  /// are not arriving.
   Future<void> _publishMeta() async {
     final cursors = await db.select(db.peerCursors).get();
     await store.writeDeviceMeta(
@@ -252,6 +280,8 @@ class SyncEngine {
         'device_id': deviceId,
         'last_seen_at': DateTime.now().millisecondsSinceEpoch,
         'cursors': {for (final c in cursors) c.peerDeviceId: c.lastSeq},
+        'app_version': kAppVersion,
+        'min_supported': kMinSupported,
       }),
     );
   }
