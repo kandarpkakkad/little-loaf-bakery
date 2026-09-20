@@ -50,7 +50,7 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | kitchen board starts at **confirmed** | built — confirming an order is what hands its items to the kitchen |
 | orders hold **sub-orders** hold items (D28, D29) | built — schema v12; the kitchen works to journeys, and each is delivered once |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
-| Today and Kitchen reading line dates | built — Today counts orders with a line due that day; Kitchen is a board of lines |
+| Kitchen reading journey dates | built — the board is a board of journeys, each delivered once |
 | invoicing, in any form | **removed** in schema v13 — the bakery does not raise bills (D30). GST goes with it |
 
 ## What each document type contains

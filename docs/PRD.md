@@ -1,17 +1,23 @@
 # Little Loaf Bakery — Order & Stock App
 
-**Draft v0.50 · 27 August 2026 · Kandarp Kakkad**
+**v1.0 · 21 September 2026 · Kandarp Kakkad**
 Android · Flutter · SQLite on the phone · Google Drive for sync and backup · no server
+
+> **This describes the app as it is built**, not as it was first imagined. Where the two
+> differ the code won, and the reasons are in
+> [`00-overview/decisions.md`](00-overview/decisions.md) — numbered D1…D30 and cited from the
+> code. Design detail lives in the per-system `hld` / `schema` / `lld` documents;
+> [`README.md`](README.md) says what is built and what is not.
 
 ---
 
 ## 1. What it is
 
-Custom cake and bake pre-orders, taken over phone and Instagram, currently living in chat
-threads and notebooks. This app is where an order is recorded, produced, delivered, billed
-and paid — on two Android phones, with no server.
+Custom cake and bake pre-orders, taken over phone and Instagram, that used to live in chat
+threads and notebooks. This app is where an order is recorded, produced, delivered and paid
+for — on two Android phones, with no server.
 
-**Scale:** ~10 orders/day now, ~30 at peak. Two people. India, INR, no GST yet.
+**Scale:** ~10 orders/day now, ~30 at peak. Two people. India, INR, no GST.
 
 ---
 
@@ -21,18 +27,20 @@ and paid — on two Android phones, with no server.
 |---|---|
 | Server, web app, hosting | Everything runs on the phone |
 | WhatsApp Business API | Messages are shared from the existing number |
-| Recipes / bill-of-materials | No per-order ingredient cost. v2 |
-| GST | Below threshold. Schema ready, feature off. v2 |
+| Recipes / bill-of-materials | No per-order ingredient cost, and so no true COGS. v2 |
+| **Invoicing, in any form** | Removed in schema v13 (D30). A payment is acknowledged over WhatsApp and that is the whole of it |
+| **GST** | Below threshold. Removed with invoicing rather than carried unused — a migration when it arrives is cheaper than columns nobody can explain |
+| Seasonality on menu items | Removed. A bakery that makes a thing makes it |
 | iOS | Android only |
 | Login, accounts, roles | Two owners, both see everything |
+| Analytics, telemetry, crash reporting | Nothing leaves the bakery's Google account |
 | Counter POS, wholesale, customer login, payroll | Out of scope |
 
 ---
 
 ## 3. Users
 
-Two owners, two phones today, one Google account (`littleloafbakeryy@gmail.com`).
-**Identical access.** No permission model.
+Two owners, two phones, one Google account. **Identical access.** No permission model.
 
 **Nothing in the design assumes two.** Devices are discovered, not configured (§4.2), so a
 third or fourth phone is an install, not a change.
@@ -46,19 +54,16 @@ third or fourth phone is an install, not a change.
 ```
 Device 0192f3…a41c            Device 0192f4…7b02            (…any number)
   Flutter UI                    Flutter UI
-  SQLite (drift)                SQLite (drift)
+  SQLite (drift + SQLCipher)    SQLite (drift + SQLCipher)
   outbox (pending ops)          outbox (pending ops)
        └────────────┬────────────────┘
                     ▼
         Google Drive — one folder, one account
-          journal/0192f3…a41c/device.json     name, cursors, last seen
+          journal/0192f3…a41c/device.json     name, cursors, version, last seen
           journal/0192f3…a41c/ops.jsonl       one file, fixed name
           journal/0192f4…7b02/ops.jsonl
           snapshot/owner.json                 which device takes snapshots
-          snapshot/2026-08-26.db              nightly, by the owner only
-          media/ref-<uuid>.jpg
-          releases + device.json              version gate
-          releases/little-loaf.apk            replaced in place
+          snapshot/2026-09-20.db              nightly, by the owner only
 ```
 
 **A device id is a UUID v7 generated at install**, and it never changes for that
@@ -69,25 +74,30 @@ Every write commits to local SQLite first. The UI never waits on the network.
 ### 4.2 Sync
 
 Drive stores files; it does not merge databases. Each device writes **only its own
-journal** and reads the other's, replaying ops into its own SQLite. Nothing is ever
+journal** and reads the others', replaying ops into its own SQLite. Nothing is ever
 overwritten.
 
 | | |
 |---|---|
 | Journal | **One file per device, fixed name** — `ops.jsonl`. Only this device ever writes it |
-| Upload | Debounced ~5s. Drive has no append, so the file is re-uploaded whole — which is only viable because it stays small (see compaction) |
+| Upload | Debounced ~5s. Drive has no append, so the file is re-uploaded whole — viable only because it stays small (see compaction) |
 | Download | On app resume, on pull-to-refresh, and **on the wall-clock 5-minute grid** — `:00, :05, :10 … :55`. **Lists `journal/` and pulls every folder that is not its own** |
 | Devices | Discovered, never configured. A new install is a new folder, picked up on the next sync. Removing one is deleting a folder |
-| Cursors | Each device publishes how far it has read each peer, in its own `device.json` |
+| Cursors | Each device publishes how far it has read each peer, in its own `device.json`, **after** the pull — a read-only device that published first could never unblock compaction |
+| Volume | ~240 ops/day, a few hundred KB a month |
+| Scope | Google Sign-In, `drive.file` only — the app sees only files it created |
+| Offline | Everything works. Changes queue in the outbox |
 
 **Pulls are aligned to the clock, not to the last pull.** Every device checks at the same
 instants, so a change uploaded at `:03` is on every other device by `:05` — the lag is
 bounded and predictable rather than drifting with whenever each app happened to start.
-Uploads stay event-driven (debounced ~5s), because your own changes should leave immediately;
-only the listening is scheduled.
-| Volume | ~240 ops/day, a few hundred KB a month |
-| Scope | Google Sign-In, `drive.file` only — the app sees only files it created |
-| Offline | Everything works. Changes queue in the outbox |
+Uploads stay event-driven, because your own changes should leave immediately; only the
+listening is scheduled.
+
+**The applier is generic over the entity name**, not a typed switch per table. It reads a
+table's columns from the database and drops any field it does not recognise — which is what
+lets an older reader survive a newer writer, and what let the `invoices` table be deleted
+without a single line of compatibility code.
 
 **Compaction — why a fixed filename works**
 
@@ -109,15 +119,16 @@ journal grow forever. That device catches up by restoring from a snapshot instea
 ### 4.3 Conflicts
 
 - Every op carries a **hybrid logical clock** — total ordering without trusting phone clocks.
-- **Inserts never conflict.** Payments, stock movements and status events are append-only.
+- **Inserts never conflict.** Stock movements and status events are append-only.
 - **Field updates: last-writer-wins, per field.** Two people editing different fields both keep their change.
-- **Deletes are tombstones.**
+- **Deletes are tombstones.** Every delete in the app is soft.
 
 | Divergence | Behaviour |
 |---|---|
 | Status moved backwards by an incoming op | Surfaced in the conflict log, not applied silently |
 | Devices offline for days | Merge on reconnect; every overwrite recorded in the conflict log |
 | No sync for 24h | Persistent stale-sync banner, manual retry |
+| One device re-prices a journey while another adds an item to it | A journey's charge is the **maximum** of its items' — deterministic, and it errs toward charging rather than silently under-charging |
 
 ### 4.4 Identity and numbering
 
@@ -128,12 +139,11 @@ journal grow forever. That device catches up by restoring from a snapshot instea
 | **`id`** | **UUID v7**, generated on the device. The primary key — what ops, foreign keys and sync all reference. Never shown to anyone |
 | **`order_no`** | `LLB-0148-K7QP`. Human-facing: printed, spoken on the phone, searched for. **An attribute, not a key** |
 
-Every entity follows this. Invoices carry a UUID `id` plus `invoice_no`; so does everything
-else. **UUID v7 is time-ordered**, so sorting by id is sorting by creation — the same
-tie-break the rest of the app already uses (§6.4).
-
-**Why the split matters:** the human number can never break the data. Even if two numbers
-ever collided, they would still be two distinct rows that merge correctly.
+**UUID v7 is time-ordered, and monotonic within a millisecond.** The generator follows RFC
+9562 method 1 — a 12-bit counter in the rand_a field, incremented when two ids are minted in
+the same millisecond — so sorting by id is sorting by creation even for rows made in the same
+instant. It is not only cosmetic: the opening-stock calculation sorts by id to break ties,
+and did so wrongly before the counter existed.
 
 **The human number carries a hash, so it is unique too.**
 
@@ -141,7 +151,7 @@ ever collided, they would still be two distinct rows that merge correctly.
 LLB-0148-K7QP
  │    │    └── 4 characters derived from the order's UUID
  │    └─────── this device's sequence
- └──────────── fixed prefix
+ └──────────── fixed prefix (settings.invoice_prefix — the name outlived invoicing)
 ```
 
 - The sequence is **per device**, because it has to be generated offline with no
@@ -155,27 +165,22 @@ LLB-0148-K7QP
   install with a new UUID — so it starts its own sequence at 0001. The old series simply ends;
   its numbers stay valid forever and nothing renumbers.
 
-Invoices take the same shape: `LLB/26-27/0148-K7QP`.
-
-**The device code is gone from the visible number.** It was only ever there to keep numbers
-apart, and the hash does that better. Which device took an order is still in the data — it
-just no longer has to be read aloud.
-
-> **One thing to check when GST arrives:** a tax invoice number is capped at 16 characters.
-> `LLB/26-27/0148-K7QP` is 19, so the invoice series will need shortening then — dropping the
-> hyphens and the prefix to two letters gets there. Not worth contorting the format now for a
-> requirement that is a year or more away.
+**A journey inside an order is `LLB-0148-K7QP-2`** — the order's number and the journey's
+sequence within it. Spent, never reused: a number that comes back meaning something else is
+worse than a gap. It is for the kitchen, and never appears in a customer message.
 
 **First run.** The app **creates its own database on the device** — every table, every index
 and a default settings row — the first time it opens. Nothing is bundled and nothing is
-fetched. It is usable immediately, offline, before Google Sign-In has been touched; Setup
-connects Drive afterwards, and the Drive folder is created on the first sync.
+fetched. It is usable immediately, offline, before Google Sign-In has been touched. Drive is
+offered on first launch rather than buried in a settings screen, and the folder is created on
+the first sync.
 
 ### 4.5 Backup & restore
 
 - The journal covers the recent tail; the snapshot covers everything before it. **Restore is
   snapshot + replay of every journal**, so the two together are always complete.
-- **Restore:** install → sign in → pick snapshot → replay all journals. Target under 5 minutes.
+- **Restore is staged and applied at the next launch** — swapping a database underneath a
+  running app is how you lose one.
 - **Tested before launch and quarterly after.**
 
 **One device uploads the snapshot, at 00:02 IST.** It writes **the whole database**, not a
@@ -190,6 +195,9 @@ delta. `snapshot/owner.json` records which device that is.
 That's the whole rule. It needs no locking: **the check happens on every upload, not just at
 claim time**, so if two devices ever claimed at once, last write wins and the loser simply
 skips from the following night onward. It corrects itself.
+
+The snapshot is **decrypted** — a backup you cannot open without the phone that made it is
+not a backup.
 
 **Android will sometimes miss 00:02** — the phone may be dozing or off. The snapshot is then
 taken at the first opportunity after, and `last_snapshot_at` records when it actually
@@ -210,306 +218,297 @@ Keep the last 14 snapshots; prune older.
 
 - SQLite lives in app-private storage. Android keeps it across an APK update **only if the package name and signing key are unchanged**.
 - **Never uninstall to upgrade.** Install over.
-- Migrations: versioned, forward-only, run on first launch. **Snapshot uploads before any migration.** Tested against a seeded, realistic database.
-- Restore of an old snapshot runs the same migrations — re-test after every schema change.
+- Migrations: versioned, forward-only, run on first launch. Tested against a real database of
+  the previous version — built with raw sqlite3 and reopened through `AppDatabase`, so
+  `onUpgrade` genuinely runs.
+- **Schema v13** is current: v12 made the journey a row of its own (D28); v13 removed
+  invoicing (D30).
 
 **Devices will be on different versions.**
 
 | Case | Behaviour |
 |---|---|
 | Op has fields this build doesn't know | Ignore them. Ops are additive |
-| A journal needs a newer app (`min_reader_version`) | Stop applying **that journal**, say so. Other devices' journals keep syncing. Never partial-apply |
-| App below `min_supported_version` | **Hard block** (S29). Outbox flushed first, so nothing is lost |
-| App below `latest_version` | Dismissible banner |
+| Op names a table this build doesn't have | Skipped and marked applied, never retried forever |
+| App below `min_supported_version` | **Hard block.** Outbox flushed first, so nothing is lost |
+| App below the latest release | Dismissible banner |
 | No source answered | **Never blocks.** Cached values used |
-| `apk_url` missing | Block screen drops the Download button |
 
-The GitHub release tag for what exists; each peer's `device.json` for `app_version` and `min_supported`.
-The newest app writes it. Nobody hand-edits JSON.
+The GitHub release tag says what exists; each peer's `device.json` carries its `app_version`
+and the floor it requires. Nobody hand-edits JSON, and there is no separate `app.json` — the
+file that already describes a device is the file that describes its version.
 
-**Publishing an update**
+**Publishing an update** is Actions → **Release**, level `minor` or `major`. CI bumps the
+version, commits it, tags, and builds the same version twice — a debug APK and a signed
+release APK. Every push to `main` that touches code bumps the patch version and builds a
+debug APK; documentation-only pushes build nothing.
 
-1. Bump `version`. Bump `min_supported_version` only if genuinely breaking.
-2. Build a signed APK **with the same keystore as always**.
-3. **Replace** `releases/little-loaf.apk` in Drive — *Manage versions → Upload new version*, never a new file. A new file gets a new id, and the URL is baked into the build.
-4. Install on one device; it publishes its version to the others on its next sync.
-
-Sharing stays **off** — only the bakery account can see it, and every device is signed in.
-Use `https://drive.google.com/uc?export=download&id=<file-id>`. Drive keeps prior versions
-30 days, which is a free rollback.
+> **A debug APK built by CI cannot sign in to Google.** No debug keystore is committed, so the
+> runner generates one per build, and Android OAuth clients are matched on package name **and**
+> signing certificate SHA-1. Test Drive on a locally built debug APK, or on a release build.
 
 ### 4.7 What this costs
 
 | Given up | Because | Mitigation |
 |---|---|---|
-| WhatsApp delivery receipts | A human taps send | Log records the share, and when |
+| WhatsApp delivery receipts | A human taps send | The log records the share, and when |
 | Enforced permissions | Every device holds the whole database | Not attempted. Owners only |
 | Web / desktop access | No server | CSV export |
 | Instant consistency | Drive can't push without a server | Seconds to five minutes |
+| Un-counting a delivered sale | Voiding an invoice was the only mechanism, and invoicing is gone (D30) | Cancel before it goes out. After that, the sale stands |
 
 ---
 
 ## 5. The menu
 
-**Every order line comes from the menu.** Item names are never typed onto an order, so the
+**Every order item comes from the menu.** Item names are never typed onto an order, so the
 same thing is always called the same thing — which is what makes "sales by product" a real
 number rather than a spelling survey.
 
-- **Menu item:** name, lead time in days, active. The item *is* the category (D16), and
-  seasonality was removed — a bakery that makes a thing makes it.
-- **No price, no flavour list.** Both are decided per order (§6.2).
-- Maintained in **Config** (§11).
+- **Menu item:** name, lead time in days, active. The item *is* the category (D16).
+- **No price, no flavour list.** Both are decided per item (§6.3).
+- **No seasonality.** It was removed: a bakery that makes a thing makes it.
+- Maintained under **More › Menu items**.
 
-**For something not on the menu yet: add it from the picker.** The item picker has a
-Items come from the menu only. One that is not there is added under *More › Menu items*.
-Nobody has to abandon a half-typed order and go to Config mid-phone-call — but what gets
-created is a real menu item, not a one-off string.
+**Flavour is free text.** The menu says *what it is*; flavour and special requirements say how
+this one differs.
 
-**Flavour is still free text** (§6.2). The menu says *what it is*; flavour and special
-requirements say how this one differs.
+An order item keeps a **copy of the item name** as it was when ordered, so renaming a menu
+item never rewrites what an old order says.
 
 ---
 
 ## 6. Orders
 
-### 6.1 Lifecycle
+### 6.1 Three levels, three status machines
+
+An order is not a flat list of items (D28). It is:
 
 ```
-Created → Confirmed → In production → Ready → Out for delivery → Delivered → Completed
-   │           │             │                                        │
-   └───────────┴─────────────┴──────────► Cancelled ◄─────────────────┘
+Order  LLB-0148-K7QP
+  ├── Journey -1   Fri 25 Sep, 4:00 pm · Delivery · 14 Turner Rd   ₹80 delivery
+  │     ├── Cake · Chocolate · 500 g × 1    "Happy Birthday Janvi", eggless
+  │     └── Cake · Vanilla · 500 g × 1
+  └── Journey -2   Sun 27 Sep · Pickup                              no charge
+        └── Cake · Butterscotch · 500 g × 1
 ```
+
+**A journey is a handover** — one day, one time, one way out, one place. Two cakes going to
+the same door at the same hour are one doorbell.
+
+**Nobody creates a journey.** An item says when and where it goes, and the journey matching
+that is found or opened. Change an item's date and it moves between journeys by itself; a
+journey with nothing left on it disappears. The order form never asks about journeys — they
+are how the kitchen reads the order, not something to fill in.
+
+**Each level has its own status, and each is derived from the one below (D29).**
+
+| Level | States | Derived from |
+|---|---|---|
+| **Item** | Created → Confirmed → In production → Ready → Delivered · Cancelled | Typed by a person in the kitchen. **Never "out"** — an item does not travel on its own |
+| **Journey** | Created → Confirmed → In production → Ready → Out → Delivered · Cancelled | Its items — until a person sends it out or marks it arrived. Nothing about a cake can tell you the van has left. A **pickup** goes straight from Ready to Delivered |
+| **Order** | Created → Confirmed → In production → Delivered → Completed · Cancelled | Its journeys. **Never reads Ready or Out** — half a ready order is not a thing, and an order does not travel |
 
 **Every step is taken by a person.** The app never advances an order itself — not on a
 payment, not on a share, not on the delivery date. It offers; it does not move.
 
-| State | What happens |
-|---|---|
-| **Created** | Quoted, not committed. Freely editable. Nothing shared |
-| **Confirmed** | Committed. Offers the confirmation message. Advance **not required** |
-| **In production** | Set by whoever starts baking |
-| **Ready** | Out of the oven, boxed |
-| **Out for delivery** | Rider or courier has it. **Offers the tracking message when a link exists** |
-| **Delivered** | Bill of supply issued. Offers the delivery message and the payment sheet |
-| **Completed** | Money is in. Offers the payment-received note **only if there was a balance** |
-| **Cancelled** | From any state before Delivered. Needs a reason and a refund decision |
+Delivering a journey **delivers everything on it**: the items travelled together, so they
+arrived together. That cascade is why an item has no delivered button of its own.
 
-### 6.2 An order line
+**Status is computed, never typed.** `orders.status` exists as a column because it is NOT
+NULL and an older peer still reads it — it is written from the derivation after every change
+and never read back as truth. This was the most expensive mistake the codebase has made:
+for a while the Confirm button wrote that column and every screen read the derivation, so
+confirming an order did nothing at all.
+
+### 6.2 Two dates, and what each is for
+
+| | |
+|---|---|
+| **Due** | The **latest** outstanding journey — when the order *finishes*. What the order shows |
+| **Next** | The **earliest** outstanding journey — when somebody has to do something. What every list sorts and groups by |
+
+They differ on a multi-day order and both are needed. A cake on Friday and a box on Sunday
+finishes Sunday but needs someone on Friday; sorting by the due date buries Friday's cake
+behind everything due earlier in the week, and nobody bakes it.
+
+**Whatever a row is grouped by, everything else on that row comes from the same journey.**
+A card filed under Friday shows Friday's time and Friday's way out, never the finishing
+journey's.
+
+**Sort order everywhere:** `next date → next time → order created time`. Untimed journeys go
+to the end of their day under *Any time*. Created time breaks every tie.
+
+### 6.3 An item
 
 | Field | | |
 |---|---|---|
-| **Item** * | | **From the menu.** Not typed, and not created here — the menu is maintained in Config |
+| **Item** * | | **From the menu.** Not typed |
 | **Flavour** | free text | Past flavours suggested |
 | **Weight** | | Blank for anything not sold by weight |
 | **Quantity** * | | Defaults to 1 |
 | **Base price** * | ₹ | Typed. Last 3 prices shown; the customer's own last price first |
-| **Add-ons** | 0..n | Name + price each. Priced for the line, not multiplied by quantity |
-| **Note** | | Specific to this line |
+| **Add-ons** | 0..n | Name + price each. Priced for the item, not multiplied by quantity |
+| **Note** | | Internal |
+| **Date** * · **Time** · **Delivery or pickup** · **Address** | | What decides which journey it joins |
+| **Message on the item** | | Piped, iced, written on the box. Proofread on its own |
+| **Special requirements** | free text | |
+| **Dietary** | chips | Eggless, nut-free, gluten-free, sugar-free |
+| **Delivery charge** | ₹ | One per **journey**, not per item (§6.4) |
 
-**An order has one or more lines**, each independently priced.
+**"Same as another item"** copies the whole schedule — date, time, way out, place — from any
+sibling, so the second item joins the first one's journey. It is a copy, not a link: editing
+the first afterwards leaves the second alone.
 
-```
-line total  = base price × quantity + add-ons
-subtotal    = Σ line totals
-discount    = flat ₹, or % × subtotal
-total       = subtotal − discount + delivery
-balance due = total − payments
-```
+**What an item *is* stays editable until a baker starts on it.** Once it is in production the
+tin has been weighed. When and where it goes stays editable until it has gone.
 
-### 6.3 Order-level money
-
-| Field | Rules |
-|---|---|
-| **Discount** | ₹ **or** %. A % applies to the subtotal, never to delivery. Recomputes while editing; **frozen once the invoice is issued**. Rounds to the nearest rupee |
-| **Delivery charge** | Pre-fills from Config. **Editable until Delivered**, including from the delivery run — the balance recalculates and the invoice carries what was actually charged |
-| **Advance** | Optional. Confirming with nothing collected is normal, not an error |
-
-**Zero never shows.** A ₹0 row is absent everywhere — invoice, messages, order detail,
-totals, cards. Not printed as zero.
-
-### 6.4 Date, time, address
-
-| Field | Rules |
-|---|---|
-| **Delivery date** * | Date picker, defaults to the soonest the lead times allow. A shorter date is allowed but shows a **rush warning** (non-blocking) |
-| **Delivery time** | Picker that also accepts typing. Optional. **Editable later** |
-| **Address** | Free text + optional map pin. **Starts empty every time** — no pre-fill, no address book |
-| **Delivery type** | **Inside city** or **out of city**. Set on the order; the default charge differs per type |
-| **Tracking link** | A URL, entered by hand once the rider or courier is booked. Optional, editable until Delivered |
-
-**"Same as last order"** — one checkbox, shown only when that customer has a previous order
-with an address, **unchecked by default**.
-
-**Pickup hides the address block entirely** — absent, not empty.
+**The address is remembered.** A new address typed while taking an order is saved against the
+customer when the order is written — so the next order offers it, and it shows on their page.
+Typed twice with different capitals or spacing, it is one address. A pickup saves nothing.
 
 **The pin** is captured by pasting the location link the customer shared on WhatsApp. Lat/lng
 extracted where present; the original link kept either way. **The app never asks for location
 permission** — nothing is read from the phone's GPS.
 
-**Sort order everywhere:** `delivery date → delivery time → order created time`.
-Untimed orders go to the end of their day under *Any time*, ordered among themselves by
-created time. Created time breaks every tie.
+### 6.4 Money
+
+```
+item total   = base price × quantity + add-ons
+subtotal     = Σ item totals, cancelled items excluded
+discount     = flat ₹, or % × subtotal
+delivery     = Σ over JOURNEYS, each counted once
+total        = subtotal − discount + delivery
+balance due  = total − payments
+```
+
+| Field | Rules |
+|---|---|
+| **Discount** | ₹ **or** %. A % applies to the subtotal, never to delivery. Rounds to the nearest rupee. Set on the order |
+| **Delivery charge** | **Per journey.** Two cakes in one Friday delivery are charged once; a Friday and a Sunday delivery are charged twice. Seeds from the default for its delivery type; a pickup is never charged. Set on the item, in the item editor — there is deliberately **no order-level delivery charge** |
+| **Advance** | Optional. Confirming with nothing collected is normal, not an error |
+
+**Cancelled items leave the total entirely** (D27) — which is what can put a paid-up order
+into credit. Anything that lists items beside a total lists only the live ones, or the two
+disagree.
+
+**Zero never shows.** A ₹0 row is absent everywhere — messages, order detail, totals, cards.
+Not printed as zero, and never interpolated into a sentence, which once put the literal word
+"null" in front of a customer.
 
 ### 6.5 Special requirements
 
-Custom orders are the business, so this is a first-class field, not a note at the bottom.
+Custom orders are the business, so this is a first-class field, not a note at the bottom —
+and it belongs to **the item**, not the order. An order of a piped birthday cake and a plain
+box of buns has one message, and printing it under "your order" left the customer to guess
+which one it was for.
 
 - **Special requirements** — free text, any length.
-- **Message on the item** — stored separately (`orders.item_message`) so it can be
-  proofread on its own. Not only cakes carry one.
+- **Message on the item** — stored separately so it can be proofread on its own.
 - **Dietary flags** — eggless, nut-free, gluten-free, sugar-free. Chips, so they're filterable.
-- **Allergy note** — pulled forward automatically from the customer onto every order.
+- **Allergy note** — pulled forward automatically from the customer onto every order. Not
+  copied into the order's own requirements: it belongs to the person, and editing it should
+  update it everywhere.
 - **Reference photos** — what the customer sent.
 
-**Where they must appear:** verbatim and untruncated on the board card and production sheet;
-in the confirmation message so the customer reads them back; on order detail **above the
-money**.
+**Where they must appear:** verbatim and untruncated on the kitchen card; in the confirmation
+message, under the item they belong to; on order detail **above the money**.
 
-**⚑ Edited after confirming** → the board card is flagged until the kitchen acknowledges it.
+**⚑ Edited after confirming** → the card is flagged until the kitchen acknowledges it.
 
 ### 6.6 Rules
 
-- Confirming needs: a valid WhatsApp number, ≥1 line, a delivery date. **No advance required.**
+- Confirming needs: a valid WhatsApp number, ≥1 item, a date on every item. **No advance required.**
+- **Confirming hands the order to the kitchen** — every created item becomes confirmed, and
+  the board starts at confirmed rather than at in-production.
+- Cancelling needs a reason, at order level and at item level.
 - Every edit after Confirmed is audit-trailed — who, which device, when, what, why.
 - **Duplicate order in one tap.**
 
 ---
 
-## 7. Invoice
+## 7. WhatsApp
 
-> **Removed. Not built, and no longer in the schema.** Invoicing was taken out in **schema
-> v13** (see D30): none of it was reachable — an issued bill could not be voided from any
-> screen, carried no date, and dropped the phone and terms line the settings screen collected.
-> What exists instead is the **payment-received WhatsApp message**, plus a payment ledger on
-> the order that can be corrected and removed. `invoice_prefix` survives in `settings` because
-> it prefixes **order** numbers. Everything below is the original requirement, kept as a
-> record of what was asked for — rebuild from it, not from the deleted code.
-
-A **formatted WhatsApp message**, not a PDF. Issued at Delivered, sent only on request —
-the delivery message already covers the normal case.
-
-Numbered per device (§4.4). Cancelled invoices are voided, never deleted.
-
-```
-*Little Loaf Bakery*
-+91 98… 1102
-
-*Bill of Supply*
-LLB/26-27/0148-K7QP · 29 Aug 2026
-
-To: Meera Shah
-
-```(monospace)
-Chocolate Truffle
-Belgian dark · 1 kg
-  1 x 1,450         1,450
-  + Message on item    50
-  + Candles            30
-Sourdough loaf
-  2 x   180           360
---------------------------
-Subtotal              1,890
-Discount               -100
-Delivery                100
-TOTAL                 1,890
-Advance paid            800
-BALANCE DUE           1,090
-```(end)
-
-Pay by UPI to littleloaf@okaxis
-
-Not registered under GST.
-```
-
-**The monospace block wraps rather than scrolls**, and a wrapped line destroys the alignment.
-So: **every line ≤ 26 characters**, amounts right-aligned to column 26, and **a product name
-always gets its own line** so it can wrap harmlessly.
-
-| Variant | Renders as |
-|---|---|
-| % discount | `Discount 10%           -189` |
-| Flat discount | `Discount               -100` |
-| No advance | Last two rows collapse to `AMOUNT DUE` |
-| Fully paid | Collapse to `PAID · thank you`; UPI line dropped |
-| No delivery / no discount | Row absent entirely |
-
-**No logo** — the bakery name in bold does that work. **Save as PDF** is v1.5, for the
-customer who asks.
-
-**At GST:** generate PDFs and register on the portal. v2 project. Schema already carries
-`gstin`, `hsn_code`, `tax_rate`, `cgst`, `sgst`, `igst`, `place_of_supply` behind
-`gst_enabled` — no migration. *(Check with an accountant: B2C usually reports in aggregate
-in GSTR-1, not invoice by invoice.)*
-
----
-
-## 8. WhatsApp
-
-**Three messages. All plain text. All open that customer's chat with the message typed —
+**Four messages. All plain text. All open that customer's chat with the message typed —
 one tap to send.**
 
 | Trigger | Message | Sent when |
 |---|---|---|
-| **Confirmed** | Items, requirements, date, time, address, paid, due | Always |
-| **Out for delivery** | *"On its way"* + the tracking link | **Only if a tracking link has been entered** |
-| **Delivered** | Order details + thank-you; **plus** balance and how to pay | Always — two shapes |
-| **Completed** | *"We have received your payment. Thank you."* No amounts | **Only if there was a balance** |
+| **Confirmed** | Items, requirements, dates, addresses, money | Always. Also on a later edit, as "your order has been updated" |
+| **Out for delivery** | *"On its way"* + the tracking link | **Only if that journey has a tracking link** |
+| **Journey delivered** | What arrived, and what is still to come | Always, once per journey |
+| **Payment received** | What was received, and what is still owed | After **every** payment, partial included |
 
-**No attachments anywhere.** That's what keeps everything on `wa.me` — the one mechanism
-that reliably pre-selects the chat. An attachment would force a contact picker.
+**One journey, one message.** A two-day order gets two delivery messages, each naming only
+what was on that trip. A drop with anything still outstanding says *"part of your order has
+arrived"* and lists the rest; only the last one says the order is delivered.
+
+**A collected order is collected, not arrived.** Nothing "arrives" when the customer drove to
+the bakery for it.
+
+**Money is quoted only on the final drop.** Asking for the balance while a box is still to
+come reads as a demand for something not yet delivered.
+
+**Tracking links belong to the journey**, not the order — a two-trip order can have two, and
+sending Friday's van off must not quote Sunday's link.
 
 | Case | Behaviour |
 |---|---|
-| Balance remains at Delivered | Message carries amount owed + UPI ID + phone |
-| No tracking link at Out for delivery | No message is offered. The link is what the message is *for* |
-| Link added after the order already went out | Still offerable from order detail, until Delivered |
-| Nothing owed at Delivered | Same message, money lines simply absent |
-| Never had a balance | No Completed message at all |
+| Balance remains on the last drop | Message carries amount owed + UPI ID + phone |
+| No tracking link | No "on its way" message is offered. The link is what the message is *for* |
+| Nothing owed | Same message, money lines simply absent |
+| Payment settles the order | *"That settles it — paid in full"* |
+| Payment leaves the order in credit | Says what is to be refunded |
 | UPI ID / phone not set | Payment lines omitted, message still reads fine |
 | WhatsApp not installed | Falls back to the generic Android share sheet |
-| Customer opted out | Copy message text instead |
 
 **What the app can know:** that it handed the message to WhatsApp. **Not** whether you
 pressed send, nor whether it was delivered or read. The log says *"Shared 7:12 pm"*, never
-"delivered ✓✓". Unshared confirmations nag on Today until cleared.
+"delivered ✓✓".
 
-**Implementation:** `https://wa.me/<E164>?text=…`. Numbers must be E.164 — validate on entry.
-URL-encode carefully: newlines are `%0A`, and `*` `_` and backticks must survive intact.
-Cap the line count so a very long order can't overflow the URL.
+**Implementation:** `https://wa.me/<E164>?text=…`. Numbers must be E.164 — validate on entry,
+and strip everything that is not a digit, not just the `+`. **No attachments anywhere**
+(D12): a deep link can pre-select the chat but cannot attach; an attachment intent can attach
+but cannot pre-select. Only one is available at a time.
 
 **Identity:** no verified business display name, so the message body carries it — every
-message opens with "Little Loaf Bakery", in bold on the invoice.
+message opens with "Little Loaf Bakery".
 
 ---
 
-## 9. Payments
+## 8. Payments
 
 - Amount, date, mode (UPI / cash / transfer), reference, which device recorded it.
 - Multiple partial payments. Advance and balance are just payments with a type.
 - Status is derived, never typed: **Unpaid / Advance paid / Paid / Refunded.** Unpaid is a
   legitimate confirmed state — nothing should treat it as a warning.
-- **Outstanding report:** everything at Delivered with money owed, oldest first.
-- **UPI QR lives on the payment sheet**, not in messages — a `upi://pay` link isn't reliably
-  tappable in WhatsApp. A QR held up at the door is where it's useful.
-- Append-only, so any number of devices can record payments without conflict.
+- **A ledger on the order**, collapsed by default, oldest first, each row carrying the day the
+  money arrived. The Paid line answers the question most of the time; this is what you open
+  when that number looks wrong.
+- **Correctable and removable.** A payment edited into a negative number becomes a refund,
+  because the schema requires it to. Removal is soft, like every delete here.
+- The edit deliberately **does not check the amount against the balance** the way recording
+  one does — this is the screen for fixing a number that was already wrong, and refusing the
+  correction because the wrong number is in the way would be circular.
+- **Recording money is its own trigger** for the receipt message: a part-paid order sits at
+  the same status before and after, so nothing status-driven would ever fire for it.
+- **Outstanding report:** everything delivered with money owed.
 
 ---
 
-## 10. Stock
+## 9. Stock
 
 **Stock in, stock out, an alert when it's low. No recipes.**
 
-### 10.1 The materials list
-
-The stock side of the menu. Maintained in **Config**, alongside the menu — both are setup (§11).
+### 9.1 The materials list
 
 - **Material:** name, category (raw material / packaging), unit, **threshold**, active.
-- **That's the whole record.** No price, no supplier, no shelf life, no batch tracking, no storage.
-- **Threshold** = the "buy more" line. The one number that's decided rather than observed. Editable.
+- **That's the whole record.** No price, no supplier, no shelf life, no batch tracking.
+- **Threshold** = the "buy more" line. The one number that's decided rather than observed.
 - **Price comes from history**, never the record. Last paid is derived from stock-ins.
 - **Current stock is never stored** — it's summed from movements, so two phones can't disagree.
 
-### 10.2 The bar
+### 9.2 The bar
 
 **No configured maximum.** The bar fills to the level the material stood at right after stock
 was last added — the **reference**. Add 2 kg onto 2.5 kg and the reference becomes 4.5 kg, so
@@ -523,10 +522,10 @@ the bar is full again and reads `4.5 / 4.5 kg`.
 | Last restock fell short | **Scale = threshold.** Notch hard at the right edge — reads as *that restock didn't get you there* |
 
 Colour carries urgency, but **position is the real signal** — whether the fill reaches the
-notch survives being colour-blind, in sunlight, or photocopied. Nothing sits under the bar
-but the bar.
+notch survives being colour-blind, in sunlight, or photocopied. **Nothing sits under the bar
+but the bar.**
 
-### 10.3 Movements
+### 9.3 Movements
 
 **Adding stock** — a sheet from the material's own row. No purchase document, no supplier, no
 bill number, no photo.
@@ -538,15 +537,10 @@ bill number, no photo.
 | **Use last price** | Checkbox, only if stocked before, **unchecked by default**. Shows its working: `₹520/kg × 5 kg = ₹2,600` |
 
 **A stock-in should reach the threshold.** The sheet shows the result live and **warns** when
-it falls short — *"After this: 4.5 kg, still below your 8 kg threshold"*. It does not block;
-sometimes 2 kg is all there was.
+it falls short. It does not block; sometimes 2 kg is all there was.
 
-**Also:** consumption (daily log, recent items first, numeric keypad), wastage (quantity +
-reason, reported separately), stock count (sets the value, records the variance).
-
-**Below-threshold alerts** fire as local notifications. No push server, so **every device would
-nag about the same butter** — acknowledging writes an op, so dismissing on one clears the
-other.
+**Also:** consumption (daily log, recent items first), wastage (quantity + reason, reported
+separately), stock count (sets the value, records the variance).
 
 **Purchase list:** one tap, everything below its threshold, shareable as text.
 
@@ -555,66 +549,53 @@ other.
 
 ---
 
+## 10. Reporting
+
+Orders and money by month, and what sells.
+
+- **Sales by month** — order count and value, as a line chart and a list.
+- **Any month in the past** — pick a month and year and read that month's orders.
+- **By product** — quantity and revenue per menu item, grouped on `menu_item_id` so a renamed
+  item still aggregates, and labelled with its newest name so the report reads in today's words.
+- **Money owed**, and money owed *back* where an order is in credit.
+- **Stock value** at last-paid prices.
+
+**One rule for which month a sale belongs to:** when the last item actually went, falling
+back to the promised date while anything is still outstanding. Every figure on the screen
+uses it, and so does the date on every row — a list and a chart that disagree about what
+"September" means are worse than no report.
+
+A split order counts **once**, in the month its last journey lands. Splitting its value across
+months would make the count and the value disagree about what they are counting.
+
+**Profit is deliberately absent.** Without recipes there is no true COGS, and a profit line
+computed from material spend against revenue would be confidently wrong.
+
+**Computed in Dart over `OrderTotals`, not in SQL.** `OrderTotals` is the single definition of
+a total; a SQL view would be a second one, and two definitions of "total" is a bug with a
+schedule. Three line charts are a `CustomPainter`, not a dependency.
+
+---
+
 ## 11. Screens
 
-**29 screens, one shell, five tabs**, identical on every device.
-
-**Config is where the app is set up**, and the only place the two lists are maintained:
-
-| Config holds | |
-|---|---|
-| **Menu** | The fixed list of what the bakery makes (§5) |
-| **Raw materials** | The fixed list of ingredients and packaging (§10.1) |
-| Business profile | Name, logo, address, phone, invoice prefix, terms |
-| Payment details | UPI ID and phone number, used in messages and the QR |
-| Defaults | Delivery charge — **one for inside city, one for out of city** |
-| Switches | `gst_enabled`, app lock |
-| This device | Name, id, and the sequence it is on |
-
-Nothing in Config is touched during a working day. Everything in the other four tabs is.
+**One shell, four tabs**, identical on every device.
 
 | Tab | Holds |
 |---|---|
-| **Today** | Deliveries today, in production, money to collect, alerts |
-| **Orders** | List, search, order detail, invoice preview |
-| **Kitchen** | Board · Sheet · Deliveries |
+| **Orders** | Every order, grouped by the day it is next needed, with search and the alerts that used to live on Today |
+| **Kitchen** | The board — journeys from **confirmed** onward, in columns: Confirmed · In production · Ready · Out |
 | **Stock** | Levels, add stock, consumption, wastage, count, purchase list |
-| **More** | Customers, reports, share log, sync &amp; backup, **Config** |
+| **More** | Customers, reports, share log, sync & backup, menu items, raw materials, business settings |
 
-A floating **New order** on every tab. **No prices on the Kitchen screens** — noise in a
-kitchen, not a secret.
+**There is no Today tab.** Kitchen is the day's view, and the alerts moved to Orders.
 
-| # | Screen | Tab | MS |
-|---|---|---|---|
-| S01 | Setup — connect Drive, name this device, fresh or restore. Generates the device id. **Not a login** | — | M0 |
-| S02 | Today | Today | M1 |
-| S03 | Orders list | Orders | M1 |
-| S04 | New / edit order | Orders | M1 |
-| S05 | Order detail | Orders | M1 |
-| S06 | Customers list | More | M1 |
-| S07 | Customer detail | More | M1 |
-| S08 | Menu | Config | M1 |
-| S09 | Menu item editor | Config | M1 |
-| S10 | Production board | Kitchen | M1 |
-| S11 | Daily production sheet | Kitchen | M1 |
-| S12 | Record payment — sheet | — | M3 |
-| S13 | Invoice preview | Orders | M3 |
-| S14 | Share log | More | M3 |
-| S15 | Stock list | Stock | M4 |
-| S16 | Material detail | Config | M4 |
-| S17 | Add stock — sheet | — | M4 |
-| S18 | Consumption log | Stock | M4 |
-| S19 | Wastage entry | Stock | M4 |
-| S20 | Stock count | Stock | M4 |
-| S21 | Purchase list | Stock | M4 |
-| S22 | Delivery run | Kitchen | M5 |
-| S23 | Reports | More | M5 |
-| S24 | Config | More | M0/M5 |
-| S25 | Sync & backup | More | M2 |
-| S26 | Restore | More | M2 |
-| S27 | Raw materials list & editor | Config | M4 |
-| S28 | Open location in… — sheet | — | M5 |
-| S29 | Update required — block | — | M0 |
+**New order** is on Orders and Kitchen only — not Stock, not More.
+
+**No prices on the Kitchen board** — noise in a kitchen, not a secret.
+
+**Setup is not a login.** The app works offline from first launch; Drive is offered, and can
+be connected later from Sync & backup.
 
 ### States every screen defines
 
@@ -624,14 +605,15 @@ kitchen, not a secret.
 | Loading | Local reads are instant. A skeleton appears only during restore |
 | Offline | Normal. A strip shows pending uploads; nothing is blocked |
 | Sync stale | After 24h, a persistent warning with manual retry |
+| Sync failed | **The reason, not just the fact** — a generic "could not connect" sent somebody looking at their wifi when the answer was a signing key |
 | Merge conflict | In the conflict log, both values shown, never silent |
-| Not shared yet | Any of the three messages composed but never sent — nagged on Today |
 | Requirements changed | ⚑ until the kitchen acknowledges |
 | No delivery time | Sorts to the end of its day under *Any time* |
 | Zero-value row | Absent, not rendered as ₹0 |
 | No tracking link | The tracking row and its message are absent — the same rule as a zero |
 | Restock below threshold | Warned, not blocked |
 | Update required | Full-screen block, outbox flushed first |
+| App locked | Full-screen, device PIN or biometric, on cold start and after five minutes away |
 
 ### Conventions
 
@@ -642,19 +624,6 @@ kitchen, not a secret.
 - Nothing waits on the network.
 - **Confirm is the only weighty button** — it's when an order becomes real.
 
-### Opening a location — S28
-
-Only installed apps are listed. **Copy address is always last**, and always works.
-
-| App | How | Confidence |
-|---|---|---|
-| Google Maps | `geo:` intent / universal link | Documented |
-| Uber | `uber://?action=setPickup&dropoff[latitude]=…` | Documented |
-| Rapido, Porter | Deep link if one works; else open the app with the address on the clipboard | **Unverified — test in M5** |
-| No pin at all | Maps with the written address as a search query | — |
-
-Never depends on a third-party deep link succeeding.
-
 ---
 
 ## 12. Data model
@@ -663,35 +632,40 @@ Never depends on a third-party deep link succeeding.
 Every entity: UUID v7 primary key + its own human-facing number where it has one.
 
 Customer
-   └──< Order   (id, order_no, own address text + pin)
-          ├──< OrderItem >── MenuItem   (required — lines always come from the menu)
-          │       └──< OrderItemAddon   (name, price)
-          ├──< Payment              append-only
+   ├──< CustomerAddress          label, text, pin; learned from orders
+   └──< Order   (id, order_no)
+          ├──< SubOrder  (seq, date, time, fulfilment, address, pin,
+          │       │       delivery_charge, tracking_url)   — the journey
+          │       └──< OrderItem >── MenuItem   (required — items come from the menu)
+          │               └──< OrderItemAddon   (name, price)
+          ├──< Payment              correctable, soft-deletable
           ├──< OrderStatusEvent     append-only, audit trail
           ├──< Attachment           reference photos
-          ├──1 Invoice            (id, invoice_no)
           └──< ShareLog             composed, shared, when, which device
 
 Material ──< StockTransaction   append-only: stock-in | consumption | wastage | count
 
-Device      (id UUIDv7, name, first_seen)                one row per known device
+Device      (id UUIDv7, name, app_version, first_seen)   one row per known device
 PeerCursor  (peer_device_id, last_seq)                   local only, one per peer
 Outbox      (op_id, hlc, entity, entity_id, payload, uploaded_at)
 Setting (singleton)
 ```
 
-- **UUID v7 primary keys throughout** — time-ordered, so id order is creation order.
-- Money as **integer paise**, never float.
+- **UUID v7 primary keys throughout** — time-ordered and monotonic, so id order is creation order.
+- Money as **integer paise**, never float. Percentages are basis points.
 - Every row carries `device_id` (UUID v7) and `updated_at_hlc`. Timestamps UTC, shown in
   Asia/Kolkata.
 - **Soft deletes only** — tombstones.
 - `OrderItem` holds **`menu_item_id` (not null)** plus a **copy of the item name** at the time
-  of ordering, so renaming a menu item never rewrites what an old order says — the same rule
-  as prices.
-- `OrderItem.base_price` is entered on the order; price hints are a query over past rows.
-- `Order.delivery_charge` mutable until Delivered.
-- `Order` carries `discount_type` (`percent`|`amount`), `discount_value`, `discount_amount`.
+  of ordering, so renaming a menu item never rewrites what an old order says.
+- **The schedule lives on the journey**, not the item — one date, one place, one charge for
+  everything travelling together.
+- **`orders.status`, `fulfilment`, `delivery_charge`, `delivery_date`, `address_text` and
+  `tracking_url` are caches**, written from the journeys and never read back as truth. Each
+  describes the **finishing** journey, so anything acting on a *particular* journey must ask
+  that journey. They survive because they are NOT NULL and an older peer reads them.
 - **Current stock is derived**, never stored.
+- **There is no `Invoice`.** Removed in schema v13 (D30).
 
 ---
 
@@ -701,34 +675,35 @@ Setting (singleton)
 |---|---|
 | Platform | Flutter, Android 8+, tested on a mid-range phone |
 | Performance | Cold start < 2s. 60fps lists at **30,000 orders** — three years at peak |
-| APK | Under 40 MB. Reference photos downscaled to ~1600 px |
+| APK | ~25 MB, worked down from 68. Reference photos downscaled to ~1600 px |
 | Sync | Pull on the `:00/:05` grid, upload debounced ~5s, snapshot at 00:02 IST. Never on the main isolate. WorkManager + sync-on-resume, so Doze is never the only path |
-| Storage | Journals a few hundred KB/month; snapshots ~14 × DB; photos dominate. Usage shown in Sync &amp; backup |
+| Auth | The Drive token is cached with its expiry and requested single-flight. Asking Credential Manager on every sync put a "Signing you in" sheet over the app every five minutes |
+| Storage | Journals a few hundred KB/month; snapshots ~14 × DB; photos dominate. Usage shown in Sync & backup |
 | Security | Optional PIN/biometric lock, off by default. SQLCipher at rest, key in Keystore. `drive.file` scope only |
-| Privacy | DPDP 2023 — data stays in the bakery's own account, deletable on request, 3-year retention then anonymised. **A pin is a home to the metre** — stored only in Drive, deleted with the order |
+| Privacy | DPDP 2023 — data stays in the bakery's own account, deletable on request. **A pin is a home to the metre** — stored only in Drive, deleted with the order |
 | Lost phone | Remove the account remotely; treat the local copy as exposed until wiped. **The device is the credential** |
 | Localization | English v1, strings externalised. ₹ with Indian digit grouping |
 
 ---
 
-## 14. Release plan
+## 14. What shipped
 
-| M | Scope | Screens | Est. |
-|---|---|---|---|
-| M0 | Scaffold, drift schema, HLC + outbox, sign-in, Drive bootstrap, Config shell, app lock, version gate | S01, S24, S29 | 1.5 wks |
-| M1 | Customers, menu, order creation, lifecycle, board, sheet | S02–S11 | 3 wks |
-| M2 | Sync engine, merge, conflict log, snapshots, restore | S25, S26 | 2 wks |
-| M3 | Payments, invoice message, WhatsApp send, share log | S12–S14 | 1.5 wks |
-| M4 | Materials, add stock, consumption, wastage, count, alerts, purchase list | S15–S21, S27 | 2 wks |
-| M5 | Delivery run, location chooser + deep-link testing, reports, CSV | S22, S23, S28 | 1.5 wks |
-| M6 | Restore drill, migration drill, **three-device soak** (to prove nothing assumes two), DPDP review, pilot | all states | 1 wk |
+Built and in use: storage, sync, conflict log, backup, restore, journal compaction, app lock,
+the update gate, customers, menu, orders, the kitchen board, stock, payments, messaging and
+reporting. Schema v13.
 
-**12.5 weeks.** Sync lands at M2 deliberately — highest risk, least visible bugs, so it gets
-six weeks of real use before launch. Run live on the real devices from the end of M3 (~week 8).
+**Not built, and deliberately so:** recipes and true costing, GST, invoicing, a server,
+accounts, analytics, iOS.
 
-**Beyond v1:** delivery-day reminder; repeat-order suggestions; print the production sheet ·
-**v2** recipes and true costing; GST with PDFs and portal filing; Razorpay links · **v3** a
-real backend if the bakery outgrows two or three people.
+**Not built, and still open:** reference-photo pruning, CSV export, the location-chooser deep
+links beyond Google Maps.
+
+**Testing is scoped deliberately.** There are no end-to-end tests — the owner tests on a
+device. Unit and widget tests run against the real schema in memory, so a constraint the UI
+can violate fails in the suite rather than in someone's kitchen. That leaves one failure mode
+very cheap to hit, and it has been hit: a repository method with 27 tests and **zero callers
+in the app**, while the button called something else entirely. When you fix behaviour a screen
+triggers, check the screen calls the thing you tested.
 
 ---
 
@@ -748,13 +723,20 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 
 ## 16. Open questions
 
-1. **Whose phones?** Personal or bakery-owned — decides whether app-lock and remote wipe are enforceable.
-2. **Advance nudge** — should the app *suggest* one above some value, as a non-blocking note?
-3. **Cancellation and refund policy** — needed as invoice terms, and to decide what happens to an advance.
-4. **Default delivery charge** — one flat rate, or slabs by area?
-5. **Existing data** — a customer list worth importing, or start empty?
-6. **Reference photos** — cap per order, prune from Drive after delivery? The only thing that grows without bound.
-7. **Consumption logging** — will it happen daily? If not, inventory degrades to stock-ins plus counts, and S18 drops.
+1. **Advance nudge** — should the app *suggest* one above some value, as a non-blocking note?
+2. **Cancellation and refund policy** — what happens to an advance, and who decides.
+3. **Reference photos** — cap per order, prune from Drive after delivery? The only thing that
+   grows without bound.
+4. **Consumption logging** — will it happen daily? If not, inventory degrades to stock-ins
+   plus counts.
+5. **Low-stock alerts** — designed as local notifications, not built. Worth it, or is the
+   Stock tab enough?
+6. **Reversing a delivered sale** — nothing can, now that invoicing is gone. Does that ever
+   need a transition of its own?
+
+*Answered since v0.50:* delivery charge is per journey and seeds from a per-type default ·
+addresses are learned from orders rather than retyped · the repo is public, with the
+bakery's data nowhere near it.
 
 ---
 
@@ -762,18 +744,17 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 
 | Risk | Mitigation |
 |---|---|
-| **Sync bugs lose or corrupt data** | Append-only journals, idempotent ops, nightly snapshots, conflict log, multi-device soak test from M2, quarterly restore drills |
-| **Upgrade installed after an uninstall** | Never uninstall; keep the signing key safe; snapshot before every migration |
-| **Bad build sets `min_supported` too high** | Only devices actually running it raise the floor, so it spreads as fast as installs do rather than all at once; the block screen always carries the update link and Restore |
+| **Sync bugs lose or corrupt data** | Append-only journals, idempotent ops, nightly snapshots, conflict log, quarterly restore drills |
+| **Upgrade installed after an uninstall** | Never uninstall; keep the signing key safe |
+| **Bad build sets `min_supported` too high** | Only devices actually running it raise the floor, so it spreads as fast as installs do rather than all at once; the block screen always carries the update link |
+| **A derived value read back from its cache** | The rule is written down and checkable: for every column the cache-refresh writes, there should be no setter and no reader outside it. Three features once wrote caches nothing read, and each silently did nothing |
 | Devices offline for days | Field-level LWW limits the blast radius; overwrites logged |
-| A device is lost | Nothing to transfer — the others keep working. Its replacement is a **new device with a new id**, starting a fresh sequence. The old journal stays readable and ages out after 30 days |
+| A device is lost | Nothing to transfer — the others keep working. Its replacement is a **new device with a new id**. The old journal stays readable and ages out after 30 days |
 | Journals grow without bound | Compaction needs both peer cursors and snapshot inclusion; a peer silent 30 days stops being waited for |
-| **Snapshot owner retired without releasing it** | Snapshots stop and journals stop compacting | Sync & backup warns after 3 days without a snapshot. Fix: delete `snapshot/owner.json` |
-| Google auth expires / Drive fills | Fully usable offline; stale banner at 24h; usage in Sync &amp; backup |
+| **Snapshot owner retired without releasing it** | Sync & backup warns after 3 days without a snapshot. Fix: delete `snapshot/owner.json` |
+| Google auth expires / Drive fills | Fully usable offline; stale banner at 24h; the real error is shown, not a generic one |
 | Android background limits kill the worker | Sync on resume too; pending count always visible |
-| WhatsApp changes text formatting | Verify on the real devices in M3; content stays complete even unformatted |
-| Someone forgets to tap send | Unshared confirmations nag on Today |
-| Consumption not logged | 15-second entry; weekly count as the correction |
+| Someone forgets to tap send | Unshared confirmations are flagged on Orders |
 | Bakery hires staff who shouldn't see money | Accepted. Two or three owner devices is the design point |
 
 ---
@@ -788,24 +769,29 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 | Sync | Drive REST v3, `drive.file` |
 | Background | WorkManager + sync-on-resume |
 | Clocks | Hybrid logical clock per op |
-| Documents | **None** — invoices are WhatsApp text |
-| QR | `qr_flutter`, on the payment sheet |
+| Documents | **None.** No invoices, no PDFs |
+| Charts | A `CustomPainter`. No chart package |
 | Sharing | `wa.me` deep link via `url_launcher` |
-| Notifications | `flutter_local_notifications` |
-| Distribution | Signed APK from Drive |
+| Lock | `local_auth` — device PIN or biometric |
+| Distribution | Signed APK from GitHub Releases, installed over the previous one |
+
+**Deliberately absent from the dependency list:** any chart library, any notification plugin,
+any QR package, any analytics SDK. The APK was worked down from 68 MB to ~25 MB and stays
+there on purpose.
 
 ## Appendix B — Message drafts
 
-**Confirmation** — at Confirmed
+These are the real composed messages, not sketches.
+
+**Confirmation** — a single-journey order
 
 > Hi Meera, your order with Little Loaf Bakery is confirmed 🍞
 >
 > Order: LLB-0148-K7QP
-> Chocolate Truffle · Belgian dark · 1 kg × 1
->   + Message on item, Candles
-> Sourdough loaf × 2
-> Message on item: "Happy 40th Aarav"
-> Notes: gold lettering, pastel blue rosettes, no fondant figures
+> Cake · Chocolate · 500 g × 1
+>   Piped: "Happy 40th Aarav"
+>   Eggless
+> Cake · Vanilla · 500 g × 1
 >
 > Delivery: Sat 29 Aug, 4:00 pm
 > 14 Turner Rd, Bandra West, Mumbai 400050
@@ -815,8 +801,26 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 > Please check the details above and tell us if anything is wrong.
 
 *No advance:* `Total ₹1,890 · Payable on delivery ₹1,890`
+*A pickup says* `Collect: Sat 29 Aug` *and prints no address.*
 
-**On its way** — at Out for delivery, only when a tracking link exists
+**Confirmation** — two journeys, so one heading each
+
+> Hi Meera, your order with Little Loaf Bakery is confirmed 🍞
+>
+> Order: LLB-0148-K7QP
+>
+> **Delivery: Fri 25 Sep, 4:00 pm**
+> 14 Turner Rd
+> Cake · Chocolate · 500 g × 1
+>
+> **Collect: Sun 27 Sep**
+> Cake · Vanilla · 500 g × 1
+>
+> Total ₹1,600 · Payable on delivery ₹1,600
+>
+> Please check the details above and tell us if anything is wrong.
+
+**On its way** — only when that journey has a tracking link
 
 > Hi Meera, your order is on its way 🚚
 >
@@ -825,16 +829,26 @@ outstanding over 14 days under ₹5,000 · *the weekly spreadsheet stops being m
 >
 > — Little Loaf Bakery
 
-Nothing else. The customer wants the link, not a restatement of the order.
+**Part of the order arrives**
 
-**Delivery** — at Delivered, always. *Balance remaining:*
+> Hi Meera, part of your order has arrived 🎂
+>
+> Order: LLB-0148-K7QP
+> Cake · Chocolate · 500 g × 1
+> Cake · Vanilla · 500 g × 1
+>
+> Still to come: Cake · Butterscotch · 500 g
+>
+> We will let you know when the rest is on its way. Thank you for ordering from Little Loaf Bakery.
+
+*Collected instead of delivered:* `part of your order has been collected 🎂`
+
+**The last journey arrives, with money owed**
 
 > Hi Meera, your order has been delivered 🎂
 >
 > Order: LLB-0148-K7QP
-> Chocolate Truffle · Belgian dark · 1 kg × 1
->   + Message on cake, Candles
-> Sourdough loaf × 2
+> Cake · Butterscotch · 500 g × 1
 >
 > Total ₹1,890 · Paid ₹800
 > *Balance due ₹1,090*
@@ -849,13 +863,17 @@ Nothing else. The customer wants the link, not a restatement of the order.
 > Thank you for ordering from Little Loaf Bakery. We hope you enjoyed it — we would love to
 > bake for you again.
 
-**Payment received** — at Completed, only if there was a balance
+**Payment received** — after every payment, partial included
 
-> Hi Meera, we have received your payment. Thank you!
+> Hi Meera, we have received ₹800. Thank you!
+>
+> Order: LLB-0148-K7QP
+> Still to pay: ₹1,090
 >
 > — Little Loaf Bakery
 
-No amount, no summary. They know what they paid.
+*Settled:* `That settles it — paid in full.`
+*In credit:* `That leaves ₹200 to refund to you.`
 
 ## Appendix C — Brand
 
@@ -878,10 +896,8 @@ same set.
 **Every pair clears WCAG AA (4.5:1) on every ground it sits on**, in both themes — checked
 against the paper, the white cards *and* the cream fill, not just one background. Where the
 logo slate fell a hair short as body text (4.48:1) it is darkened 3% for text and kept exact
-on the app bar, which passes as-is. The logo appears in the app bar and as the launcher icon — **never on anything the
-customer receives**.
-
-**Still needed:** adaptive launcher icons at every density, and an SVG original if one exists.
+on the app bar, which passes as-is. The logo appears in the app bar and as the launcher icon
+— **never on anything the customer receives**.
 
 ## Appendix D — Google setup
 
@@ -891,11 +907,21 @@ One-time, ~20 minutes. No billing account, no Maps SDK, no service account, no P
 2. **Enable the Drive API.**
 3. **OAuth consent screen** — app name, support email, developer contact. External.
 4. **Scope:** `.../auth/drive.file` only.
-5. **Publish the consent screen.** ⚠ In *Testing*, refresh tokens expire after 7 days — the app silently loses Drive access weekly. `drive.file` is non-sensitive, so publishing shouldn't trigger verification; the console will confirm.
-6. **OAuth client ID, type Android** — needs the package name and SHA-1 (debug and release). No client secret exists for Android clients.
-7. **Release keystore, backed up off the build machine.**
+5. **Publish the consent screen.** ⚠ In *Testing*, refresh tokens expire after 7 days — the
+   app silently loses Drive access weekly, and the bakery account must be an explicit test
+   user or sign-in fails outright. `drive.file` is non-sensitive, so publishing shouldn't
+   trigger verification.
+6. **OAuth client ID, type Android** — needs the package name and SHA-1 (debug **and**
+   release). No client secret exists for Android clients.
+7. **A Web client ID** as well: that is what the app passes as `serverClientId`. It ships
+   inside the APK and is not a secret.
+8. **Release keystore, backed up off the build machine**, and in GitHub Actions secrets.
 
-Have ready: package name (fix it now — changing it invalidates the client), SHA-1 fingerprints, support and developer emails.
+> **Android OAuth clients are matched on package name *and* signing certificate SHA-1.**
+> Nothing else identifies the app, which is why neither the Android client id nor the package
+> name appears in the code — and why a CI-built debug APK, signed with a keystore the runner
+> generated, can never sign in. Register your local debug SHA-1 and build debug locally when
+> testing Drive.
 
 ```
 keytool -list -v -keystore ~/.android/debug.keystore \
