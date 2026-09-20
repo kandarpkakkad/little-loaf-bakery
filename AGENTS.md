@@ -1,0 +1,247 @@
+# Working on Little Loaf Bakery
+
+An offline-first Flutter app that runs one bakery: orders, the kitchen board,
+stock, invoices, and WhatsApp messages. No server. Two devices stay in step
+through the owner's own Google Drive.
+
+Read [`docs/README.md`](docs/README.md) first, then
+[`docs/00-overview/decisions.md`](docs/00-overview/decisions.md). The decisions
+file is numbered (D1, D2 …) and the code cites those numbers in comments. When
+you touch something that has a decision behind it, read the decision.
+
+---
+
+## 1. Documents before code
+
+**Write the design down first, then build to it.** Not the other way round, and
+not "I will update the docs after".
+
+Every system has three documents under `docs/`:
+
+| | Holds | Never holds |
+|---|---|---|
+| `hld.md` | Purpose, what it owns, key decisions, failure modes, explicit non-goals | Algorithms, DDL |
+| `lld.md` | Algorithms, function contracts, state transitions, validation, edge cases | The schema — it *references* `schema.md` |
+| `schema.md` | Tables, constraints, indexes, stored file shapes, what is deliberately **not** stored | Anything repeated from the HLD |
+
+The order of work:
+
+1. **Update `hld.md`** — what is changing and *why*, what it now owns, what it
+   still refuses to do.
+2. **Update `schema.md`** if any shape changes — columns, constraints, the
+   files written to Drive.
+3. **Update `lld.md`** — the algorithm, the edge cases, what a person can and
+   cannot do.
+4. **Then write the code**, to match what you just wrote.
+5. Update [`docs/README.md`](docs/README.md) if the built/not-built table moves.
+
+**Code is the source of truth; documents must reflect it.** Those are not in
+tension — they mean: design on paper first, and when the implementation has to
+diverge from that design, change the document in the *same commit*, saying what
+you learned. A document describing something that was never built is worse than
+no document, because someone will implement from it.
+
+Two habits that come out of this:
+
+- A section describing unbuilt work says so at the top, in bold, and says what
+  exists instead.
+- When code deliberately departs from a design, the document records the
+  departure and the reason. `docs/02-domain/reporting/hld.md` is the worked
+  example: the design called for SQL views, the code computes in Dart, and the
+  document explains why rather than quietly disagreeing.
+
+---
+
+## 2. How code is written here
+
+### Comments explain why, never what
+
+The code says what it does. A comment earns its place by saying why it is like
+that, what it protects against, or what was tried and failed. Cite the decision
+or the document: `(D25)`, `docs/01-platform/sync/lld.md §6`.
+
+```dart
+// Only after the write lands. If it threw, these stay pending and the next
+// run retries them.
+```
+
+not
+
+```dart
+// mark the ops as uploaded
+```
+
+Match the density of the file you are in. If it explains itself thoroughly,
+keep explaining. Do not add a comment to every line of a file that has none.
+
+### Money is integer paise
+
+`Money` wraps an `int`. Never a `double`, never a float. Percentages are basis
+points. Formatting belongs to `ui/theme/format.dart`.
+
+### `money()` returns `String?` — null when zero
+
+That is the "zero never shows" rule (D10): a ₹0 row is *absent*, not printed as
+zero. It has one trap, and it has been paid for:
+
+```dart
+// WRONG. Prints "Paid null" to a customer over WhatsApp.
+'Total ${money(t.total)} · Paid ${money(t.paid)}'
+
+// Right: drop the clause, or ask for the zero on purpose.
+'Total ${money(t.total, showZero: true)}${..._clause('Paid', t.paid)}'
+```
+
+**Never interpolate a nullable into a string.** Dart will happily print `null`.
+
+### Anything that can be rendered must render
+
+A class that reaches a `Text` or a `join()` needs `toString()`, or its call
+sites must use an explicit `.label`. `Weight` had neither, a `List<Object>`
+joined without complaint, and customers saw `INSTANCE OF 'WEIGHT'` where the
+weight should have been.
+
+### Derived values are never read back from their cache
+
+Several columns exist only because they are NOT NULL and an older peer still
+reads them — `orders.status`, `orders.fulfilment`, `orders.delivery_charge`.
+They are **written from the derivation and never read as truth**.
+
+This is the most expensive mistake this codebase has made. `moveTo()` wrote
+`orders.status`; every screen read `deriveOrderStatus(lines, …)`. They drifted,
+and confirming an order silently did nothing at all for as long as it took
+someone to record a video.
+
+If a value is derived: compute it, cache it in one place
+(`_refreshOrderCache`), and make every reader use the derivation.
+
+### One entry point per state transition
+
+`moveTo()` dispatches to `confirm()` / `complete()` / `_cancel()`. There is no
+second way to confirm an order. When you add a transition, add it to the
+dispatcher — never alongside it.
+
+### `kUnchanged` means "not passed"; `null` means "clear it"
+
+Forms pass `kUnchanged` for a field they did not render. Passing `null` would
+wipe a value the form never showed.
+
+### Sync payloads carry JSON primitives only
+
+`mutations.record(...)` takes a map that goes over the wire as JSON. Never put
+a value object in it — split it (`weight_value`, `weight_unit`). Every write
+that must reach the other device needs a matching `record` call in the same
+transaction.
+
+---
+
+## 3. Schema changes
+
+- `kSchemaVersion` in `platform/storage/database.dart`, one entry per version
+  in `_steps`, forward-only.
+- **Additive by default.** A column that must go is emptied in release *n* and
+  dropped in *n+1*, so a rollback survives. `season_from` is sitting out that
+  wait now.
+- A NOT NULL column that an older peer writes cannot be dropped at all yet —
+  keep it as a cache and stop reading it.
+- Backfill in the same step. Never leave a column that new code requires and
+  old rows lack.
+- Regenerate drift code with:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs --force-jit
+```
+
+`--force-jit` is required; without it the build script fails to compile.
+
+- Add a case to `test/platform/migration_v10_test.dart`: build the old schema
+  with raw sqlite3, close it, reopen through `AppDatabase` so `onUpgrade`
+  genuinely runs. Asserting against an already-open executor silently skips the
+  migration and passes.
+
+---
+
+## 4. Tests
+
+Run `flutter test` and `flutter analyze` before saying anything is done. Both
+must be clean.
+
+**There are no end-to-end tests, by project decision** — the owner tests on a
+device. That makes one failure mode very cheap to hit, and it has been hit:
+
+> `orders.confirm()` had 27 callers in tests and **zero in the app**. The
+> button called `moveTo()`, which did something else entirely. Every test
+> passed.
+
+So: when you fix or add behaviour that a screen triggers, **check the screen
+actually calls the thing you tested**. Grep the call sites. A repository method
+with good coverage and no caller is not a working feature.
+
+Tests run against the real schema in memory (`test/support/harness.dart`).
+Constraints and indexes are real, so a CHECK the UI can violate fails in the
+suite rather than in someone's kitchen.
+
+Do not add new test files unless asked — the owner has scoped testing
+deliberately. Existing tests that encode behaviour you are removing should be
+**rewritten**, not deleted.
+
+---
+
+## 5. Verifying, and what you may claim
+
+- `flutter analyze` clean, `flutter test` passing — say the number.
+- If something is verified only by tests and CI, **say so**. Nothing in this
+  app is proven until it has run on a phone.
+- Never describe device behaviour you have not observed. Drive sync, the app
+  lock and the biometric prompt have all been written without ever touching
+  real Google servers or real hardware.
+- Report failures with their output. A skipped step is said out loud.
+
+---
+
+## 6. Build and release
+
+- Every push to `main` **bumps the patch version**, commits it, and builds a
+  debug APK named for that version. Docs-only pushes are skipped by
+  `paths-ignore`.
+- Releasing is Actions → **Release** → level `minor`. It bumps, commits, tags,
+  and builds the same version twice — a debug APK and a signed release APK.
+- The version lives in **two** files that must never disagree: `pubspec.yaml`
+  and `lib/platform/versioning/version.dart`. Move them with
+  `tool/bump_version.sh`, never by hand. A test fails the build if they drift.
+- `kMinSupported` is moved **by hand and only for a genuine incompatibility**.
+  It locks older devices out of the app.
+
+### Do not put the skip-ci marker in a commit message
+
+GitHub reads `[skip ci]` anywhere in a commit message, including the body. A
+commit *explaining* the marker by quoting it skipped the very build that would
+have tested it. Refer to it by name.
+
+---
+
+## 7. Editing style
+
+- **Surgical diffs.** Never run `dart format` across the repository — it once
+  reformatted 18 unrelated files into a change about something else. Match the
+  formatting already in the file.
+- Do not reorganise code you are not changing.
+- Remove dead code you have just orphaned, in the same change.
+- Commit messages: a short imperative subject, then prose explaining *why* and
+  what was learned — including bugs found along the way. The history of this
+  repository is written to be read.
+
+---
+
+## 8. Things that are deliberately absent
+
+Do not add these back without being asked:
+
+| | Why |
+|---|---|
+| GST columns, a separate invoice screen | Out of v1 scope |
+| Recipes / bill of materials | v2. No per-order ingredient costing, and no true COGS |
+| Seasonality on menu items | Removed — a bakery that makes a thing makes it |
+| A server, accounts, roles | The whole premise is that there is none |
+| Analytics, telemetry, crash reporting | Nothing leaves the bakery's Google account |
+| Chart packages | Three line charts are a `CustomPainter`, not a dependency on an APK that was worked down from 68 MB to 25 MB |

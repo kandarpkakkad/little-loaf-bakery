@@ -169,6 +169,12 @@ The homepage and privacy policy the OAuth consent screen points at live in
 [`pages.yml`](.github/workflows/pages.yml) to
 <https://kandarpkakkad.github.io/little-loaf-bakery/>.
 
+## Working on this
+
+[`AGENTS.md`](AGENTS.md) is the contract for anyone — person or agent — making
+changes here: design in `docs/` first, then build to it, plus the conventions
+this codebase has actually paid for.
+
 ## Releasing
 
 Signing is not in this repository. `android/key.properties` and

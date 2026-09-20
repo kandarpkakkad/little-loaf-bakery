@@ -61,6 +61,11 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | **LLD** | Algorithms in pseudocode · function contracts · state transitions · validation rules · edge cases · what to test. **References `schema.md`; never restates it** |
 | **DSL** | Design tokens · primitives · components · composition rules · every screen expressed declaratively |
 
+## Before you change anything
+
+[`../AGENTS.md`](../AGENTS.md) — how work is done here, and why the documents
+come first.
+
 ## Reading order
 
 1. [PRD](PRD.md) — the product
