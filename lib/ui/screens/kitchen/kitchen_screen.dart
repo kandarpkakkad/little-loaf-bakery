@@ -24,7 +24,11 @@ class KitchenScreen extends StatefulWidget {
 
 class _KitchenScreenState extends State<KitchenScreen> {
   int _view = 0;
-  int _days = 1;
+
+  /// A week, not today. What the kitchen needs to see is what is coming, not
+  /// what is already late — a cake due tomorrow is started today, so a board
+  /// that opened on Today hid the work that actually needed planning.
+  int _days = 7;
 
   /// `deriveOrderStatus` never returns `ready` or `out` — half a ready order
   /// is not a thing, and an order does not travel; both collapse to
@@ -72,7 +76,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                     DropdownMenuItem(value: 2, child: Text('2 days')),
                     DropdownMenuItem(value: 7, child: Text('Week')),
                   ],
-                  onChanged: (v) => setState(() => _days = v ?? 1),
+                  onChanged: (v) => setState(() => _days = v ?? 7),
                 ),
               ],
             ),
