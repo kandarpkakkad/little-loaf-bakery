@@ -47,39 +47,33 @@ edited from more than one place. Append-only tables do not need it.
 CREATE TABLE settings (
   id                        TEXT    NOT NULL PRIMARY KEY DEFAULT 'singleton',
   business_name             TEXT    NOT NULL,
-  logo_path                 TEXT,
   address                   TEXT,
   phone                     TEXT,
-  invoice_prefix            TEXT    NOT NULL DEFAULT 'LLB',
-  terms_line                TEXT,
+  invoice_prefix            TEXT    NOT NULL DEFAULT 'LLB',  -- the ORDER number's prefix
   upi_id                    TEXT,
   payment_phone             TEXT,
   delivery_charge_local     INTEGER NOT NULL DEFAULT 0,   -- paise
   delivery_charge_outstation INTEGER NOT NULL DEFAULT 0,  -- paise
-  gst_enabled               INTEGER NOT NULL DEFAULT 0,
   app_lock_enabled          INTEGER NOT NULL DEFAULT 0,
   device_name               TEXT,
   order_seq                 INTEGER NOT NULL DEFAULT 0,   -- local; never replicated
-  invoice_seq               INTEGER NOT NULL DEFAULT 0,   -- local; never replicated
   CHECK (id = 'singleton')
 );
 ```
 
-**`order_seq` and `invoice_seq` are local state.** They do not survive in a snapshot, which is
-why a restored install must take a **new device id** and start a fresh series (D6).
+**`order_seq` is local state.** It does not survive in a snapshot, which is why a restored
+install must take a **new device id** and start a fresh series (D6).
 
-## GST columns — present, unused
+**`invoice_prefix` prefixes ORDER numbers**, despite its name. It is the only thing invoicing
+left behind; renaming it would cost a synced column for no gain.
 
-Carried from day one so switching GST on needs no migration. All null while
-`settings.gst_enabled = 0`.
+## GST — removed, not deferred
 
-```sql
--- on settings
-gstin TEXT,
--- on invoices
-hsn_code TEXT, tax_rate INTEGER, cgst INTEGER, sgst INTEGER, igst INTEGER,
-place_of_supply TEXT
-```
+`gstin`, `gst_enabled` and the `invoices` table that carried `hsn_code`, `tax_rate`, `cgst`,
+`sgst`, `igst` and `place_of_supply` were dropped in **schema v13** along with invoicing
+itself (D30). They were carried "so switching GST on needs no migration" and then sat unread
+for every release; a migration when GST actually arrives is cheaper than columns nobody can
+explain.
 
 ## First run — creating the tables
 

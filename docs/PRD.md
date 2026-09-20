@@ -1,4 +1,4 @@
-# Little Loaf Bakery — Order, Stock & Invoicing App
+# Little Loaf Bakery — Order & Stock App
 
 **Draft v0.50 · 27 August 2026 · Kandarp Kakkad**
 Android · Flutter · SQLite on the phone · Google Drive for sync and backup · no server
@@ -376,6 +376,14 @@ money**.
 ---
 
 ## 7. Invoice
+
+> **Removed. Not built, and no longer in the schema.** Invoicing was taken out in **schema
+> v13** (see D30): none of it was reachable — an issued bill could not be voided from any
+> screen, carried no date, and dropped the phone and terms line the settings screen collected.
+> What exists instead is the **payment-received WhatsApp message**, plus a payment ledger on
+> the order that can be corrected and removed. `invoice_prefix` survives in `settings` because
+> it prefixes **order** numbers. Everything below is the original requirement, kept as a
+> record of what was asked for — rebuild from it, not from the deleted code.
 
 A **formatted WhatsApp message**, not a PDF. Issued at Delivered, sent only on request —
 the delivery message already covers the normal case.

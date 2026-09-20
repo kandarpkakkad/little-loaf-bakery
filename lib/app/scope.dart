@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../domain/customers/repository.dart';
-import '../domain/invoicing/repository.dart';
 import '../domain/menu/repository.dart';
 import '../domain/orders/repository.dart';
 import '../domain/reporting/repository.dart';
@@ -28,7 +27,6 @@ class AppServices {
         customers = CustomerRepository(db, mutations),
         orders = OrderRepository(db, mutations),
         stock = StockRepository(db, mutations),
-        invoices = InvoiceRepository(db, mutations),
         sync = SyncService(db: db, mutations: mutations, deviceId: deviceId) {
     reports = ReportRepository(db, orders);
     updates = AppUpdates(sync);
@@ -42,7 +40,6 @@ class AppServices {
   final CustomerRepository customers;
   final OrderRepository orders;
   final StockRepository stock;
-  final InvoiceRepository invoices;
 
   /// Built after the field initialisers because it reads through
   /// [orders] rather than the database directly — one definition of a

@@ -106,7 +106,7 @@ void main() {
       await db.into(db.peerCursors).insert(
           PeerCursorsCompanion.insert(peerDeviceId: 'phone', lastSeq: const Value(7)));
       await (db.update(db.settings)).write(
-          const SettingsCompanion(orderSeq: Value(31), invoiceSeq: Value(12)));
+          const SettingsCompanion(orderSeq: Value(31)));
 
       final file = File('${work.path}/out.db');
       await exportTo(db, file.path);
@@ -120,9 +120,8 @@ void main() {
       expect(copy.select('SELECT * FROM applied_ops'), isEmpty);
 
       final settings = copy.select('SELECT * FROM settings').single;
-      expect(settings['order_seq'], 0);
-      expect(settings['invoice_seq'], 0,
-          reason: 'the counters are local — a restore has to start its own');
+      expect(settings['order_seq'], 0,
+          reason: 'the counter is local — a restore has to start its own');
     });
 
     test('through_seq claims only what a peer could have read', () async {

@@ -56,5 +56,5 @@ same person, and the second op to arrive triggers the merge — older UUID wins,
 so every device reaches the same survivor.
 
 **On deletion request:** the row tombstones, orders tombstone with it, address and pin are
-explicitly nulled, and invoices survive with the name replaced by "Deleted customer". The
+explicitly nulled. The
 money stays auditable; the identity does not.

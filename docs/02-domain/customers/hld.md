@@ -32,7 +32,7 @@ storage, sync. Orders reads customers.
 | Two devices create the same person offline | Two rows, same phone. The partial unique index rejects the second on merge; the domain folds orders onto the survivor and tombstones the other |
 | Number entered without a country code | Normalised to E.164 on entry, defaulting to +91. Rejected if it cannot be normalised — `wa.me` opens a blank chat otherwise |
 | Number changes | Edit in place. Old orders keep pointing at the same customer row |
-| Deletion requested | Tombstone the customer and their orders; scrub the name on invoices, keep the money |
+| Deletion requested | Tombstone the customer and their orders; keep the money |
 
 ## Non-goals
 No segments, no loyalty, no marketing. No customer login, ever.

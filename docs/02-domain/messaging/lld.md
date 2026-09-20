@@ -34,7 +34,6 @@ String compose(Order o, MessageKind k) => switch (k) {
   outForDelivery  => _onItsWay(o),          // only reachable when trackingUrl != null
   delivery        => _delivery(o),          // two shapes, one function
   paymentReceived => _paymentReceived(o),
-  invoice         => Invoicing.render(o.invoice!, o, config),
 };
 
 // CANCELLED LINES ARE NEVER LISTED, in any message. Only OrderTotals filtered

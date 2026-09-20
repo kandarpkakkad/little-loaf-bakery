@@ -16,7 +16,7 @@ docs/
     versioning/              the version gate, distribution
     security/                Drive auth, encryption, app lock, privacy
   02-domain/                 business systems
-    orders/  menu/  customers/  invoicing/  payments/
+    orders/  menu/  customers/  payments/
     stock/   messaging/  fulfilment/  reporting/
   03-frontend/
     design-system.md         tokens, type, components — the visual language
@@ -43,7 +43,6 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | messaging — per-drop "out for delivery" / "delivered", clubbed by day, time and destination | built |
 | orders — advancing an item from order detail and the Kitchen board | built — baking per item, handover per drop |
 | orders — editing and adding items on a live order | built, with what an item *is* locked once a baker starts |
-| invoicing — issue, freeze, void | built — one per order, issued when the last item lands, totals frozen at that moment |
 | backup, restore, journal compaction | built — nightly snapshot at 00:02 IST, one owner device, 14 kept. Restore is staged and applied at the next launch |
 | security — app lock | built — off by default, device PIN or biometric, asked on cold start and after five minutes away |
 | versioning — the update gate | built — GitHub Releases for what exists, peers' `device.json` for the floor; unreadable never blocks |
@@ -52,7 +51,7 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | orders hold **sub-orders** hold items (D28, D29) | built — schema v12; the kitchen works to journeys, and each is delivered once |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
 | Today and Kitchen reading line dates | built — Today counts orders with a line due that day; Kitchen is a board of lines |
-| invoicing — GST columns and a separate invoice screen | **not built** — the bill itself is issued and rendered; GST stays behind `gst_enabled` |
+| invoicing, in any form | **removed** in schema v13 — the bakery does not raise bills (D30). GST goes with it |
 
 ## What each document type contains
 

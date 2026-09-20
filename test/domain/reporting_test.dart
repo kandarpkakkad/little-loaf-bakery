@@ -83,16 +83,19 @@ void main() {
           reason: 'the gap between billed and banked is the number worth seeing');
     });
 
-    test('a voided invoice removes the sale', () async {
+    test('an order cancelled before it goes out is never a sale', () async {
+      // This used to be "a voided invoice removes the sale". Voiding was the
+      // only way to un-count something already delivered, and it went with
+      // invoicing — a delivered order cannot be cancelled (kAllowedTransitions
+      // allows only delivered → completed). So the window for saying "this was
+      // not trade" now closes at the door.
       final id = await order([draft('Cake', price: 1000)]);
-      await deliverAll(id);
-      expect(await f.services.reports.salesByMonth(), hasLength(1));
-
-      final inv = (await f.services.invoices.forOrder(id))!;
-      await f.services.invoices.voidInvoice(inv.id, 'billed the wrong person');
+      await f.services.orders.confirm(id);
+      await f.services.orders
+          .moveTo(id, OrderStatus.cancelled, reason: 'customer called off');
 
       expect(await f.services.reports.salesByMonth(), isEmpty,
-          reason: 'a voided bill is a sale that did not happen');
+          reason: 'never delivered, never trade');
     });
 
     test('a cancelled item is not counted', () async {

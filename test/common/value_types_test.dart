@@ -111,19 +111,10 @@ void main() {
       expect(hash4(u), hash4(u));
     });
 
-    test('order and invoice numbers take the documented shape', () {
+    test('an order number takes the documented shape', () {
       const u = '0192f4a0-1111-7222-8333-444444444444';
       expect(orderNumber(prefix: 'LLB', seq: 148, uuid: u),
           matches(r'^LLB-0148-[0-9A-HJKMNP-TV-Z]{4}$'));
-      expect(
-          invoiceNumber(prefix: 'LLB', seq: 148, uuid: u, issuedAt: DateTime(2026, 8, 29)),
-          matches(r'^LLB/26-27/0148-[0-9A-HJKMNP-TV-Z]{4}$'));
-    });
-
-    test('financial year runs April to March', () {
-      expect(financialYear(DateTime(2026, 8, 29)), '26-27');
-      expect(financialYear(DateTime(2026, 3, 31)), '25-26');
-      expect(financialYear(DateTime(2026, 4, 1)), '26-27');
     });
   });
 }

@@ -219,10 +219,17 @@ dart run build_runner build --delete-conflicting-outputs --force-jit
 
 `--force-jit` is required; without it the build script fails to compile.
 
-- Add a case to `test/platform/migration_v10_test.dart`: build the old schema
-  with raw sqlite3, close it, reopen through `AppDatabase` so `onUpgrade`
-  genuinely runs. Asserting against an already-open executor silently skips the
-  migration and passes.
+- **Verify the migration against a real old database**: build the old schema
+  with raw sqlite3, set `PRAGMA user_version` to the old number, close it, then
+  reopen through `AppDatabase` so `onUpgrade` genuinely runs. Asserting against
+  an already-open executor silently skips the migration and passes. (There is
+  no migration test file at the moment — `migration_v10_test.dart` went with
+  the v12 rewrite — so this is a scratch check unless you are asked for one.)
+- **Grep for the dropped name before you finish.** Removing `invoice_seq` from
+  `settings` left `UPDATE settings SET order_seq = 0, invoice_seq = 0` in
+  `backup/snapshot.dart` — a raw SQL string the analyser cannot see. Every
+  snapshot silently failed, and because compaction waits for a snapshot, the
+  journal stopped compacting. `flutter analyze` was clean throughout.
 
 ---
 
@@ -313,7 +320,7 @@ Do not add these back without being asked:
 
 | | Why |
 |---|---|
-| GST columns, a separate invoice screen | Out of v1 scope |
+| Invoicing, in any form, and GST with it | Removed in schema v13 (D30). The payment-received message is the whole of it |
 | Recipes / bill of materials | v2. No per-order ingredient costing, and no true COGS |
 | Seasonality on menu items | Removed — a bakery that makes a thing makes it |
 | A server, accounts, roles | The whole premise is that there is none |

@@ -21,14 +21,14 @@ void main() {
 
   test('creates every table on first open', () async {
     final tables = await namesOf('table');
-    expect(tables, hasLength(21));
+    expect(tables, hasLength(20));
     expect(
       tables,
       containsAll([
         'customers', 'customer_addresses', 'menu_items', 'orders',
         'sub_orders', 'order_items',
         'order_item_addons', 'order_item_status_events',
-        'order_status_events', 'attachments', 'payments', 'invoices',
+        'order_status_events', 'attachments', 'payments',
         'materials', 'stock_transactions', 'share_log',
         'devices', 'conflict_log', 'outbox', 'applied_ops', 'peer_cursors',
         'settings',
@@ -38,10 +38,10 @@ void main() {
 
   test('creates every index on first open', () async {
     final ix = await namesOf('index');
-    expect(ix, hasLength(24));
+    expect(ix, hasLength(22));
     // the app's main sort, and the partial uniques that make offline dedupe work
     expect(ix, containsAll(['ix_orders_delivery', 'ux_cust_phone', 'ux_orders_no',
-                            'ux_inv_order', 'ix_share_unsent', 'ix_addr_cust',
+                            'ix_share_unsent', 'ix_addr_cust',
                             // what is due next is a question about journeys
                             // now, not orders and not items (D28)
                             'ix_subs_due', 'ux_sub_seq', 'ix_items_sub']));
@@ -53,7 +53,6 @@ void main() {
     expect(s.businessName, 'Little Loaf Bakery');
     expect(s.invoicePrefix, 'LLB');
     expect(s.orderSeq, 0);
-    expect(s.gstEnabled, isFalse);
   });
 
   test('records its schema version, so an upgrade knows where to start', () async {

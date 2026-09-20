@@ -6,7 +6,7 @@
 [`schema.md`](schema.md) states the shape of each answer as SQL; the views it describes were
 not built, and where the two disagree the code is right.
 
-`OrderTotals` is the single definition of a total — the order screen, the invoice and every report read it, so they cannot disagree.
+`OrderTotals` is the single definition of a total — the order screen and every report read it, so they cannot disagree.
 
 ## 2. Sales
 
@@ -16,8 +16,6 @@ SELECT strftime('%Y-%m', o.delivery_date/1000, 'unixepoch') AS month,
        COUNT(*) AS orders, SUM(t.total) AS revenue
 FROM orders o JOIN <order totals> t ON t.order_id=o.id
 WHERE o.status='completed' AND o.deleted_at IS NULL
-  AND NOT EXISTS (SELECT 1 FROM invoices i
-                  WHERE i.order_id=o.id AND i.voided_at IS NOT NULL)
 GROUP BY month ORDER BY month DESC;
 
 -- by product
@@ -84,7 +82,7 @@ consumption is not linked to orders, and calling it margin would be a lie.
 ## 6. CSV export
 
 ```dart
-const exports = ['orders','order_items','payments','invoices','materials',
+const exports = ['orders','order_items','payments','materials',
                  'stock_transactions','customers'];
 // One file per table, UTF-8 with BOM (Excel), ISO-8601 dates, money as rupees with 2dp.
 // Zipped, shared through the Android share sheet.
@@ -97,11 +95,11 @@ integers. Everywhere else it stays paise.
 | Case | Handling |
 |---|---|
 | Order completed in one month, delivered in another | Grouped by `delivery_date` — the work is when it happened |
-| Voided invoice | Excluded from revenue, listed separately |
+| Cancelled before delivery | Never counted as trade |
 | Deleted customer | "Deleted customer" in the row; totals unaffected |
 | Stock-in with no amount | Counted in quantity, excluded from spend |
 | Negative stock level | Shown; valuation clamps at zero rather than going negative |
-| Date range crossing a FY | Allowed; the FY split is only an invoicing concern |
+| Date range crossing a financial year | Allowed; nothing here is FY-aware |
 
 ## 8. What to test
 

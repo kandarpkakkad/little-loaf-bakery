@@ -23,7 +23,6 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
   final _phone = TextEditingController();
   final _address = TextEditingController();
   final _upi = TextEditingController();
-  final _terms = TextEditingController();
   final _local = TextEditingController();
   final _outstation = TextEditingController();
   final _deviceName = TextEditingController();
@@ -46,7 +45,6 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
       _phone.text = s.phone ?? '';
       _address.text = s.address ?? '';
       _upi.text = s.upiId ?? '';
-      _terms.text = s.termsLine ?? '';
       _local.text = moneyToField(Money(s.deliveryChargeLocal));
       _outstation.text = moneyToField(Money(s.deliveryChargeOutstation));
       _deviceName.text = s.deviceName ?? '';
@@ -73,7 +71,6 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
           phone: Value(_phone.text.trim().isEmpty ? null : _phone.text.trim()),
           address: Value(_address.text.trim().isEmpty ? null : _address.text.trim()),
           upiId: Value(_upi.text.trim().isEmpty ? null : _upi.text.trim()),
-          termsLine: Value(_terms.text.trim().isEmpty ? null : _terms.text.trim()),
           deliveryChargeLocal: Value(moneyFromField(_local.text).paise),
           deliveryChargeOutstation: Value(moneyFromField(_outstation.text).paise),
           deviceName:
@@ -87,7 +84,7 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
   @override
   void dispose() {
     for (final c in [
-      _name, _phone, _address, _upi, _terms, _local, _outstation, _deviceName,
+      _name, _phone, _address, _upi, _local, _outstation, _deviceName,
     ]) {
       c.dispose();
     }
@@ -129,11 +126,7 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
                         LoafField(
                             label: 'UPI ID',
                             controller: _upi,
-                            hint: 'name@bank — used for the QR on the invoice'),
-                        LoafField(
-                            label: 'Invoice footer line',
-                            controller: _terms,
-                            maxLines: 2),
+                            hint: 'name@bank — shown when money is owed'),
                       ],
                     ),
                   ),

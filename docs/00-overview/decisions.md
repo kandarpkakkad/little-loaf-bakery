@@ -61,12 +61,12 @@ GST time.
 **Chose:** one rule instead of a special case per field. A ₹0 row is absent from the invoice,
 the messages, order detail, totals and cards.
 
-### D11 · Invoices are WhatsApp text, not PDFs
+### D11 · Invoices are WhatsApp text, not PDFs — **reversed by D30**
 **Chose:** a formatted message with a monospace block.
 **Bought:** no PDF pipeline, no file storage, no share sheet, no contact picker — and the one
 mechanism that reliably pre-selects the chat.
 **Cost:** no logo on anything the customer receives; ≤26 characters per line.
-**Revisit when:** GST arrives — PDFs then, with portal filing.
+**Reversed by D30:** there is no invoice at all now, in any format.
 
 ### D12 · No attachments anywhere
 **Chose:** every message goes through `wa.me`, text only.
@@ -266,3 +266,19 @@ not travel — its sub-orders do.
 **Cancelling stays at the order and the item** (D28): those are the levels where a reason
 exists. A sub-order is cancelled when every item in it is, because nobody cancels a journey —
 they cancel what was on it.
+
+### D30 · No invoicing
+**Chose:** the bakery does not raise bills. A payment is acknowledged over WhatsApp and that
+is the whole of it. The `invoices` table, its GST columns, `FrozenTotals`, the bill message
+and the settings that fed it (`gstin`, `gst_enabled`, `logo_path`, `terms_line`,
+`invoice_seq`) are gone in schema v13.
+**Because:** none of it was reachable. An issued invoice could not be voided from any screen,
+carried no date, and dropped the business phone and terms line the settings screen collected.
+Finishing it was work nobody had asked for; the payment-received message already does the job.
+**Kept:** `invoice_prefix`, which despite the name prefixes **order** numbers, and
+`MessageKind.paymentReceived`.
+**Cost:** a delivered sale can no longer be un-counted. Voiding the invoice was the only
+mechanism, and `kAllowedTransitions` allows a delivered order to become completed and nothing
+else. The window for "this was not trade" now closes at the door.
+**Revisit when:** GST arrives, or a customer asks for a document. Rebuild from D11's reasoning,
+not from the old code.

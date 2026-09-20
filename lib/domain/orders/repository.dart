@@ -5,7 +5,6 @@ import '../../common/money.dart';
 import '../../platform/storage/database.dart';
 import '../../platform/sync/mutations.dart';
 import '../../platform/sync/op.dart';
-import '../invoicing/repository.dart';
 import 'model.dart';
 
 /// An order with everything the list and the detail screen need, assembled
@@ -472,6 +471,8 @@ class OrderRepository {
     final s = await db.select(db.settings).getSingle();
     final seq = s.orderSeq + 1;
     await db.update(db.settings).write(SettingsCompanion(orderSeq: Value(seq)));
+    // `invoice_prefix` despite the name: it is the ORDER number's prefix, and
+    // the only thing invoicing ever left behind.
     return orderNumber(prefix: s.invoicePrefix, seq: seq, uuid: orderUuid);
   }
 
@@ -730,13 +731,6 @@ class OrderRepository {
 
       // The bill covers the order, so it is issued once — when the last live
       // item has gone, not as each one does.
-      if (to == LineStatus.delivered) {
-        final after = await _linesOf(i.orderId);
-        final live = after.where((l) => l.isLive);
-        if (live.isNotEmpty && live.every((l) => l.status == LineStatus.delivered)) {
-          await _issueInvoice(i.orderId, after);
-        }
-      }
     });
   }
 
@@ -1190,16 +1184,6 @@ class OrderRepository {
       }
 
       await _refreshOrderCache(row.orderId, hlc);
-
-      // The bill covers the order, so it is issued once — when the last
-      // journey has gone, not as each one does.
-      final after = await _subOrdersOf(row.orderId);
-      final live = after.where((s) => s.isLive).toList();
-      if (live.isNotEmpty &&
-          live.every((s) => s.status == SubOrderStatus.delivered)) {
-        await _issueInvoice(
-            row.orderId, [for (final s in after) ...s.lines]);
-      }
     });
   }
 
@@ -1359,27 +1343,6 @@ class OrderRepository {
       if (to == LineStatus.cancelled) 'cancel_reason': reason,
     });
     await _insertLineEvent(lineId, from, to, now, hlc, reason: reason);
-  }
-
-  /// Issued here rather than by the UI so a peer's op, a bulk move and a tap
-  /// all produce exactly one invoice. [InvoiceRepository.issue] is idempotent,
-  /// which is what makes that safe.
-  Future<void> _issueInvoice(String orderId, List<OrderLine> lines) async {
-    final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
-        .getSingle();
-    await InvoiceRepository(db, mutations).issue(
-      orderId: orderId,
-      lines: lines,
-      totals: OrderTotals(
-        lines: lines,
-        discountType: o.discountType == null
-            ? null
-            : DiscountType.values.byName(o.discountType!),
-        discountValue: o.discountValue ?? 0,
-        deliveryCharge: Money(o.deliveryCharge),
-        paid: await _paidOf(orderId),
-      ),
-    );
   }
 
   Future<void> _insertLineEvent(
@@ -1575,6 +1538,84 @@ class OrderRepository {
       );
       await mutations.record(
           'orders', orderId, OpKind.upsert, {'requirements_ack_at': now});
+    });
+  }
+
+  /// Every payment on an order, **oldest first** — the order they were taken
+  /// in, which is how a ledger reads.
+  ///
+  /// The table was write-only for a long time: `_paidOf` summed it and nothing
+  /// ever selected a row, so `kind`, `mode` and `paid_at` were recorded and
+  /// never seen. A total with nothing behind it is no help when it is wrong.
+  Stream<List<Payment>> watchPayments(String orderId) =>
+      (db.select(db.payments)
+            ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.asc(t.paidAt)]))
+          .watch();
+
+  /// Correct a payment that was entered wrongly.
+  ///
+  /// `kind` follows the sign, because the schema requires it to: a payment
+  /// edited into a negative number is a refund and nothing else.
+  Future<void> editPayment(
+    String paymentId, {
+    required Money amount,
+    required String mode,
+    String? reference,
+  }) async {
+    if (amount.isZero) {
+      throw StateError('A payment of nothing is not a payment — remove it');
+    }
+    final hlc = mutations.lastHlc.toString();
+    await db.transaction(() async {
+      final row = await (db.select(db.payments)
+            ..where((t) => t.id.equals(paymentId)))
+          .getSingleOrNull();
+      if (row == null) return;
+
+      final kind = amount.paise < 0
+          ? 'refund'
+          : (row.kind == 'refund' ? 'balance' : row.kind);
+
+      await (db.update(db.payments)..where((t) => t.id.equals(paymentId)))
+          .write(PaymentsCompanion(
+        amount: Value(amount.paise),
+        kind: Value(kind),
+        mode: Value(mode),
+        reference: Value(reference),
+        updatedAtHlc: Value(hlc),
+      ));
+      await mutations.record('payments', paymentId, OpKind.upsert, {
+        'amount': amount.paise,
+        'kind': kind,
+        'mode': mode,
+        'reference': reference,
+      });
+      await _refreshOrderCache(row.orderId, hlc);
+    });
+  }
+
+  /// Take a payment back off an order.
+  ///
+  /// Soft, like every other delete here — `payments.deleted_at` already
+  /// existed and `_paidOf` already filtered on it; nothing ever wrote it, so a
+  /// mistyped amount was permanent.
+  Future<void> removePayment(String paymentId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hlc = mutations.lastHlc.toString();
+    await db.transaction(() async {
+      final row = await (db.select(db.payments)
+            ..where((t) => t.id.equals(paymentId)))
+          .getSingleOrNull();
+      if (row == null) return;
+
+      await (db.update(db.payments)..where((t) => t.id.equals(paymentId)))
+          .write(PaymentsCompanion(
+        deletedAt: Value(now),
+        updatedAtHlc: Value(hlc),
+      ));
+      await mutations.record('payments', paymentId, OpKind.delete, const {});
+      await _refreshOrderCache(row.orderId, hlc);
     });
   }
 

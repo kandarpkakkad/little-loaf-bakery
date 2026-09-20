@@ -280,22 +280,6 @@ class Payments extends Table with Common {
       ];
 }
 
-class Invoices extends Table with Common {
-  TextColumn get orderId => text().references(Orders, #id)();
-  TextColumn get invoiceNo => text()();
-  IntColumn get issuedAt => integer()();
-  TextColumn get frozenTotalsJson => text()();
-  IntColumn get voidedAt => integer().nullable()();
-  TextColumn get voidReason => text().nullable()();
-  // GST — present and unused until settings.gstEnabled
-  TextColumn get hsnCode => text().nullable()();
-  IntColumn get taxRate => integer().nullable()();
-  IntColumn get cgst => integer().nullable()();
-  IntColumn get sgst => integer().nullable()();
-  IntColumn get igst => integer().nullable()();
-  TextColumn get placeOfSupply => text().nullable()();
-}
-
 // ─────────────────────────────── stock ───────────────────────────────────
 
 @DataClassName('RawMaterial')
@@ -407,23 +391,20 @@ class PeerCursors extends Table {
 class Settings extends Table {
   TextColumn get id => text().withDefault(const Constant('singleton'))();
   TextColumn get businessName => text().withDefault(const Constant('Little Loaf Bakery'))();
-  TextColumn get logoPath => text().nullable()();
   TextColumn get address => text().nullable()();
   TextColumn get phone => text().nullable()();
+  /// The **order** number's prefix, despite the name — the one thing that
+  /// outlived invoicing.
   TextColumn get invoicePrefix => text().withDefault(const Constant('LLB'))();
-  TextColumn get termsLine => text().nullable()();
   TextColumn get upiId => text().nullable()();
   TextColumn get paymentPhone => text().nullable()();
   IntColumn get deliveryChargeLocal => integer().withDefault(const Constant(0))();
   IntColumn get deliveryChargeOutstation => integer().withDefault(const Constant(0))();
-  TextColumn get gstin => text().nullable()();
-  BoolColumn get gstEnabled => boolean().withDefault(const Constant(false))();
   BoolColumn get appLockEnabled => boolean().withDefault(const Constant(false))();
   TextColumn get deviceName => text().nullable()();
   // local only — do not survive a snapshot, which is why a restored install
   // takes a new device id (D6)
   IntColumn get orderSeq => integer().withDefault(const Constant(0))();
-  IntColumn get invoiceSeq => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};

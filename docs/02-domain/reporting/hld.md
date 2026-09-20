@@ -19,7 +19,7 @@ are not, because they were never trade.
 `v_order_totals` view as "the single definition of a total". The app already
 has one — `OrderTotals` in Dart — and every screen reads it. A SQL copy would
 be a *second* definition, and the two would drift the first time a rule changed:
-cancelled items leaving the total, credit, a discount resolved at invoice. So
+cancelled items leaving the total, credit, a resolved discount. So
 the reports compute in Dart over the same object the screens use. At a bakery's
 volumes that costs nothing; two definitions would cost a report that disagrees
 with the order screen.
@@ -45,14 +45,14 @@ accountant.
 Nothing. Read-only views over other modules' tables.
 
 ## Depends on
-orders, payments, invoicing, stock, customers.
+orders, payments, stock, customers.
 
 ## Key decisions
 - **Read-only.** No report writes anything, ever.
 - **Computed live** from the same derived functions the UI uses — a report can never disagree
   with the screen it came from.
 - **Revenue counts Completed orders only.** Delivered-but-unpaid is outstanding, not revenue.
-- **Voided invoices are excluded from revenue and listed separately**, so a gap in the series
+- Invoicing was removed (D30). A delivered order counts as trade and nothing reverses it; a gap in the series
   is explained rather than mysterious.
 - **CSV export** for everything, shared from the phone. There is no accountant login (D1).
 - **Price-over-time is the report this architecture makes possible.** With prices in history

@@ -1,15 +1,13 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/scope.dart';
 import '../../../common/money.dart';
 import '../../../common/phone.dart';
-import '../../../domain/invoicing/model.dart';
 import '../../../domain/messaging/compose.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
+import '../../../platform/storage/database.dart';
 import '../../theme/format.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
@@ -322,6 +320,11 @@ class _Detail extends StatelessWidget {
               ],
             ),
           ),
+
+          // What the Paid line is made of. A total with nothing behind it is
+          // no help when it is wrong, and until there was a list here a
+          // mistyped amount could not even be found, let alone corrected.
+          _Payments(orderId: o.id),
 
           const SectionLabel('Move to'),
           if (next.isEmpty)
@@ -899,7 +902,6 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
   // what the async-gap lint is about.
   final app = context.app;
   final s = await app.settings();
-  final invoice = await app.invoices.forOrder(view.order.id);
   final o = view.order;
   return MessageContext(
     customerFirstName: view.customer.name.split(' ').first,
@@ -925,12 +927,6 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     // about the whole order takes the one that finishes it.
     isPickup: isPickup ?? finishingSubOrder(view.subOrders)?.isPickup ?? false,
     isUpdate: isUpdate,
-    invoiceNo: invoice?.invoiceNo,
-    frozen: invoice == null
-        ? null
-        : FrozenTotals.fromJson(
-            jsonDecode(invoice.frozenTotalsJson) as Map<String, Object?>),
-    voidedReason: invoice?.voidReason,
   );
 }
 
@@ -1040,12 +1036,191 @@ Future<void> _messageSheet(BuildContext context, OrderView view) async {
   );
 }
 
+/// Correct a payment, or take it off the order entirely.
+///
+/// The amount is not validated against the balance the way recording one is:
+/// this is the screen for fixing a number that was already wrong, and refusing
+/// the correction because the wrong number is in the way would be circular.
+Future<void> _editPayment(BuildContext context, Payment p) async {
+  final orders = context.app.orders;
+  final messenger = ScaffoldMessenger.of(context);
+  var mode = p.mode;
+  final amount = TextEditingController(text: moneyToField(Money(p.amount.abs())));
+  final reference = TextEditingController(text: p.reference ?? '');
+
+  final action = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => ControllerHost(
+      controllers: [amount, reference],
+      child: StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Edit payment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LoafField(
+                label: 'Amount',
+                controller: amount,
+                prefix: '₹ ',
+                keyboardType: TextInputType.number,
+                inputFormatters: rupeeInput,
+              ),
+              const SizedBox(height: Space.md),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'upi', label: Text('UPI')),
+                  ButtonSegment(value: 'cash', label: Text('Cash')),
+                  ButtonSegment(value: 'transfer', label: Text('Transfer')),
+                ],
+                selected: {mode},
+                onSelectionChanged: (v) =>
+                    setDialogState(() => mode = v.first),
+              ),
+              const SizedBox(height: Space.md),
+              LoafField(label: 'Reference', controller: reference),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'remove'),
+              child: const Text('Remove'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'save'),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  if (action == 'remove') {
+    await orders.removePayment(p.id);
+    messenger.showSnackBar(
+        const SnackBar(content: Text('Payment removed')));
+    return;
+  }
+  if (action != 'save') return;
+
+  // A refund keeps its sign; everything else is money coming in.
+  final typed = moneyFromField(amount.text);
+  final signed = p.kind == 'refund' ? Money(-typed.paise) : typed;
+  try {
+    await orders.editPayment(p.id, amount: signed, mode: mode,
+        reference: reference.text.trim().isEmpty ? null : reference.text.trim());
+  } on StateError catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+/// Every payment on the order, each correctable and removable.
+///
+/// **Collapsed by default.** The Paid line above is the answer most of the
+/// time; this is what you open when that number looks wrong. Oldest first, the
+/// way a ledger reads, each with the day the money actually arrived.
+class _Payments extends StatefulWidget {
+  const _Payments({required this.orderId});
+
+  final String orderId;
+
+  @override
+  State<_Payments> createState() => _PaymentsState();
+}
+
+class _PaymentsState extends State<_Payments> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return StreamBuilder<List<Payment>>(
+      stream: context.app.orders.watchPayments(widget.orderId),
+      builder: (context, snap) {
+        final rows = snap.data ?? const <Payment>[];
+        if (rows.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _open = !_open),
+              child: SectionLabel(
+                rows.length == 1 ? 'Payments' : 'Payments (${rows.length})',
+                trailing: Icon(
+                  _open ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: c.ink3,
+                ),
+              ),
+            ),
+            if (_open)
+              LoafCard(
+                child: Column(
+                  children: [
+                    for (final p in rows)
+                      InkWell(
+                        onTap: () => _editPayment(context, p),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: Space.sm),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      money(Money(p.amount), showZero: true)!,
+                                      style: context.text.bodyMedium,
+                                    ),
+                                    Micro([
+                                      dayLabel(p.paidAt),
+                                      _payKind(p.kind),
+                                      _payMode(p.mode),
+                                      if (p.reference != null) p.reference!,
+                                    ].join(' · ')),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.edit_outlined,
+                                  size: 16, color: c.ink3),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+String _payKind(String k) => switch (k) {
+      'advance' => 'Advance',
+      'refund' => 'Refund',
+      _ => 'Balance',
+    };
+
+String _payMode(String m) => switch (m) {
+      'cash' => 'Cash',
+      'transfer' => 'Transfer',
+      _ => 'UPI',
+    };
+
 String _kindLabel(MessageKind k) => switch (k) {
       MessageKind.confirmation => 'Order confirmation',
       MessageKind.outForDelivery => 'On its way',
       MessageKind.delivery => 'Delivered',
       MessageKind.paymentReceived => 'Payment received',
-      MessageKind.invoice => 'Invoice',
     };
 
 String _kindWire(MessageKind k) => switch (k) {
@@ -1053,7 +1228,6 @@ String _kindWire(MessageKind k) => switch (k) {
       MessageKind.outForDelivery => 'out_for_delivery',
       MessageKind.delivery => 'delivery',
       MessageKind.paymentReceived => 'payment_received',
-      MessageKind.invoice => 'invoice',
     };
 
 Future<void> _dial(String phone) async {

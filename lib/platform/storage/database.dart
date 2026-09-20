@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 12;
+const int kSchemaVersion = 13;
 
 @DriftDatabase(
   tables: [
@@ -20,7 +20,6 @@ const int kSchemaVersion = 12;
     OrderStatusEvents,
     Attachments,
     Payments,
-    Invoices,
     Materials,
     StockTransactions,
     ShareLog,
@@ -83,6 +82,7 @@ class AppDatabase extends _$AppDatabase {
   /// from schema vN", which is the truth: reinstall.
   static final Map<int, Future<void> Function(Migrator)> _steps = {
     11: _v11ToV12,
+    12: _v12ToV13,
   };
 
   /// The journey becomes a row of its own (D28).
@@ -99,7 +99,7 @@ class AppDatabase extends _$AppDatabase {
       'order_items',
       'order_status_events',
       'payments',
-      'invoices',
+      'invoices', // v12 still had one; v13 removed invoicing entirely
       'sub_orders',
       'orders',
     ]) {
@@ -113,7 +113,25 @@ class AppDatabase extends _$AppDatabase {
     await m.createTable(db.orderStatusEvents);
     await m.createTable(db.orderItemStatusEvents);
     await m.createTable(db.payments);
-    await m.createTable(db.invoices);
+    await db.customStatement('PRAGMA foreign_keys = ON');
+  }
+
+  /// Invoicing removed.
+  ///
+  /// The bakery does not raise bills — a payment is acknowledged over WhatsApp
+  /// and that is the whole of it. The table, its GST columns and the settings
+  /// that fed it go with it; `invoice_prefix` stays because it prefixes ORDER
+  /// numbers. A peer still sending `invoices` ops is handled for free: the
+  /// applier reads a table's columns from the database and skips an entity it
+  /// cannot find (`sync/apply.dart`).
+  static Future<void> _v12ToV13(Migrator m) async {
+    final db = m.database as AppDatabase;
+
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    await db.customStatement('DROP TABLE IF EXISTS invoices');
+    // Recreated from the current definition, copying what still exists —
+    // logo_path, terms_line, gstin, gst_enabled and invoice_seq do not.
+    await m.alterTable(TableMigration(db.settings));
     await db.customStatement('PRAGMA foreign_keys = ON');
   }
 
@@ -137,8 +155,6 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX ix_addons_item ON order_item_addons(order_item_id, position)',
       'CREATE INDEX ix_status_order ON order_status_events(order_id, at)',
       'CREATE INDEX ix_pay_order ON payments(order_id, paid_at) WHERE deleted_at IS NULL',
-      'CREATE UNIQUE INDEX ux_inv_order ON invoices(order_id) WHERE deleted_at IS NULL',
-      'CREATE UNIQUE INDEX ux_inv_no ON invoices(invoice_no) WHERE deleted_at IS NULL',
       'CREATE UNIQUE INDEX ux_cust_phone ON customers(phone_e164) WHERE deleted_at IS NULL',
       'CREATE INDEX ix_cust_name ON customers(name) WHERE deleted_at IS NULL',
       'CREATE INDEX ix_addr_cust ON customer_addresses(customer_id) WHERE deleted_at IS NULL',

@@ -231,7 +231,7 @@ Future<void> exportTo(AppDatabase db, String path) async {
     copy.execute('DELETE FROM outbox');
     copy.execute('DELETE FROM applied_ops');
     copy.execute('DELETE FROM peer_cursors');
-    copy.execute('UPDATE settings SET order_seq = 0, invoice_seq = 0');
+    copy.execute('UPDATE settings SET order_seq = 0');
     copy.execute('VACUUM');
   } finally {
     copy.close();

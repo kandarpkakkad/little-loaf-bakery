@@ -14,6 +14,9 @@ CREATE TABLE share_log (
   device_id   TEXT    NOT NULL,
   -- common columns
   CHECK (kind IN ('confirmation','out_for_delivery','delivery','payment_received','invoice'))
+  -- 'invoice' is still ACCEPTED though nothing writes it: rows logged before
+  -- invoicing was removed (D30) still carry it, and tightening the CHECK would
+  -- mean rebuilding the table underneath them for no gain.
 );
 CREATE INDEX ix_share_order ON share_log(order_id, composed_at) WHERE deleted_at IS NULL;
 CREATE INDEX ix_share_unsent ON share_log(order_id) WHERE shared_at IS NULL AND deleted_at IS NULL;
@@ -35,7 +38,6 @@ share intent, and a column would invite someone to populate it with a guess. The
 | `out_for_delivery` | At Out for delivery, **only if `orders.tracking_url` is set** |
 | `delivery` | At Delivered. Always — two shapes, one kind |
 | `payment_received` | At Completed, **only if there was a balance to receive** |
-| `invoice` | Never automatic. Only when someone asks for a bill |
 
 Sharing the same message twice produces **two rows**, and that is correct — it was handed over
 twice.

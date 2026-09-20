@@ -70,8 +70,7 @@ class ReportRepository {
   final AppDatabase db;
   final OrderRepository orders;
 
-  /// Revenue counts an order once it is **delivered**, and drops it again if
-  /// its invoice was voided — a voided bill is a sale that did not happen.
+  /// Revenue counts an order once it is **delivered**.
   Future<List<MonthOfSales>> salesByMonth({int months = 12}) async {
     final views = await _billableOrders();
     final byMonth = <int, List<OrderView>>{};
@@ -215,26 +214,20 @@ class ReportRepository {
 
   // ── the parts every report shares ────────────────────────────────────────
 
-  /// Orders that count as trade: delivered or completed, not cancelled, and
-  /// not carrying a voided invoice.
+  /// Orders that count as trade: delivered or completed, and not cancelled.
+  ///
+  /// There was a fourth condition — not carrying a voided invoice — until
+  /// invoicing was taken out. Cancelling the items is now the only way to say
+  /// a sale did not happen.
   Future<List<OrderView>> _billableOrders() async {
     final all = await orders.watchOrders().first;
-    final voided = await _voidedOrderIds();
     return [
       for (final v in all)
         if (!v.isCancelled &&
             (v.status == OrderStatus.delivered ||
-                v.status == OrderStatus.completed) &&
-            !voided.contains(v.order.id))
+                v.status == OrderStatus.completed))
           v,
     ];
-  }
-
-  Future<Set<String>> _voidedOrderIds() async {
-    final rows = await (db.select(db.invoices)
-          ..where((t) => t.voidedAt.isNotNull() & t.deletedAt.isNull()))
-        .get();
-    return {for (final r in rows) r.orderId};
   }
 
   Future<double> _levelOf(String materialId) async {

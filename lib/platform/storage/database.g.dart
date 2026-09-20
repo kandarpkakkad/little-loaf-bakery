@@ -9408,968 +9408,6 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
   }
 }
 
-class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $InvoicesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
-    'deviceId',
-  );
-  @override
-  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
-    'device_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _updatedAtHlcMeta = const VerificationMeta(
-    'updatedAtHlc',
-  );
-  @override
-  late final GeneratedColumn<String> updatedAtHlc = GeneratedColumn<String>(
-    'updated_at_hlc',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
-    'deletedAt',
-  );
-  @override
-  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
-    'deleted_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _orderIdMeta = const VerificationMeta(
-    'orderId',
-  );
-  @override
-  late final GeneratedColumn<String> orderId = GeneratedColumn<String>(
-    'order_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES orders (id)',
-    ),
-  );
-  static const VerificationMeta _invoiceNoMeta = const VerificationMeta(
-    'invoiceNo',
-  );
-  @override
-  late final GeneratedColumn<String> invoiceNo = GeneratedColumn<String>(
-    'invoice_no',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _issuedAtMeta = const VerificationMeta(
-    'issuedAt',
-  );
-  @override
-  late final GeneratedColumn<int> issuedAt = GeneratedColumn<int>(
-    'issued_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _frozenTotalsJsonMeta = const VerificationMeta(
-    'frozenTotalsJson',
-  );
-  @override
-  late final GeneratedColumn<String> frozenTotalsJson = GeneratedColumn<String>(
-    'frozen_totals_json',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _voidedAtMeta = const VerificationMeta(
-    'voidedAt',
-  );
-  @override
-  late final GeneratedColumn<int> voidedAt = GeneratedColumn<int>(
-    'voided_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _voidReasonMeta = const VerificationMeta(
-    'voidReason',
-  );
-  @override
-  late final GeneratedColumn<String> voidReason = GeneratedColumn<String>(
-    'void_reason',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _hsnCodeMeta = const VerificationMeta(
-    'hsnCode',
-  );
-  @override
-  late final GeneratedColumn<String> hsnCode = GeneratedColumn<String>(
-    'hsn_code',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _taxRateMeta = const VerificationMeta(
-    'taxRate',
-  );
-  @override
-  late final GeneratedColumn<int> taxRate = GeneratedColumn<int>(
-    'tax_rate',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _cgstMeta = const VerificationMeta('cgst');
-  @override
-  late final GeneratedColumn<int> cgst = GeneratedColumn<int>(
-    'cgst',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _sgstMeta = const VerificationMeta('sgst');
-  @override
-  late final GeneratedColumn<int> sgst = GeneratedColumn<int>(
-    'sgst',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _igstMeta = const VerificationMeta('igst');
-  @override
-  late final GeneratedColumn<int> igst = GeneratedColumn<int>(
-    'igst',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _placeOfSupplyMeta = const VerificationMeta(
-    'placeOfSupply',
-  );
-  @override
-  late final GeneratedColumn<String> placeOfSupply = GeneratedColumn<String>(
-    'place_of_supply',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    deviceId,
-    createdAt,
-    updatedAtHlc,
-    deletedAt,
-    orderId,
-    invoiceNo,
-    issuedAt,
-    frozenTotalsJson,
-    voidedAt,
-    voidReason,
-    hsnCode,
-    taxRate,
-    cgst,
-    sgst,
-    igst,
-    placeOfSupply,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'invoices';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Invoice> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('device_id')) {
-      context.handle(
-        _deviceIdMeta,
-        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_deviceIdMeta);
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    if (data.containsKey('updated_at_hlc')) {
-      context.handle(
-        _updatedAtHlcMeta,
-        updatedAtHlc.isAcceptableOrUnknown(
-          data['updated_at_hlc']!,
-          _updatedAtHlcMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_updatedAtHlcMeta);
-    }
-    if (data.containsKey('deleted_at')) {
-      context.handle(
-        _deletedAtMeta,
-        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
-      );
-    }
-    if (data.containsKey('order_id')) {
-      context.handle(
-        _orderIdMeta,
-        orderId.isAcceptableOrUnknown(data['order_id']!, _orderIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_orderIdMeta);
-    }
-    if (data.containsKey('invoice_no')) {
-      context.handle(
-        _invoiceNoMeta,
-        invoiceNo.isAcceptableOrUnknown(data['invoice_no']!, _invoiceNoMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_invoiceNoMeta);
-    }
-    if (data.containsKey('issued_at')) {
-      context.handle(
-        _issuedAtMeta,
-        issuedAt.isAcceptableOrUnknown(data['issued_at']!, _issuedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_issuedAtMeta);
-    }
-    if (data.containsKey('frozen_totals_json')) {
-      context.handle(
-        _frozenTotalsJsonMeta,
-        frozenTotalsJson.isAcceptableOrUnknown(
-          data['frozen_totals_json']!,
-          _frozenTotalsJsonMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_frozenTotalsJsonMeta);
-    }
-    if (data.containsKey('voided_at')) {
-      context.handle(
-        _voidedAtMeta,
-        voidedAt.isAcceptableOrUnknown(data['voided_at']!, _voidedAtMeta),
-      );
-    }
-    if (data.containsKey('void_reason')) {
-      context.handle(
-        _voidReasonMeta,
-        voidReason.isAcceptableOrUnknown(data['void_reason']!, _voidReasonMeta),
-      );
-    }
-    if (data.containsKey('hsn_code')) {
-      context.handle(
-        _hsnCodeMeta,
-        hsnCode.isAcceptableOrUnknown(data['hsn_code']!, _hsnCodeMeta),
-      );
-    }
-    if (data.containsKey('tax_rate')) {
-      context.handle(
-        _taxRateMeta,
-        taxRate.isAcceptableOrUnknown(data['tax_rate']!, _taxRateMeta),
-      );
-    }
-    if (data.containsKey('cgst')) {
-      context.handle(
-        _cgstMeta,
-        cgst.isAcceptableOrUnknown(data['cgst']!, _cgstMeta),
-      );
-    }
-    if (data.containsKey('sgst')) {
-      context.handle(
-        _sgstMeta,
-        sgst.isAcceptableOrUnknown(data['sgst']!, _sgstMeta),
-      );
-    }
-    if (data.containsKey('igst')) {
-      context.handle(
-        _igstMeta,
-        igst.isAcceptableOrUnknown(data['igst']!, _igstMeta),
-      );
-    }
-    if (data.containsKey('place_of_supply')) {
-      context.handle(
-        _placeOfSupplyMeta,
-        placeOfSupply.isAcceptableOrUnknown(
-          data['place_of_supply']!,
-          _placeOfSupplyMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Invoice map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Invoice(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      deviceId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}device_id'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}created_at'],
-      )!,
-      updatedAtHlc: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}updated_at_hlc'],
-      )!,
-      deletedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}deleted_at'],
-      ),
-      orderId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}order_id'],
-      )!,
-      invoiceNo: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}invoice_no'],
-      )!,
-      issuedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}issued_at'],
-      )!,
-      frozenTotalsJson: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}frozen_totals_json'],
-      )!,
-      voidedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}voided_at'],
-      ),
-      voidReason: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}void_reason'],
-      ),
-      hsnCode: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}hsn_code'],
-      ),
-      taxRate: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}tax_rate'],
-      ),
-      cgst: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}cgst'],
-      ),
-      sgst: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}sgst'],
-      ),
-      igst: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}igst'],
-      ),
-      placeOfSupply: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}place_of_supply'],
-      ),
-    );
-  }
-
-  @override
-  $InvoicesTable createAlias(String alias) {
-    return $InvoicesTable(attachedDatabase, alias);
-  }
-}
-
-class Invoice extends DataClass implements Insertable<Invoice> {
-  final String id;
-  final String deviceId;
-  final int createdAt;
-  final String updatedAtHlc;
-  final int? deletedAt;
-  final String orderId;
-  final String invoiceNo;
-  final int issuedAt;
-  final String frozenTotalsJson;
-  final int? voidedAt;
-  final String? voidReason;
-  final String? hsnCode;
-  final int? taxRate;
-  final int? cgst;
-  final int? sgst;
-  final int? igst;
-  final String? placeOfSupply;
-  const Invoice({
-    required this.id,
-    required this.deviceId,
-    required this.createdAt,
-    required this.updatedAtHlc,
-    this.deletedAt,
-    required this.orderId,
-    required this.invoiceNo,
-    required this.issuedAt,
-    required this.frozenTotalsJson,
-    this.voidedAt,
-    this.voidReason,
-    this.hsnCode,
-    this.taxRate,
-    this.cgst,
-    this.sgst,
-    this.igst,
-    this.placeOfSupply,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['device_id'] = Variable<String>(deviceId);
-    map['created_at'] = Variable<int>(createdAt);
-    map['updated_at_hlc'] = Variable<String>(updatedAtHlc);
-    if (!nullToAbsent || deletedAt != null) {
-      map['deleted_at'] = Variable<int>(deletedAt);
-    }
-    map['order_id'] = Variable<String>(orderId);
-    map['invoice_no'] = Variable<String>(invoiceNo);
-    map['issued_at'] = Variable<int>(issuedAt);
-    map['frozen_totals_json'] = Variable<String>(frozenTotalsJson);
-    if (!nullToAbsent || voidedAt != null) {
-      map['voided_at'] = Variable<int>(voidedAt);
-    }
-    if (!nullToAbsent || voidReason != null) {
-      map['void_reason'] = Variable<String>(voidReason);
-    }
-    if (!nullToAbsent || hsnCode != null) {
-      map['hsn_code'] = Variable<String>(hsnCode);
-    }
-    if (!nullToAbsent || taxRate != null) {
-      map['tax_rate'] = Variable<int>(taxRate);
-    }
-    if (!nullToAbsent || cgst != null) {
-      map['cgst'] = Variable<int>(cgst);
-    }
-    if (!nullToAbsent || sgst != null) {
-      map['sgst'] = Variable<int>(sgst);
-    }
-    if (!nullToAbsent || igst != null) {
-      map['igst'] = Variable<int>(igst);
-    }
-    if (!nullToAbsent || placeOfSupply != null) {
-      map['place_of_supply'] = Variable<String>(placeOfSupply);
-    }
-    return map;
-  }
-
-  InvoicesCompanion toCompanion(bool nullToAbsent) {
-    return InvoicesCompanion(
-      id: Value(id),
-      deviceId: Value(deviceId),
-      createdAt: Value(createdAt),
-      updatedAtHlc: Value(updatedAtHlc),
-      deletedAt: deletedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deletedAt),
-      orderId: Value(orderId),
-      invoiceNo: Value(invoiceNo),
-      issuedAt: Value(issuedAt),
-      frozenTotalsJson: Value(frozenTotalsJson),
-      voidedAt: voidedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(voidedAt),
-      voidReason: voidReason == null && nullToAbsent
-          ? const Value.absent()
-          : Value(voidReason),
-      hsnCode: hsnCode == null && nullToAbsent
-          ? const Value.absent()
-          : Value(hsnCode),
-      taxRate: taxRate == null && nullToAbsent
-          ? const Value.absent()
-          : Value(taxRate),
-      cgst: cgst == null && nullToAbsent ? const Value.absent() : Value(cgst),
-      sgst: sgst == null && nullToAbsent ? const Value.absent() : Value(sgst),
-      igst: igst == null && nullToAbsent ? const Value.absent() : Value(igst),
-      placeOfSupply: placeOfSupply == null && nullToAbsent
-          ? const Value.absent()
-          : Value(placeOfSupply),
-    );
-  }
-
-  factory Invoice.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Invoice(
-      id: serializer.fromJson<String>(json['id']),
-      deviceId: serializer.fromJson<String>(json['deviceId']),
-      createdAt: serializer.fromJson<int>(json['createdAt']),
-      updatedAtHlc: serializer.fromJson<String>(json['updatedAtHlc']),
-      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
-      orderId: serializer.fromJson<String>(json['orderId']),
-      invoiceNo: serializer.fromJson<String>(json['invoiceNo']),
-      issuedAt: serializer.fromJson<int>(json['issuedAt']),
-      frozenTotalsJson: serializer.fromJson<String>(json['frozenTotalsJson']),
-      voidedAt: serializer.fromJson<int?>(json['voidedAt']),
-      voidReason: serializer.fromJson<String?>(json['voidReason']),
-      hsnCode: serializer.fromJson<String?>(json['hsnCode']),
-      taxRate: serializer.fromJson<int?>(json['taxRate']),
-      cgst: serializer.fromJson<int?>(json['cgst']),
-      sgst: serializer.fromJson<int?>(json['sgst']),
-      igst: serializer.fromJson<int?>(json['igst']),
-      placeOfSupply: serializer.fromJson<String?>(json['placeOfSupply']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'deviceId': serializer.toJson<String>(deviceId),
-      'createdAt': serializer.toJson<int>(createdAt),
-      'updatedAtHlc': serializer.toJson<String>(updatedAtHlc),
-      'deletedAt': serializer.toJson<int?>(deletedAt),
-      'orderId': serializer.toJson<String>(orderId),
-      'invoiceNo': serializer.toJson<String>(invoiceNo),
-      'issuedAt': serializer.toJson<int>(issuedAt),
-      'frozenTotalsJson': serializer.toJson<String>(frozenTotalsJson),
-      'voidedAt': serializer.toJson<int?>(voidedAt),
-      'voidReason': serializer.toJson<String?>(voidReason),
-      'hsnCode': serializer.toJson<String?>(hsnCode),
-      'taxRate': serializer.toJson<int?>(taxRate),
-      'cgst': serializer.toJson<int?>(cgst),
-      'sgst': serializer.toJson<int?>(sgst),
-      'igst': serializer.toJson<int?>(igst),
-      'placeOfSupply': serializer.toJson<String?>(placeOfSupply),
-    };
-  }
-
-  Invoice copyWith({
-    String? id,
-    String? deviceId,
-    int? createdAt,
-    String? updatedAtHlc,
-    Value<int?> deletedAt = const Value.absent(),
-    String? orderId,
-    String? invoiceNo,
-    int? issuedAt,
-    String? frozenTotalsJson,
-    Value<int?> voidedAt = const Value.absent(),
-    Value<String?> voidReason = const Value.absent(),
-    Value<String?> hsnCode = const Value.absent(),
-    Value<int?> taxRate = const Value.absent(),
-    Value<int?> cgst = const Value.absent(),
-    Value<int?> sgst = const Value.absent(),
-    Value<int?> igst = const Value.absent(),
-    Value<String?> placeOfSupply = const Value.absent(),
-  }) => Invoice(
-    id: id ?? this.id,
-    deviceId: deviceId ?? this.deviceId,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
-    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
-    orderId: orderId ?? this.orderId,
-    invoiceNo: invoiceNo ?? this.invoiceNo,
-    issuedAt: issuedAt ?? this.issuedAt,
-    frozenTotalsJson: frozenTotalsJson ?? this.frozenTotalsJson,
-    voidedAt: voidedAt.present ? voidedAt.value : this.voidedAt,
-    voidReason: voidReason.present ? voidReason.value : this.voidReason,
-    hsnCode: hsnCode.present ? hsnCode.value : this.hsnCode,
-    taxRate: taxRate.present ? taxRate.value : this.taxRate,
-    cgst: cgst.present ? cgst.value : this.cgst,
-    sgst: sgst.present ? sgst.value : this.sgst,
-    igst: igst.present ? igst.value : this.igst,
-    placeOfSupply: placeOfSupply.present
-        ? placeOfSupply.value
-        : this.placeOfSupply,
-  );
-  Invoice copyWithCompanion(InvoicesCompanion data) {
-    return Invoice(
-      id: data.id.present ? data.id.value : this.id,
-      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      updatedAtHlc: data.updatedAtHlc.present
-          ? data.updatedAtHlc.value
-          : this.updatedAtHlc,
-      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
-      orderId: data.orderId.present ? data.orderId.value : this.orderId,
-      invoiceNo: data.invoiceNo.present ? data.invoiceNo.value : this.invoiceNo,
-      issuedAt: data.issuedAt.present ? data.issuedAt.value : this.issuedAt,
-      frozenTotalsJson: data.frozenTotalsJson.present
-          ? data.frozenTotalsJson.value
-          : this.frozenTotalsJson,
-      voidedAt: data.voidedAt.present ? data.voidedAt.value : this.voidedAt,
-      voidReason: data.voidReason.present
-          ? data.voidReason.value
-          : this.voidReason,
-      hsnCode: data.hsnCode.present ? data.hsnCode.value : this.hsnCode,
-      taxRate: data.taxRate.present ? data.taxRate.value : this.taxRate,
-      cgst: data.cgst.present ? data.cgst.value : this.cgst,
-      sgst: data.sgst.present ? data.sgst.value : this.sgst,
-      igst: data.igst.present ? data.igst.value : this.igst,
-      placeOfSupply: data.placeOfSupply.present
-          ? data.placeOfSupply.value
-          : this.placeOfSupply,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Invoice(')
-          ..write('id: $id, ')
-          ..write('deviceId: $deviceId, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAtHlc: $updatedAtHlc, ')
-          ..write('deletedAt: $deletedAt, ')
-          ..write('orderId: $orderId, ')
-          ..write('invoiceNo: $invoiceNo, ')
-          ..write('issuedAt: $issuedAt, ')
-          ..write('frozenTotalsJson: $frozenTotalsJson, ')
-          ..write('voidedAt: $voidedAt, ')
-          ..write('voidReason: $voidReason, ')
-          ..write('hsnCode: $hsnCode, ')
-          ..write('taxRate: $taxRate, ')
-          ..write('cgst: $cgst, ')
-          ..write('sgst: $sgst, ')
-          ..write('igst: $igst, ')
-          ..write('placeOfSupply: $placeOfSupply')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    deviceId,
-    createdAt,
-    updatedAtHlc,
-    deletedAt,
-    orderId,
-    invoiceNo,
-    issuedAt,
-    frozenTotalsJson,
-    voidedAt,
-    voidReason,
-    hsnCode,
-    taxRate,
-    cgst,
-    sgst,
-    igst,
-    placeOfSupply,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Invoice &&
-          other.id == this.id &&
-          other.deviceId == this.deviceId &&
-          other.createdAt == this.createdAt &&
-          other.updatedAtHlc == this.updatedAtHlc &&
-          other.deletedAt == this.deletedAt &&
-          other.orderId == this.orderId &&
-          other.invoiceNo == this.invoiceNo &&
-          other.issuedAt == this.issuedAt &&
-          other.frozenTotalsJson == this.frozenTotalsJson &&
-          other.voidedAt == this.voidedAt &&
-          other.voidReason == this.voidReason &&
-          other.hsnCode == this.hsnCode &&
-          other.taxRate == this.taxRate &&
-          other.cgst == this.cgst &&
-          other.sgst == this.sgst &&
-          other.igst == this.igst &&
-          other.placeOfSupply == this.placeOfSupply);
-}
-
-class InvoicesCompanion extends UpdateCompanion<Invoice> {
-  final Value<String> id;
-  final Value<String> deviceId;
-  final Value<int> createdAt;
-  final Value<String> updatedAtHlc;
-  final Value<int?> deletedAt;
-  final Value<String> orderId;
-  final Value<String> invoiceNo;
-  final Value<int> issuedAt;
-  final Value<String> frozenTotalsJson;
-  final Value<int?> voidedAt;
-  final Value<String?> voidReason;
-  final Value<String?> hsnCode;
-  final Value<int?> taxRate;
-  final Value<int?> cgst;
-  final Value<int?> sgst;
-  final Value<int?> igst;
-  final Value<String?> placeOfSupply;
-  final Value<int> rowid;
-  const InvoicesCompanion({
-    this.id = const Value.absent(),
-    this.deviceId = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAtHlc = const Value.absent(),
-    this.deletedAt = const Value.absent(),
-    this.orderId = const Value.absent(),
-    this.invoiceNo = const Value.absent(),
-    this.issuedAt = const Value.absent(),
-    this.frozenTotalsJson = const Value.absent(),
-    this.voidedAt = const Value.absent(),
-    this.voidReason = const Value.absent(),
-    this.hsnCode = const Value.absent(),
-    this.taxRate = const Value.absent(),
-    this.cgst = const Value.absent(),
-    this.sgst = const Value.absent(),
-    this.igst = const Value.absent(),
-    this.placeOfSupply = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  InvoicesCompanion.insert({
-    required String id,
-    required String deviceId,
-    required int createdAt,
-    required String updatedAtHlc,
-    this.deletedAt = const Value.absent(),
-    required String orderId,
-    required String invoiceNo,
-    required int issuedAt,
-    required String frozenTotalsJson,
-    this.voidedAt = const Value.absent(),
-    this.voidReason = const Value.absent(),
-    this.hsnCode = const Value.absent(),
-    this.taxRate = const Value.absent(),
-    this.cgst = const Value.absent(),
-    this.sgst = const Value.absent(),
-    this.igst = const Value.absent(),
-    this.placeOfSupply = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       deviceId = Value(deviceId),
-       createdAt = Value(createdAt),
-       updatedAtHlc = Value(updatedAtHlc),
-       orderId = Value(orderId),
-       invoiceNo = Value(invoiceNo),
-       issuedAt = Value(issuedAt),
-       frozenTotalsJson = Value(frozenTotalsJson);
-  static Insertable<Invoice> custom({
-    Expression<String>? id,
-    Expression<String>? deviceId,
-    Expression<int>? createdAt,
-    Expression<String>? updatedAtHlc,
-    Expression<int>? deletedAt,
-    Expression<String>? orderId,
-    Expression<String>? invoiceNo,
-    Expression<int>? issuedAt,
-    Expression<String>? frozenTotalsJson,
-    Expression<int>? voidedAt,
-    Expression<String>? voidReason,
-    Expression<String>? hsnCode,
-    Expression<int>? taxRate,
-    Expression<int>? cgst,
-    Expression<int>? sgst,
-    Expression<int>? igst,
-    Expression<String>? placeOfSupply,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (deviceId != null) 'device_id': deviceId,
-      if (createdAt != null) 'created_at': createdAt,
-      if (updatedAtHlc != null) 'updated_at_hlc': updatedAtHlc,
-      if (deletedAt != null) 'deleted_at': deletedAt,
-      if (orderId != null) 'order_id': orderId,
-      if (invoiceNo != null) 'invoice_no': invoiceNo,
-      if (issuedAt != null) 'issued_at': issuedAt,
-      if (frozenTotalsJson != null) 'frozen_totals_json': frozenTotalsJson,
-      if (voidedAt != null) 'voided_at': voidedAt,
-      if (voidReason != null) 'void_reason': voidReason,
-      if (hsnCode != null) 'hsn_code': hsnCode,
-      if (taxRate != null) 'tax_rate': taxRate,
-      if (cgst != null) 'cgst': cgst,
-      if (sgst != null) 'sgst': sgst,
-      if (igst != null) 'igst': igst,
-      if (placeOfSupply != null) 'place_of_supply': placeOfSupply,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  InvoicesCompanion copyWith({
-    Value<String>? id,
-    Value<String>? deviceId,
-    Value<int>? createdAt,
-    Value<String>? updatedAtHlc,
-    Value<int?>? deletedAt,
-    Value<String>? orderId,
-    Value<String>? invoiceNo,
-    Value<int>? issuedAt,
-    Value<String>? frozenTotalsJson,
-    Value<int?>? voidedAt,
-    Value<String?>? voidReason,
-    Value<String?>? hsnCode,
-    Value<int?>? taxRate,
-    Value<int?>? cgst,
-    Value<int?>? sgst,
-    Value<int?>? igst,
-    Value<String?>? placeOfSupply,
-    Value<int>? rowid,
-  }) {
-    return InvoicesCompanion(
-      id: id ?? this.id,
-      deviceId: deviceId ?? this.deviceId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
-      deletedAt: deletedAt ?? this.deletedAt,
-      orderId: orderId ?? this.orderId,
-      invoiceNo: invoiceNo ?? this.invoiceNo,
-      issuedAt: issuedAt ?? this.issuedAt,
-      frozenTotalsJson: frozenTotalsJson ?? this.frozenTotalsJson,
-      voidedAt: voidedAt ?? this.voidedAt,
-      voidReason: voidReason ?? this.voidReason,
-      hsnCode: hsnCode ?? this.hsnCode,
-      taxRate: taxRate ?? this.taxRate,
-      cgst: cgst ?? this.cgst,
-      sgst: sgst ?? this.sgst,
-      igst: igst ?? this.igst,
-      placeOfSupply: placeOfSupply ?? this.placeOfSupply,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (deviceId.present) {
-      map['device_id'] = Variable<String>(deviceId.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<int>(createdAt.value);
-    }
-    if (updatedAtHlc.present) {
-      map['updated_at_hlc'] = Variable<String>(updatedAtHlc.value);
-    }
-    if (deletedAt.present) {
-      map['deleted_at'] = Variable<int>(deletedAt.value);
-    }
-    if (orderId.present) {
-      map['order_id'] = Variable<String>(orderId.value);
-    }
-    if (invoiceNo.present) {
-      map['invoice_no'] = Variable<String>(invoiceNo.value);
-    }
-    if (issuedAt.present) {
-      map['issued_at'] = Variable<int>(issuedAt.value);
-    }
-    if (frozenTotalsJson.present) {
-      map['frozen_totals_json'] = Variable<String>(frozenTotalsJson.value);
-    }
-    if (voidedAt.present) {
-      map['voided_at'] = Variable<int>(voidedAt.value);
-    }
-    if (voidReason.present) {
-      map['void_reason'] = Variable<String>(voidReason.value);
-    }
-    if (hsnCode.present) {
-      map['hsn_code'] = Variable<String>(hsnCode.value);
-    }
-    if (taxRate.present) {
-      map['tax_rate'] = Variable<int>(taxRate.value);
-    }
-    if (cgst.present) {
-      map['cgst'] = Variable<int>(cgst.value);
-    }
-    if (sgst.present) {
-      map['sgst'] = Variable<int>(sgst.value);
-    }
-    if (igst.present) {
-      map['igst'] = Variable<int>(igst.value);
-    }
-    if (placeOfSupply.present) {
-      map['place_of_supply'] = Variable<String>(placeOfSupply.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('InvoicesCompanion(')
-          ..write('id: $id, ')
-          ..write('deviceId: $deviceId, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAtHlc: $updatedAtHlc, ')
-          ..write('deletedAt: $deletedAt, ')
-          ..write('orderId: $orderId, ')
-          ..write('invoiceNo: $invoiceNo, ')
-          ..write('issuedAt: $issuedAt, ')
-          ..write('frozenTotalsJson: $frozenTotalsJson, ')
-          ..write('voidedAt: $voidedAt, ')
-          ..write('voidReason: $voidReason, ')
-          ..write('hsnCode: $hsnCode, ')
-          ..write('taxRate: $taxRate, ')
-          ..write('cgst: $cgst, ')
-          ..write('sgst: $sgst, ')
-          ..write('igst: $igst, ')
-          ..write('placeOfSupply: $placeOfSupply, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $MaterialsTable extends Materials
     with TableInfo<$MaterialsTable, RawMaterial> {
   @override
@@ -14726,17 +13764,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant('Little Loaf Bakery'),
   );
-  static const VerificationMeta _logoPathMeta = const VerificationMeta(
-    'logoPath',
-  );
-  @override
-  late final GeneratedColumn<String> logoPath = GeneratedColumn<String>(
-    'logo_path',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _addressMeta = const VerificationMeta(
     'address',
   );
@@ -14768,17 +13795,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant('LLB'),
-  );
-  static const VerificationMeta _termsLineMeta = const VerificationMeta(
-    'termsLine',
-  );
-  @override
-  late final GeneratedColumn<String> termsLine = GeneratedColumn<String>(
-    'terms_line',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
   );
   static const VerificationMeta _upiIdMeta = const VerificationMeta('upiId');
   @override
@@ -14823,30 +13839,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
-  static const VerificationMeta _gstinMeta = const VerificationMeta('gstin');
-  @override
-  late final GeneratedColumn<String> gstin = GeneratedColumn<String>(
-    'gstin',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _gstEnabledMeta = const VerificationMeta(
-    'gstEnabled',
-  );
-  @override
-  late final GeneratedColumn<bool> gstEnabled = GeneratedColumn<bool>(
-    'gst_enabled',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("gst_enabled" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   static const VerificationMeta _appLockEnabledMeta = const VerificationMeta(
     'appLockEnabled',
   );
@@ -14885,37 +13877,20 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
-  static const VerificationMeta _invoiceSeqMeta = const VerificationMeta(
-    'invoiceSeq',
-  );
-  @override
-  late final GeneratedColumn<int> invoiceSeq = GeneratedColumn<int>(
-    'invoice_seq',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     businessName,
-    logoPath,
     address,
     phone,
     invoicePrefix,
-    termsLine,
     upiId,
     paymentPhone,
     deliveryChargeLocal,
     deliveryChargeOutstation,
-    gstin,
-    gstEnabled,
     appLockEnabled,
     deviceName,
     orderSeq,
-    invoiceSeq,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14941,12 +13916,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
-    if (data.containsKey('logo_path')) {
-      context.handle(
-        _logoPathMeta,
-        logoPath.isAcceptableOrUnknown(data['logo_path']!, _logoPathMeta),
-      );
-    }
     if (data.containsKey('address')) {
       context.handle(
         _addressMeta,
@@ -14966,12 +13935,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
           data['invoice_prefix']!,
           _invoicePrefixMeta,
         ),
-      );
-    }
-    if (data.containsKey('terms_line')) {
-      context.handle(
-        _termsLineMeta,
-        termsLine.isAcceptableOrUnknown(data['terms_line']!, _termsLineMeta),
       );
     }
     if (data.containsKey('upi_id')) {
@@ -15007,18 +13970,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
-    if (data.containsKey('gstin')) {
-      context.handle(
-        _gstinMeta,
-        gstin.isAcceptableOrUnknown(data['gstin']!, _gstinMeta),
-      );
-    }
-    if (data.containsKey('gst_enabled')) {
-      context.handle(
-        _gstEnabledMeta,
-        gstEnabled.isAcceptableOrUnknown(data['gst_enabled']!, _gstEnabledMeta),
-      );
-    }
     if (data.containsKey('app_lock_enabled')) {
       context.handle(
         _appLockEnabledMeta,
@@ -15040,12 +13991,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         orderSeq.isAcceptableOrUnknown(data['order_seq']!, _orderSeqMeta),
       );
     }
-    if (data.containsKey('invoice_seq')) {
-      context.handle(
-        _invoiceSeqMeta,
-        invoiceSeq.isAcceptableOrUnknown(data['invoice_seq']!, _invoiceSeqMeta),
-      );
-    }
     return context;
   }
 
@@ -15063,10 +14008,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}business_name'],
       )!,
-      logoPath: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}logo_path'],
-      ),
       address: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}address'],
@@ -15079,10 +14020,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}invoice_prefix'],
       )!,
-      termsLine: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}terms_line'],
-      ),
       upiId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}upi_id'],
@@ -15099,14 +14036,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.int,
         data['${effectivePrefix}delivery_charge_outstation'],
       )!,
-      gstin: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}gstin'],
-      ),
-      gstEnabled: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}gst_enabled'],
-      )!,
       appLockEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}app_lock_enabled'],
@@ -15118,10 +14047,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       orderSeq: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}order_seq'],
-      )!,
-      invoiceSeq: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}invoice_seq'],
       )!,
     );
   }
@@ -15135,48 +14060,38 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
 class Setting extends DataClass implements Insertable<Setting> {
   final String id;
   final String businessName;
-  final String? logoPath;
   final String? address;
   final String? phone;
+
+  /// The **order** number's prefix, despite the name — the one thing that
+  /// outlived invoicing.
   final String invoicePrefix;
-  final String? termsLine;
   final String? upiId;
   final String? paymentPhone;
   final int deliveryChargeLocal;
   final int deliveryChargeOutstation;
-  final String? gstin;
-  final bool gstEnabled;
   final bool appLockEnabled;
   final String? deviceName;
   final int orderSeq;
-  final int invoiceSeq;
   const Setting({
     required this.id,
     required this.businessName,
-    this.logoPath,
     this.address,
     this.phone,
     required this.invoicePrefix,
-    this.termsLine,
     this.upiId,
     this.paymentPhone,
     required this.deliveryChargeLocal,
     required this.deliveryChargeOutstation,
-    this.gstin,
-    required this.gstEnabled,
     required this.appLockEnabled,
     this.deviceName,
     required this.orderSeq,
-    required this.invoiceSeq,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['business_name'] = Variable<String>(businessName);
-    if (!nullToAbsent || logoPath != null) {
-      map['logo_path'] = Variable<String>(logoPath);
-    }
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
     }
@@ -15184,9 +14099,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       map['phone'] = Variable<String>(phone);
     }
     map['invoice_prefix'] = Variable<String>(invoicePrefix);
-    if (!nullToAbsent || termsLine != null) {
-      map['terms_line'] = Variable<String>(termsLine);
-    }
     if (!nullToAbsent || upiId != null) {
       map['upi_id'] = Variable<String>(upiId);
     }
@@ -15195,16 +14107,11 @@ class Setting extends DataClass implements Insertable<Setting> {
     }
     map['delivery_charge_local'] = Variable<int>(deliveryChargeLocal);
     map['delivery_charge_outstation'] = Variable<int>(deliveryChargeOutstation);
-    if (!nullToAbsent || gstin != null) {
-      map['gstin'] = Variable<String>(gstin);
-    }
-    map['gst_enabled'] = Variable<bool>(gstEnabled);
     map['app_lock_enabled'] = Variable<bool>(appLockEnabled);
     if (!nullToAbsent || deviceName != null) {
       map['device_name'] = Variable<String>(deviceName);
     }
     map['order_seq'] = Variable<int>(orderSeq);
-    map['invoice_seq'] = Variable<int>(invoiceSeq);
     return map;
   }
 
@@ -15212,9 +14119,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     return SettingsCompanion(
       id: Value(id),
       businessName: Value(businessName),
-      logoPath: logoPath == null && nullToAbsent
-          ? const Value.absent()
-          : Value(logoPath),
       address: address == null && nullToAbsent
           ? const Value.absent()
           : Value(address),
@@ -15222,9 +14126,6 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? const Value.absent()
           : Value(phone),
       invoicePrefix: Value(invoicePrefix),
-      termsLine: termsLine == null && nullToAbsent
-          ? const Value.absent()
-          : Value(termsLine),
       upiId: upiId == null && nullToAbsent
           ? const Value.absent()
           : Value(upiId),
@@ -15233,16 +14134,11 @@ class Setting extends DataClass implements Insertable<Setting> {
           : Value(paymentPhone),
       deliveryChargeLocal: Value(deliveryChargeLocal),
       deliveryChargeOutstation: Value(deliveryChargeOutstation),
-      gstin: gstin == null && nullToAbsent
-          ? const Value.absent()
-          : Value(gstin),
-      gstEnabled: Value(gstEnabled),
       appLockEnabled: Value(appLockEnabled),
       deviceName: deviceName == null && nullToAbsent
           ? const Value.absent()
           : Value(deviceName),
       orderSeq: Value(orderSeq),
-      invoiceSeq: Value(invoiceSeq),
     );
   }
 
@@ -15254,11 +14150,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     return Setting(
       id: serializer.fromJson<String>(json['id']),
       businessName: serializer.fromJson<String>(json['businessName']),
-      logoPath: serializer.fromJson<String?>(json['logoPath']),
       address: serializer.fromJson<String?>(json['address']),
       phone: serializer.fromJson<String?>(json['phone']),
       invoicePrefix: serializer.fromJson<String>(json['invoicePrefix']),
-      termsLine: serializer.fromJson<String?>(json['termsLine']),
       upiId: serializer.fromJson<String?>(json['upiId']),
       paymentPhone: serializer.fromJson<String?>(json['paymentPhone']),
       deliveryChargeLocal: serializer.fromJson<int>(
@@ -15267,12 +14161,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       deliveryChargeOutstation: serializer.fromJson<int>(
         json['deliveryChargeOutstation'],
       ),
-      gstin: serializer.fromJson<String?>(json['gstin']),
-      gstEnabled: serializer.fromJson<bool>(json['gstEnabled']),
       appLockEnabled: serializer.fromJson<bool>(json['appLockEnabled']),
       deviceName: serializer.fromJson<String?>(json['deviceName']),
       orderSeq: serializer.fromJson<int>(json['orderSeq']),
-      invoiceSeq: serializer.fromJson<int>(json['invoiceSeq']),
     );
   }
   @override
@@ -15281,63 +14172,48 @@ class Setting extends DataClass implements Insertable<Setting> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'businessName': serializer.toJson<String>(businessName),
-      'logoPath': serializer.toJson<String?>(logoPath),
       'address': serializer.toJson<String?>(address),
       'phone': serializer.toJson<String?>(phone),
       'invoicePrefix': serializer.toJson<String>(invoicePrefix),
-      'termsLine': serializer.toJson<String?>(termsLine),
       'upiId': serializer.toJson<String?>(upiId),
       'paymentPhone': serializer.toJson<String?>(paymentPhone),
       'deliveryChargeLocal': serializer.toJson<int>(deliveryChargeLocal),
       'deliveryChargeOutstation': serializer.toJson<int>(
         deliveryChargeOutstation,
       ),
-      'gstin': serializer.toJson<String?>(gstin),
-      'gstEnabled': serializer.toJson<bool>(gstEnabled),
       'appLockEnabled': serializer.toJson<bool>(appLockEnabled),
       'deviceName': serializer.toJson<String?>(deviceName),
       'orderSeq': serializer.toJson<int>(orderSeq),
-      'invoiceSeq': serializer.toJson<int>(invoiceSeq),
     };
   }
 
   Setting copyWith({
     String? id,
     String? businessName,
-    Value<String?> logoPath = const Value.absent(),
     Value<String?> address = const Value.absent(),
     Value<String?> phone = const Value.absent(),
     String? invoicePrefix,
-    Value<String?> termsLine = const Value.absent(),
     Value<String?> upiId = const Value.absent(),
     Value<String?> paymentPhone = const Value.absent(),
     int? deliveryChargeLocal,
     int? deliveryChargeOutstation,
-    Value<String?> gstin = const Value.absent(),
-    bool? gstEnabled,
     bool? appLockEnabled,
     Value<String?> deviceName = const Value.absent(),
     int? orderSeq,
-    int? invoiceSeq,
   }) => Setting(
     id: id ?? this.id,
     businessName: businessName ?? this.businessName,
-    logoPath: logoPath.present ? logoPath.value : this.logoPath,
     address: address.present ? address.value : this.address,
     phone: phone.present ? phone.value : this.phone,
     invoicePrefix: invoicePrefix ?? this.invoicePrefix,
-    termsLine: termsLine.present ? termsLine.value : this.termsLine,
     upiId: upiId.present ? upiId.value : this.upiId,
     paymentPhone: paymentPhone.present ? paymentPhone.value : this.paymentPhone,
     deliveryChargeLocal: deliveryChargeLocal ?? this.deliveryChargeLocal,
     deliveryChargeOutstation:
         deliveryChargeOutstation ?? this.deliveryChargeOutstation,
-    gstin: gstin.present ? gstin.value : this.gstin,
-    gstEnabled: gstEnabled ?? this.gstEnabled,
     appLockEnabled: appLockEnabled ?? this.appLockEnabled,
     deviceName: deviceName.present ? deviceName.value : this.deviceName,
     orderSeq: orderSeq ?? this.orderSeq,
-    invoiceSeq: invoiceSeq ?? this.invoiceSeq,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -15345,13 +14221,11 @@ class Setting extends DataClass implements Insertable<Setting> {
       businessName: data.businessName.present
           ? data.businessName.value
           : this.businessName,
-      logoPath: data.logoPath.present ? data.logoPath.value : this.logoPath,
       address: data.address.present ? data.address.value : this.address,
       phone: data.phone.present ? data.phone.value : this.phone,
       invoicePrefix: data.invoicePrefix.present
           ? data.invoicePrefix.value
           : this.invoicePrefix,
-      termsLine: data.termsLine.present ? data.termsLine.value : this.termsLine,
       upiId: data.upiId.present ? data.upiId.value : this.upiId,
       paymentPhone: data.paymentPhone.present
           ? data.paymentPhone.value
@@ -15362,10 +14236,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       deliveryChargeOutstation: data.deliveryChargeOutstation.present
           ? data.deliveryChargeOutstation.value
           : this.deliveryChargeOutstation,
-      gstin: data.gstin.present ? data.gstin.value : this.gstin,
-      gstEnabled: data.gstEnabled.present
-          ? data.gstEnabled.value
-          : this.gstEnabled,
       appLockEnabled: data.appLockEnabled.present
           ? data.appLockEnabled.value
           : this.appLockEnabled,
@@ -15373,9 +14243,6 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.deviceName.value
           : this.deviceName,
       orderSeq: data.orderSeq.present ? data.orderSeq.value : this.orderSeq,
-      invoiceSeq: data.invoiceSeq.present
-          ? data.invoiceSeq.value
-          : this.invoiceSeq,
     );
   }
 
@@ -15384,21 +14251,16 @@ class Setting extends DataClass implements Insertable<Setting> {
     return (StringBuffer('Setting(')
           ..write('id: $id, ')
           ..write('businessName: $businessName, ')
-          ..write('logoPath: $logoPath, ')
           ..write('address: $address, ')
           ..write('phone: $phone, ')
           ..write('invoicePrefix: $invoicePrefix, ')
-          ..write('termsLine: $termsLine, ')
           ..write('upiId: $upiId, ')
           ..write('paymentPhone: $paymentPhone, ')
           ..write('deliveryChargeLocal: $deliveryChargeLocal, ')
           ..write('deliveryChargeOutstation: $deliveryChargeOutstation, ')
-          ..write('gstin: $gstin, ')
-          ..write('gstEnabled: $gstEnabled, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('deviceName: $deviceName, ')
-          ..write('orderSeq: $orderSeq, ')
-          ..write('invoiceSeq: $invoiceSeq')
+          ..write('orderSeq: $orderSeq')
           ..write(')'))
         .toString();
   }
@@ -15407,21 +14269,16 @@ class Setting extends DataClass implements Insertable<Setting> {
   int get hashCode => Object.hash(
     id,
     businessName,
-    logoPath,
     address,
     phone,
     invoicePrefix,
-    termsLine,
     upiId,
     paymentPhone,
     deliveryChargeLocal,
     deliveryChargeOutstation,
-    gstin,
-    gstEnabled,
     appLockEnabled,
     deviceName,
     orderSeq,
-    invoiceSeq,
   );
   @override
   bool operator ==(Object other) =>
@@ -15429,122 +14286,92 @@ class Setting extends DataClass implements Insertable<Setting> {
       (other is Setting &&
           other.id == this.id &&
           other.businessName == this.businessName &&
-          other.logoPath == this.logoPath &&
           other.address == this.address &&
           other.phone == this.phone &&
           other.invoicePrefix == this.invoicePrefix &&
-          other.termsLine == this.termsLine &&
           other.upiId == this.upiId &&
           other.paymentPhone == this.paymentPhone &&
           other.deliveryChargeLocal == this.deliveryChargeLocal &&
           other.deliveryChargeOutstation == this.deliveryChargeOutstation &&
-          other.gstin == this.gstin &&
-          other.gstEnabled == this.gstEnabled &&
           other.appLockEnabled == this.appLockEnabled &&
           other.deviceName == this.deviceName &&
-          other.orderSeq == this.orderSeq &&
-          other.invoiceSeq == this.invoiceSeq);
+          other.orderSeq == this.orderSeq);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String> id;
   final Value<String> businessName;
-  final Value<String?> logoPath;
   final Value<String?> address;
   final Value<String?> phone;
   final Value<String> invoicePrefix;
-  final Value<String?> termsLine;
   final Value<String?> upiId;
   final Value<String?> paymentPhone;
   final Value<int> deliveryChargeLocal;
   final Value<int> deliveryChargeOutstation;
-  final Value<String?> gstin;
-  final Value<bool> gstEnabled;
   final Value<bool> appLockEnabled;
   final Value<String?> deviceName;
   final Value<int> orderSeq;
-  final Value<int> invoiceSeq;
   final Value<int> rowid;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.businessName = const Value.absent(),
-    this.logoPath = const Value.absent(),
     this.address = const Value.absent(),
     this.phone = const Value.absent(),
     this.invoicePrefix = const Value.absent(),
-    this.termsLine = const Value.absent(),
     this.upiId = const Value.absent(),
     this.paymentPhone = const Value.absent(),
     this.deliveryChargeLocal = const Value.absent(),
     this.deliveryChargeOutstation = const Value.absent(),
-    this.gstin = const Value.absent(),
-    this.gstEnabled = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.deviceName = const Value.absent(),
     this.orderSeq = const Value.absent(),
-    this.invoiceSeq = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
     this.businessName = const Value.absent(),
-    this.logoPath = const Value.absent(),
     this.address = const Value.absent(),
     this.phone = const Value.absent(),
     this.invoicePrefix = const Value.absent(),
-    this.termsLine = const Value.absent(),
     this.upiId = const Value.absent(),
     this.paymentPhone = const Value.absent(),
     this.deliveryChargeLocal = const Value.absent(),
     this.deliveryChargeOutstation = const Value.absent(),
-    this.gstin = const Value.absent(),
-    this.gstEnabled = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.deviceName = const Value.absent(),
     this.orderSeq = const Value.absent(),
-    this.invoiceSeq = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<String>? id,
     Expression<String>? businessName,
-    Expression<String>? logoPath,
     Expression<String>? address,
     Expression<String>? phone,
     Expression<String>? invoicePrefix,
-    Expression<String>? termsLine,
     Expression<String>? upiId,
     Expression<String>? paymentPhone,
     Expression<int>? deliveryChargeLocal,
     Expression<int>? deliveryChargeOutstation,
-    Expression<String>? gstin,
-    Expression<bool>? gstEnabled,
     Expression<bool>? appLockEnabled,
     Expression<String>? deviceName,
     Expression<int>? orderSeq,
-    Expression<int>? invoiceSeq,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (businessName != null) 'business_name': businessName,
-      if (logoPath != null) 'logo_path': logoPath,
       if (address != null) 'address': address,
       if (phone != null) 'phone': phone,
       if (invoicePrefix != null) 'invoice_prefix': invoicePrefix,
-      if (termsLine != null) 'terms_line': termsLine,
       if (upiId != null) 'upi_id': upiId,
       if (paymentPhone != null) 'payment_phone': paymentPhone,
       if (deliveryChargeLocal != null)
         'delivery_charge_local': deliveryChargeLocal,
       if (deliveryChargeOutstation != null)
         'delivery_charge_outstation': deliveryChargeOutstation,
-      if (gstin != null) 'gstin': gstin,
-      if (gstEnabled != null) 'gst_enabled': gstEnabled,
       if (appLockEnabled != null) 'app_lock_enabled': appLockEnabled,
       if (deviceName != null) 'device_name': deviceName,
       if (orderSeq != null) 'order_seq': orderSeq,
-      if (invoiceSeq != null) 'invoice_seq': invoiceSeq,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -15552,42 +14379,32 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   SettingsCompanion copyWith({
     Value<String>? id,
     Value<String>? businessName,
-    Value<String?>? logoPath,
     Value<String?>? address,
     Value<String?>? phone,
     Value<String>? invoicePrefix,
-    Value<String?>? termsLine,
     Value<String?>? upiId,
     Value<String?>? paymentPhone,
     Value<int>? deliveryChargeLocal,
     Value<int>? deliveryChargeOutstation,
-    Value<String?>? gstin,
-    Value<bool>? gstEnabled,
     Value<bool>? appLockEnabled,
     Value<String?>? deviceName,
     Value<int>? orderSeq,
-    Value<int>? invoiceSeq,
     Value<int>? rowid,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
       businessName: businessName ?? this.businessName,
-      logoPath: logoPath ?? this.logoPath,
       address: address ?? this.address,
       phone: phone ?? this.phone,
       invoicePrefix: invoicePrefix ?? this.invoicePrefix,
-      termsLine: termsLine ?? this.termsLine,
       upiId: upiId ?? this.upiId,
       paymentPhone: paymentPhone ?? this.paymentPhone,
       deliveryChargeLocal: deliveryChargeLocal ?? this.deliveryChargeLocal,
       deliveryChargeOutstation:
           deliveryChargeOutstation ?? this.deliveryChargeOutstation,
-      gstin: gstin ?? this.gstin,
-      gstEnabled: gstEnabled ?? this.gstEnabled,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       deviceName: deviceName ?? this.deviceName,
       orderSeq: orderSeq ?? this.orderSeq,
-      invoiceSeq: invoiceSeq ?? this.invoiceSeq,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -15601,9 +14418,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (businessName.present) {
       map['business_name'] = Variable<String>(businessName.value);
     }
-    if (logoPath.present) {
-      map['logo_path'] = Variable<String>(logoPath.value);
-    }
     if (address.present) {
       map['address'] = Variable<String>(address.value);
     }
@@ -15612,9 +14426,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     }
     if (invoicePrefix.present) {
       map['invoice_prefix'] = Variable<String>(invoicePrefix.value);
-    }
-    if (termsLine.present) {
-      map['terms_line'] = Variable<String>(termsLine.value);
     }
     if (upiId.present) {
       map['upi_id'] = Variable<String>(upiId.value);
@@ -15630,12 +14441,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
         deliveryChargeOutstation.value,
       );
     }
-    if (gstin.present) {
-      map['gstin'] = Variable<String>(gstin.value);
-    }
-    if (gstEnabled.present) {
-      map['gst_enabled'] = Variable<bool>(gstEnabled.value);
-    }
     if (appLockEnabled.present) {
       map['app_lock_enabled'] = Variable<bool>(appLockEnabled.value);
     }
@@ -15644,9 +14449,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     }
     if (orderSeq.present) {
       map['order_seq'] = Variable<int>(orderSeq.value);
-    }
-    if (invoiceSeq.present) {
-      map['invoice_seq'] = Variable<int>(invoiceSeq.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -15659,21 +14461,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     return (StringBuffer('SettingsCompanion(')
           ..write('id: $id, ')
           ..write('businessName: $businessName, ')
-          ..write('logoPath: $logoPath, ')
           ..write('address: $address, ')
           ..write('phone: $phone, ')
           ..write('invoicePrefix: $invoicePrefix, ')
-          ..write('termsLine: $termsLine, ')
           ..write('upiId: $upiId, ')
           ..write('paymentPhone: $paymentPhone, ')
           ..write('deliveryChargeLocal: $deliveryChargeLocal, ')
           ..write('deliveryChargeOutstation: $deliveryChargeOutstation, ')
-          ..write('gstin: $gstin, ')
-          ..write('gstEnabled: $gstEnabled, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('deviceName: $deviceName, ')
           ..write('orderSeq: $orderSeq, ')
-          ..write('invoiceSeq: $invoiceSeq, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -15699,7 +14496,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $OrderStatusEventsTable(this);
   late final $AttachmentsTable attachments = $AttachmentsTable(this);
   late final $PaymentsTable payments = $PaymentsTable(this);
-  late final $InvoicesTable invoices = $InvoicesTable(this);
   late final $MaterialsTable materials = $MaterialsTable(this);
   late final $StockTransactionsTable stockTransactions =
       $StockTransactionsTable(this);
@@ -15726,7 +14522,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     orderStatusEvents,
     attachments,
     payments,
-    invoices,
     materials,
     stockTransactions,
     shareLog,
@@ -17421,25 +16216,6 @@ final class $$OrdersTableReferences
     );
   }
 
-  static MultiTypedResultKey<$InvoicesTable, List<Invoice>> _invoicesRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.invoices,
-    aliasName: 'orders__id__invoices__order_id',
-  );
-
-  $$InvoicesTableProcessedTableManager get invoicesRefs {
-    final manager = $$InvoicesTableTableManager(
-      $_db,
-      $_db.invoices,
-    ).filter((f) => f.orderId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_invoicesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
   static MultiTypedResultKey<$ShareLogTable, List<ShareLogData>>
   _shareLogRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.shareLog,
@@ -17767,31 +16543,6 @@ class $$OrdersTableFilterComposer
           }) => $$PaymentsTableFilterComposer(
             $db: $db,
             $table: $db.payments,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> invoicesRefs(
-    Expression<bool> Function($$InvoicesTableFilterComposer f) f,
-  ) {
-    final $$InvoicesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.invoices,
-      getReferencedColumn: (t) => t.orderId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$InvoicesTableFilterComposer(
-            $db: $db,
-            $table: $db.invoices,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18316,31 +17067,6 @@ class $$OrdersTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> invoicesRefs<T extends Object>(
-    Expression<T> Function($$InvoicesTableAnnotationComposer a) f,
-  ) {
-    final $$InvoicesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.invoices,
-      getReferencedColumn: (t) => t.orderId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$InvoicesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.invoices,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
   Expression<T> shareLogRefs<T extends Object>(
     Expression<T> Function($$ShareLogTableAnnotationComposer a) f,
   ) {
@@ -18387,7 +17113,6 @@ class $$OrdersTableTableManager
             bool orderStatusEventsRefs,
             bool attachmentsRefs,
             bool paymentsRefs,
-            bool invoicesRefs,
             bool shareLogRefs,
           })
         > {
@@ -18560,7 +17285,6 @@ class $$OrdersTableTableManager
                 orderStatusEventsRefs = false,
                 attachmentsRefs = false,
                 paymentsRefs = false,
-                invoicesRefs = false,
                 shareLogRefs = false,
               }) {
                 return PrefetchHooks(
@@ -18571,7 +17295,6 @@ class $$OrdersTableTableManager
                     if (orderStatusEventsRefs) db.orderStatusEvents,
                     if (attachmentsRefs) db.attachments,
                     if (paymentsRefs) db.payments,
-                    if (invoicesRefs) db.invoices,
                     if (shareLogRefs) db.shareLog,
                   ],
                   addJoins:
@@ -18709,23 +17432,6 @@ class $$OrdersTableTableManager
                               ),
                           typedResults: items,
                         ),
-                      if (invoicesRefs)
-                        await $_getPrefetchedData<Order, $OrdersTable, Invoice>(
-                          currentTable: table,
-                          referencedTable: $$OrdersTableReferences
-                              ._invoicesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$OrdersTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).invoicesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.orderId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                       if (shareLogRefs)
                         await $_getPrefetchedData<
                           Order,
@@ -18774,7 +17480,6 @@ typedef $$OrdersTableProcessedTableManager =
         bool orderStatusEventsRefs,
         bool attachmentsRefs,
         bool paymentsRefs,
-        bool invoicesRefs,
         bool shareLogRefs,
       })
     >;
@@ -22595,559 +21300,6 @@ typedef $$PaymentsTableProcessedTableManager =
       Payment,
       PrefetchHooks Function({bool orderId})
     >;
-typedef $$InvoicesTableCreateCompanionBuilder =
-    InvoicesCompanion Function({
-      required String id,
-      required String deviceId,
-      required int createdAt,
-      required String updatedAtHlc,
-      Value<int?> deletedAt,
-      required String orderId,
-      required String invoiceNo,
-      required int issuedAt,
-      required String frozenTotalsJson,
-      Value<int?> voidedAt,
-      Value<String?> voidReason,
-      Value<String?> hsnCode,
-      Value<int?> taxRate,
-      Value<int?> cgst,
-      Value<int?> sgst,
-      Value<int?> igst,
-      Value<String?> placeOfSupply,
-      Value<int> rowid,
-    });
-typedef $$InvoicesTableUpdateCompanionBuilder =
-    InvoicesCompanion Function({
-      Value<String> id,
-      Value<String> deviceId,
-      Value<int> createdAt,
-      Value<String> updatedAtHlc,
-      Value<int?> deletedAt,
-      Value<String> orderId,
-      Value<String> invoiceNo,
-      Value<int> issuedAt,
-      Value<String> frozenTotalsJson,
-      Value<int?> voidedAt,
-      Value<String?> voidReason,
-      Value<String?> hsnCode,
-      Value<int?> taxRate,
-      Value<int?> cgst,
-      Value<int?> sgst,
-      Value<int?> igst,
-      Value<String?> placeOfSupply,
-      Value<int> rowid,
-    });
-
-final class $$InvoicesTableReferences
-    extends BaseReferences<_$AppDatabase, $InvoicesTable, Invoice> {
-  $$InvoicesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $OrdersTable _orderIdTable(_$AppDatabase db) =>
-      db.orders.createAlias('invoices__order_id__orders__id');
-
-  $$OrdersTableProcessedTableManager get orderId {
-    final $_column = $_itemColumn<String>('order_id')!;
-
-    final manager = $$OrdersTableTableManager(
-      $_db,
-      $_db.orders,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_orderIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$InvoicesTableFilterComposer
-    extends Composer<_$AppDatabase, $InvoicesTable> {
-  $$InvoicesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get updatedAtHlc => $composableBuilder(
-    column: $table.updatedAtHlc,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get deletedAt => $composableBuilder(
-    column: $table.deletedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get invoiceNo => $composableBuilder(
-    column: $table.invoiceNo,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get issuedAt => $composableBuilder(
-    column: $table.issuedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get frozenTotalsJson => $composableBuilder(
-    column: $table.frozenTotalsJson,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get voidedAt => $composableBuilder(
-    column: $table.voidedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get voidReason => $composableBuilder(
-    column: $table.voidReason,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get hsnCode => $composableBuilder(
-    column: $table.hsnCode,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get taxRate => $composableBuilder(
-    column: $table.taxRate,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get cgst => $composableBuilder(
-    column: $table.cgst,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get sgst => $composableBuilder(
-    column: $table.sgst,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get igst => $composableBuilder(
-    column: $table.igst,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get placeOfSupply => $composableBuilder(
-    column: $table.placeOfSupply,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$OrdersTableFilterComposer get orderId {
-    final $$OrdersTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.orderId,
-      referencedTable: $db.orders,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$OrdersTableFilterComposer(
-            $db: $db,
-            $table: $db.orders,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$InvoicesTableOrderingComposer
-    extends Composer<_$AppDatabase, $InvoicesTable> {
-  $$InvoicesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get updatedAtHlc => $composableBuilder(
-    column: $table.updatedAtHlc,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get deletedAt => $composableBuilder(
-    column: $table.deletedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get invoiceNo => $composableBuilder(
-    column: $table.invoiceNo,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get issuedAt => $composableBuilder(
-    column: $table.issuedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get frozenTotalsJson => $composableBuilder(
-    column: $table.frozenTotalsJson,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get voidedAt => $composableBuilder(
-    column: $table.voidedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get voidReason => $composableBuilder(
-    column: $table.voidReason,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get hsnCode => $composableBuilder(
-    column: $table.hsnCode,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get taxRate => $composableBuilder(
-    column: $table.taxRate,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get cgst => $composableBuilder(
-    column: $table.cgst,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get sgst => $composableBuilder(
-    column: $table.sgst,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get igst => $composableBuilder(
-    column: $table.igst,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get placeOfSupply => $composableBuilder(
-    column: $table.placeOfSupply,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$OrdersTableOrderingComposer get orderId {
-    final $$OrdersTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.orderId,
-      referencedTable: $db.orders,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$OrdersTableOrderingComposer(
-            $db: $db,
-            $table: $db.orders,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$InvoicesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $InvoicesTable> {
-  $$InvoicesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get deviceId =>
-      $composableBuilder(column: $table.deviceId, builder: (column) => column);
-
-  GeneratedColumn<int> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<String> get updatedAtHlc => $composableBuilder(
-    column: $table.updatedAtHlc,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get deletedAt =>
-      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get invoiceNo =>
-      $composableBuilder(column: $table.invoiceNo, builder: (column) => column);
-
-  GeneratedColumn<int> get issuedAt =>
-      $composableBuilder(column: $table.issuedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get frozenTotalsJson => $composableBuilder(
-    column: $table.frozenTotalsJson,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get voidedAt =>
-      $composableBuilder(column: $table.voidedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get voidReason => $composableBuilder(
-    column: $table.voidReason,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get hsnCode =>
-      $composableBuilder(column: $table.hsnCode, builder: (column) => column);
-
-  GeneratedColumn<int> get taxRate =>
-      $composableBuilder(column: $table.taxRate, builder: (column) => column);
-
-  GeneratedColumn<int> get cgst =>
-      $composableBuilder(column: $table.cgst, builder: (column) => column);
-
-  GeneratedColumn<int> get sgst =>
-      $composableBuilder(column: $table.sgst, builder: (column) => column);
-
-  GeneratedColumn<int> get igst =>
-      $composableBuilder(column: $table.igst, builder: (column) => column);
-
-  GeneratedColumn<String> get placeOfSupply => $composableBuilder(
-    column: $table.placeOfSupply,
-    builder: (column) => column,
-  );
-
-  $$OrdersTableAnnotationComposer get orderId {
-    final $$OrdersTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.orderId,
-      referencedTable: $db.orders,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$OrdersTableAnnotationComposer(
-            $db: $db,
-            $table: $db.orders,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$InvoicesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $InvoicesTable,
-          Invoice,
-          $$InvoicesTableFilterComposer,
-          $$InvoicesTableOrderingComposer,
-          $$InvoicesTableAnnotationComposer,
-          $$InvoicesTableCreateCompanionBuilder,
-          $$InvoicesTableUpdateCompanionBuilder,
-          (Invoice, $$InvoicesTableReferences),
-          Invoice,
-          PrefetchHooks Function({bool orderId})
-        > {
-  $$InvoicesTableTableManager(_$AppDatabase db, $InvoicesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$InvoicesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$InvoicesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$InvoicesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> deviceId = const Value.absent(),
-                Value<int> createdAt = const Value.absent(),
-                Value<String> updatedAtHlc = const Value.absent(),
-                Value<int?> deletedAt = const Value.absent(),
-                Value<String> orderId = const Value.absent(),
-                Value<String> invoiceNo = const Value.absent(),
-                Value<int> issuedAt = const Value.absent(),
-                Value<String> frozenTotalsJson = const Value.absent(),
-                Value<int?> voidedAt = const Value.absent(),
-                Value<String?> voidReason = const Value.absent(),
-                Value<String?> hsnCode = const Value.absent(),
-                Value<int?> taxRate = const Value.absent(),
-                Value<int?> cgst = const Value.absent(),
-                Value<int?> sgst = const Value.absent(),
-                Value<int?> igst = const Value.absent(),
-                Value<String?> placeOfSupply = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => InvoicesCompanion(
-                id: id,
-                deviceId: deviceId,
-                createdAt: createdAt,
-                updatedAtHlc: updatedAtHlc,
-                deletedAt: deletedAt,
-                orderId: orderId,
-                invoiceNo: invoiceNo,
-                issuedAt: issuedAt,
-                frozenTotalsJson: frozenTotalsJson,
-                voidedAt: voidedAt,
-                voidReason: voidReason,
-                hsnCode: hsnCode,
-                taxRate: taxRate,
-                cgst: cgst,
-                sgst: sgst,
-                igst: igst,
-                placeOfSupply: placeOfSupply,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String deviceId,
-                required int createdAt,
-                required String updatedAtHlc,
-                Value<int?> deletedAt = const Value.absent(),
-                required String orderId,
-                required String invoiceNo,
-                required int issuedAt,
-                required String frozenTotalsJson,
-                Value<int?> voidedAt = const Value.absent(),
-                Value<String?> voidReason = const Value.absent(),
-                Value<String?> hsnCode = const Value.absent(),
-                Value<int?> taxRate = const Value.absent(),
-                Value<int?> cgst = const Value.absent(),
-                Value<int?> sgst = const Value.absent(),
-                Value<int?> igst = const Value.absent(),
-                Value<String?> placeOfSupply = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => InvoicesCompanion.insert(
-                id: id,
-                deviceId: deviceId,
-                createdAt: createdAt,
-                updatedAtHlc: updatedAtHlc,
-                deletedAt: deletedAt,
-                orderId: orderId,
-                invoiceNo: invoiceNo,
-                issuedAt: issuedAt,
-                frozenTotalsJson: frozenTotalsJson,
-                voidedAt: voidedAt,
-                voidReason: voidReason,
-                hsnCode: hsnCode,
-                taxRate: taxRate,
-                cgst: cgst,
-                sgst: sgst,
-                igst: igst,
-                placeOfSupply: placeOfSupply,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$InvoicesTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({orderId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (orderId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.orderId,
-                                referencedTable: $$InvoicesTableReferences
-                                    ._orderIdTable(db),
-                                referencedColumn: $$InvoicesTableReferences
-                                    ._orderIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$InvoicesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $InvoicesTable,
-      Invoice,
-      $$InvoicesTableFilterComposer,
-      $$InvoicesTableOrderingComposer,
-      $$InvoicesTableAnnotationComposer,
-      $$InvoicesTableCreateCompanionBuilder,
-      $$InvoicesTableUpdateCompanionBuilder,
-      (Invoice, $$InvoicesTableReferences),
-      Invoice,
-      PrefetchHooks Function({bool orderId})
-    >;
 typedef $$MaterialsTableCreateCompanionBuilder =
     MaterialsCompanion Function({
       required String id,
@@ -25660,42 +23812,32 @@ typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       Value<String> id,
       Value<String> businessName,
-      Value<String?> logoPath,
       Value<String?> address,
       Value<String?> phone,
       Value<String> invoicePrefix,
-      Value<String?> termsLine,
       Value<String?> upiId,
       Value<String?> paymentPhone,
       Value<int> deliveryChargeLocal,
       Value<int> deliveryChargeOutstation,
-      Value<String?> gstin,
-      Value<bool> gstEnabled,
       Value<bool> appLockEnabled,
       Value<String?> deviceName,
       Value<int> orderSeq,
-      Value<int> invoiceSeq,
       Value<int> rowid,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<String> id,
       Value<String> businessName,
-      Value<String?> logoPath,
       Value<String?> address,
       Value<String?> phone,
       Value<String> invoicePrefix,
-      Value<String?> termsLine,
       Value<String?> upiId,
       Value<String?> paymentPhone,
       Value<int> deliveryChargeLocal,
       Value<int> deliveryChargeOutstation,
-      Value<String?> gstin,
-      Value<bool> gstEnabled,
       Value<bool> appLockEnabled,
       Value<String?> deviceName,
       Value<int> orderSeq,
-      Value<int> invoiceSeq,
       Value<int> rowid,
     });
 
@@ -25718,11 +23860,6 @@ class $$SettingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get logoPath => $composableBuilder(
-    column: $table.logoPath,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get address => $composableBuilder(
     column: $table.address,
     builder: (column) => ColumnFilters(column),
@@ -25735,11 +23872,6 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get invoicePrefix => $composableBuilder(
     column: $table.invoicePrefix,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get termsLine => $composableBuilder(
-    column: $table.termsLine,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -25763,16 +23895,6 @@ class $$SettingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get gstin => $composableBuilder(
-    column: $table.gstin,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get gstEnabled => $composableBuilder(
-    column: $table.gstEnabled,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<bool> get appLockEnabled => $composableBuilder(
     column: $table.appLockEnabled,
     builder: (column) => ColumnFilters(column),
@@ -25785,11 +23907,6 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get orderSeq => $composableBuilder(
     column: $table.orderSeq,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get invoiceSeq => $composableBuilder(
-    column: $table.invoiceSeq,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -25813,11 +23930,6 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get logoPath => $composableBuilder(
-    column: $table.logoPath,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get address => $composableBuilder(
     column: $table.address,
     builder: (column) => ColumnOrderings(column),
@@ -25830,11 +23942,6 @@ class $$SettingsTableOrderingComposer
 
   ColumnOrderings<String> get invoicePrefix => $composableBuilder(
     column: $table.invoicePrefix,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get termsLine => $composableBuilder(
-    column: $table.termsLine,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -25858,16 +23965,6 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get gstin => $composableBuilder(
-    column: $table.gstin,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get gstEnabled => $composableBuilder(
-    column: $table.gstEnabled,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get appLockEnabled => $composableBuilder(
     column: $table.appLockEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -25880,11 +23977,6 @@ class $$SettingsTableOrderingComposer
 
   ColumnOrderings<int> get orderSeq => $composableBuilder(
     column: $table.orderSeq,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get invoiceSeq => $composableBuilder(
-    column: $table.invoiceSeq,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -25906,9 +23998,6 @@ class $$SettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get logoPath =>
-      $composableBuilder(column: $table.logoPath, builder: (column) => column);
-
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
 
@@ -25919,9 +24008,6 @@ class $$SettingsTableAnnotationComposer
     column: $table.invoicePrefix,
     builder: (column) => column,
   );
-
-  GeneratedColumn<String> get termsLine =>
-      $composableBuilder(column: $table.termsLine, builder: (column) => column);
 
   GeneratedColumn<String> get upiId =>
       $composableBuilder(column: $table.upiId, builder: (column) => column);
@@ -25941,14 +24027,6 @@ class $$SettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get gstin =>
-      $composableBuilder(column: $table.gstin, builder: (column) => column);
-
-  GeneratedColumn<bool> get gstEnabled => $composableBuilder(
-    column: $table.gstEnabled,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<bool> get appLockEnabled => $composableBuilder(
     column: $table.appLockEnabled,
     builder: (column) => column,
@@ -25961,11 +24039,6 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<int> get orderSeq =>
       $composableBuilder(column: $table.orderSeq, builder: (column) => column);
-
-  GeneratedColumn<int> get invoiceSeq => $composableBuilder(
-    column: $table.invoiceSeq,
-    builder: (column) => column,
-  );
 }
 
 class $$SettingsTableTableManager
@@ -25998,80 +24071,60 @@ class $$SettingsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> businessName = const Value.absent(),
-                Value<String?> logoPath = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String> invoicePrefix = const Value.absent(),
-                Value<String?> termsLine = const Value.absent(),
                 Value<String?> upiId = const Value.absent(),
                 Value<String?> paymentPhone = const Value.absent(),
                 Value<int> deliveryChargeLocal = const Value.absent(),
                 Value<int> deliveryChargeOutstation = const Value.absent(),
-                Value<String?> gstin = const Value.absent(),
-                Value<bool> gstEnabled = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<String?> deviceName = const Value.absent(),
                 Value<int> orderSeq = const Value.absent(),
-                Value<int> invoiceSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 businessName: businessName,
-                logoPath: logoPath,
                 address: address,
                 phone: phone,
                 invoicePrefix: invoicePrefix,
-                termsLine: termsLine,
                 upiId: upiId,
                 paymentPhone: paymentPhone,
                 deliveryChargeLocal: deliveryChargeLocal,
                 deliveryChargeOutstation: deliveryChargeOutstation,
-                gstin: gstin,
-                gstEnabled: gstEnabled,
                 appLockEnabled: appLockEnabled,
                 deviceName: deviceName,
                 orderSeq: orderSeq,
-                invoiceSeq: invoiceSeq,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> businessName = const Value.absent(),
-                Value<String?> logoPath = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String> invoicePrefix = const Value.absent(),
-                Value<String?> termsLine = const Value.absent(),
                 Value<String?> upiId = const Value.absent(),
                 Value<String?> paymentPhone = const Value.absent(),
                 Value<int> deliveryChargeLocal = const Value.absent(),
                 Value<int> deliveryChargeOutstation = const Value.absent(),
-                Value<String?> gstin = const Value.absent(),
-                Value<bool> gstEnabled = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<String?> deviceName = const Value.absent(),
                 Value<int> orderSeq = const Value.absent(),
-                Value<int> invoiceSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 businessName: businessName,
-                logoPath: logoPath,
                 address: address,
                 phone: phone,
                 invoicePrefix: invoicePrefix,
-                termsLine: termsLine,
                 upiId: upiId,
                 paymentPhone: paymentPhone,
                 deliveryChargeLocal: deliveryChargeLocal,
                 deliveryChargeOutstation: deliveryChargeOutstation,
-                gstin: gstin,
-                gstEnabled: gstEnabled,
                 appLockEnabled: appLockEnabled,
                 deviceName: deviceName,
                 orderSeq: orderSeq,
-                invoiceSeq: invoiceSeq,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -26122,8 +24175,6 @@ class $AppDatabaseManager {
       $$AttachmentsTableTableManager(_db, _db.attachments);
   $$PaymentsTableTableManager get payments =>
       $$PaymentsTableTableManager(_db, _db.payments);
-  $$InvoicesTableTableManager get invoices =>
-      $$InvoicesTableTableManager(_db, _db.invoices);
   $$MaterialsTableTableManager get materials =>
       $$MaterialsTableTableManager(_db, _db.materials);
   $$StockTransactionsTableTableManager get stockTransactions =>

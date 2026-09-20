@@ -3,10 +3,10 @@
 **No tables, and — as built — no views either.** Reporting writes nothing, ever.
 
 > **The views below were not built.** The single definition of a total is `OrderTotals` in
-> `lib/domain/orders/model.dart`, and every screen, the invoice and every report read it. A
+> `lib/domain/orders/model.dart`, and every screen and every report reads it. A
 > SQL copy would be a *second* definition, and the two would drift the first time a rule
 > changed: a cancelled item leaving the total, credit, a percentage discount resolved at
-> invoice. At a bakery's volumes computing in Dart costs nothing; two definitions would cost a
+> delivery. At a bakery's volumes computing in Dart costs nothing; two definitions would cost a
 > report that disagrees with the order screen.
 >
 > The SQL here is kept because it states the **shape** of each answer precisely, which is
@@ -104,7 +104,7 @@ where the notch lands hard at the right edge (D18).
 ## Rules that hold across every report
 
 - **Revenue counts `completed` orders only.** Delivered-but-unpaid is outstanding, not revenue.
-- **Voided invoices are excluded** from revenue and listed separately.
+- Invoicing was removed (D30), so nothing un-counts a delivered sale any more.
 - **Group by `menu_item_id`, never by name** — renaming an item must not split its history.
 - **Price-over-time groups by weight as well** — on `weight_value` *and* `weight_unit`,
   since weight is a number plus a unit rather than a string — because a 1 kg and a 2 kg cake are different

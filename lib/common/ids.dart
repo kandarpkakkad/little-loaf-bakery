@@ -88,20 +88,3 @@ String hash4(String uuid) {
 /// `LLB-0148-K7QP` — prefix, this device's sequence, hash of the order's UUID.
 String orderNumber({required String prefix, required int seq, required String uuid}) =>
     '$prefix-${seq.toString().padLeft(4, '0')}-${hash4(uuid)}';
-
-/// `LLB/26-27/0148-K7QP` — the same shape, with the Indian financial year.
-String invoiceNumber({
-  required String prefix,
-  required int seq,
-  required String uuid,
-  required DateTime issuedAt,
-}) =>
-    '$prefix/${financialYear(issuedAt)}/${seq.toString().padLeft(4, '0')}-${hash4(uuid)}';
-
-/// Indian financial year: April to March. 29 Aug 2026 → `26-27`.
-String financialYear(DateTime d) {
-  final startYear = d.month >= 4 ? d.year : d.year - 1;
-  final a = (startYear % 100).toString().padLeft(2, '0');
-  final b = ((startYear + 1) % 100).toString().padLeft(2, '0');
-  return '$a-$b';
-}

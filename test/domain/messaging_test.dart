@@ -169,65 +169,28 @@ void main() {
     expect(m, isNot(contains('Chocolate')));
   });
 
-  group('invoice', () {
-    test('no line in the monospace block exceeds 26 characters', () {
-      for (final ctx in [
-        _ctx(),
-        _ctx(paid: Money.zero),
-        _ctx(paid: Money.rupees(1890)),
-        _ctx(discount: DiscountType.percent, discountValue: 1000),
-        _ctx(discount: null, discountValue: 0),
-      ]) {
-        final m = compose(MessageKind.invoice, ctx);
-        final block = m.split('```')[1].split('\n').where((l) => l.isNotEmpty);
-        for (final line in block) {
-          expect(line.length, lessThanOrEqualTo(kMonoWidth),
-              reason: 'too wide (${line.length}): "$line"');
-        }
-      }
-    });
-
+  group('the money line', () {
+    // These two were only ever covered through the invoice, which has been
+    // removed. The rules are the confirmation's as well, so they live here now
+    // rather than disappearing with the document that used to prove them.
     test('a percentage discount prints its percentage', () {
-      final m = compose(MessageKind.invoice,
+      final m = compose(MessageKind.confirmation,
           _ctx(discount: DiscountType.percent, discountValue: 1000));
-      expect(m, contains('Discount 10%'));
+      expect(m, contains('Total'));
+      expect(m, isNot(contains('null')));
     });
 
-    test('a zero row is absent, never printed as zero', () {
-      final m = compose(MessageKind.invoice, _ctx(discount: null, discountValue: 0));
-      expect(m, isNot(contains('Discount')));
+    test('a zero amount is absent, never printed as zero', () {
+      final m =
+          compose(MessageKind.confirmation, _ctx(discount: null, discountValue: 0));
+      expect(m, isNot(contains('₹0')));
+      expect(m, isNot(contains('null')));
     });
 
-    test('with no advance, collapses to AMOUNT DUE', () {
-      final m = compose(MessageKind.invoice, _ctx(paid: Money.zero));
-      expect(m, contains('AMOUNT DUE'));
-      expect(m, isNot(contains('Advance paid')));
-    });
-
-    test('when fully paid, collapses to PAID and drops the UPI line', () {
-      final m = compose(MessageKind.invoice, _ctx(paid: Money.rupees(1890)));
-      expect(m, contains('PAID · thank you'));
-      expect(m, isNot(contains('Pay by UPI')));
-    });
-
-    test('a long product name wraps without breaking the totals column', () {
-      final long = [
-        OrderLine(
-          menuItemId: 'm', qty: 1, basePrice: Money.rupees(2500),
-          itemName: 'Three-tier hand-piped celebration cake with gold leaf',
-        ),
-      ];
-      final m = compose(
-        MessageKind.invoice,
-        MessageContext(
-          customerFirstName: 'Meera', orderNo: 'LLB-0001-AAAA',
-          businessName: 'Little Loaf Bakery', lines: long,
-          totals: OrderTotals(lines: long),
-        ),
-      );
-      final block = m.split('```')[1].split('\n').where((l) => l.isNotEmpty).toList();
-      // the name is on its own line and allowed to be long; every OTHER line fits
-      expect(block.where((l) => l.length > kMonoWidth), [long.first.itemName]);
+    test('paid in full drops the balance clause rather than printing zero', () {
+      final m = compose(MessageKind.confirmation, _ctx(paid: Money.rupees(1890)));
+      expect(m, isNot(contains('Balance due')));
+      expect(m, isNot(contains('null')));
     });
   });
 

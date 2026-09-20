@@ -24,7 +24,7 @@ customer opening it wants the link, not a restatement of what they ordered.
 `share_log`.
 
 ## Depends on
-orders, payments, invoicing (for the bill text), config (UPI details, phone).
+orders, payments, config (UPI details, phone).
 
 ## Key decisions
 - **No attachments anywhere** (D12). A `wa.me` deep link can pre-select the chat but cannot
@@ -43,7 +43,7 @@ orders, payments, invoicing (for the bill text), config (UPI details, phone).
 |---|---|
 | WhatsApp not installed | Generic Android share sheet with the same text |
 | Number not valid E.164 | Blocked at customer entry, not at send — `wa.me` opens a blank chat otherwise |
-| Formatting changes in WhatsApp | Content stays complete; only the invoice's alignment is cosmetic |
+| Formatting changes in WhatsApp | Content stays complete; emphasis is cosmetic |
 | Message too long for a URL | Line count capped; a very long order summarises |
 | No tracking link when the order goes out | No message is offered. The link is what the message is *for* |
 | Link added after it already went out | Offerable from order detail until Delivered |

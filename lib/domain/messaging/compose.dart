@@ -1,9 +1,8 @@
 import '../../common/money.dart';
 import '../../ui/theme/format.dart';
-import '../invoicing/model.dart';
 import '../orders/model.dart';
 
-enum MessageKind { confirmation, outForDelivery, delivery, paymentReceived, invoice }
+enum MessageKind { confirmation, outForDelivery, delivery, paymentReceived }
 
 /// What the app needs to write a message. Deliberately a plain value object —
 /// composition is pure, so every variant is testable without a database.
@@ -25,9 +24,6 @@ class MessageContext {
     this.journeys = const [],
     this.isPickup = false,
     this.isUpdate = false,
-    this.invoiceNo,
-    this.frozen,
-    this.voidedReason,
   });
 
   final String customerFirstName;
@@ -67,20 +63,6 @@ class MessageContext {
   /// the first time the customer has seen it.
   final bool isUpdate;
 
-  /// The invoice number, once one has been issued. Until then the document is
-  /// quoted against the order number — it is a statement of what is owed, not
-  /// yet a bill.
-  final String? invoiceNo;
-
-  /// The totals as they stood when the invoice was issued, once one has been.
-  ///
-  /// Null until then, and the document renders from live rows — at that point
-  /// it is a statement of what is owed, not yet a bill.
-  final FrozenTotals? frozen;
-
-  /// Set when the invoice has been voided, so a copy resent by accident says
-  /// so rather than looking current.
-  final String? voidedReason;
 
   /// What the customer is still waiting for after this message: every line
   /// that is neither already handed over, nor cancelled, nor on this message.
@@ -119,7 +101,6 @@ bool isOffered(MessageKind kind, MessageContext c) => switch (kind) {
       // only when a balance existed — never fired for a part payment at
       // all, because the order sits at the same status before and after.
       MessageKind.paymentReceived => true,
-      MessageKind.invoice => true,
     };
 
 String compose(MessageKind kind, MessageContext c) => switch (kind) {
@@ -127,7 +108,6 @@ String compose(MessageKind kind, MessageContext c) => switch (kind) {
       MessageKind.outForDelivery => _onItsWay(c),
       MessageKind.delivery => _delivery(c),
       MessageKind.paymentReceived => _paymentReceived(c),
-      MessageKind.invoice => _invoice(c),
     };
 
 /// What is on this message: the lines being dropped, or all of them —
@@ -357,111 +337,7 @@ String _paymentReceived(MessageContext c) {
   ].join('\n');
 }
 
-// ── the invoice, as a formatted message ──────────────────────────────────
-
-/// Every line stays within this width, and amounts right-align to it.
-/// WhatsApp's monospace block **wraps rather than scrolls**, and a wrapped line
-/// destroys the alignment that made it readable.
-const int kMonoWidth = 26;
-
-String _row(String label, Money amount, {String? suffix}) {
-  final r = moneyPlain(amount) + (suffix ?? '');
-  final room = kMonoWidth - r.length;
-  final l = label.length > room ? label.substring(0, room) : label;
-  return l.padRight(room) + r;
-}
-
-String _invoice(MessageContext c) {
-  final t = c.totals;
-  final f = c.frozen;
-  final mono = <String>[];
-
-  // An invoice is a statement about a moment. Once issued it renders from the
-  // snapshot taken then, so cancelling an item or editing a price cannot
-  // rewrite a document the customer is already holding — which is what this
-  // function did for as long as it read live rows, under the original number.
-  // The snapshot was being written on issue and read by nothing but tests.
-  // docs/02-domain/invoicing/lld.md §3.
-  if (f != null) {
-    for (final l in f.lines) {
-      mono.add(l.name); // own line — may wrap harmlessly
-      if (l.detail != null) mono.add(l.detail!);
-      mono.add(_row('  ${l.qty} x ${moneyPlain(l.unitPrice)}', l.total));
-      for (final a in l.addons) {
-        mono.add(_row('  + ${a.name}', a.price));
-      }
-    }
-  } else {
-    // No invoice yet: the same layout, showing what is currently owed. Live
-    // lines only — `OrderTotals` has always excluded cancelled ones, so
-    // itemising them here put two ₹800 rows above an ₹800 subtotal.
-    for (final l in c.lines.where((l) => l.isLive)) {
-      mono.add(l.itemName);
-      final sub = [
-        if (l.flavour != null) l.flavour!,
-        if (l.weight != null) l.weight!.label,
-      ];
-      if (sub.isNotEmpty) mono.add(sub.join(' · '));
-      mono.add(
-          _row('  ${l.qty} x ${moneyPlain(l.basePrice)}', l.basePrice.times(l.qty)));
-      for (final a in l.addons) {
-        mono.add(_row('  + ${a.name}', a.price));
-      }
-    }
-  }
-
-  final discount = f?.discount ?? t.discount;
-  final delivery = f?.delivery ?? t.deliveryCharge;
-  final total = f?.total ?? t.total;
-  // Payments are deliberately NOT frozen. Money that arrived after the bill
-  // was issued is real, and a balance quoted from the snapshot would ask the
-  // customer to pay what they have already paid.
-  final balance = total - t.paid;
-
-  mono.add('-' * kMonoWidth);
-  mono.add(_row('Subtotal', f?.subtotal ?? t.subtotal));
-  // a zero row is absent, never printed as zero
-  if (!discount.isZero) {
-    mono.add(_row(
-        f?.discountLabel ??
-            (t.discountType == DiscountType.percent
-                ? 'Discount ${t.discountValue ~/ 100}%'
-                : 'Discount'),
-        -discount));
-  }
-  if (!delivery.isZero) mono.add(_row('Delivery', delivery));
-  mono.add(_row('TOTAL', total));
-
-  if (balance.isZero) {
-    mono.add(_row('PAID · thank you', Money.zero, suffix: ''));
-  } else if (!t.paid.isZero) {
-    mono.add(_row('Advance paid', t.paid));
-    mono.add(_row('BALANCE DUE', balance));
-  } else {
-    mono.add(_row('AMOUNT DUE', balance));
-  }
-
-  return [
-    '*${c.businessName}*',
-    '',
-    if (c.voidedReason != null) ...[
-      '*VOIDED* — ${c.voidedReason}',
-      'This bill no longer stands.',
-      '',
-    ],
-    '*Bill of Supply*',
-    // The invoice number once there is one; the order number until then.
-    c.invoiceNo ?? c.orderNo,
-    '',
-    'To: ${c.customerFirstName}',
-    '',
-    '```',
-    ...mono,
-    '```',
-    '',
-    if (!t.balanceDue.isZero) ..._payLines(c),
-  ].join('\n');
-}
+// ── the WhatsApp link ────────────────────────────────────────────────────
 
 /// `https://wa.me/919876543210?text=…` — WhatsApp's documented Click-to-Chat.
 /// It opens that exact chat with the text pre-filled, and takes no attachment.

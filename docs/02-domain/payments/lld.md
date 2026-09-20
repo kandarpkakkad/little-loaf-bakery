@@ -4,7 +4,7 @@
 
 **Source of truth: [`schema.md`](schema.md).** Not repeated here — a schema in two places is a schema that disagrees with itself.
 
-Tables: `payments` — append-only, no UPDATE path
+Tables: `payments` — correctable and soft-deletable (§3b)
 
 ## 2. Derived status
 
@@ -32,6 +32,39 @@ Future<void> record(Order o, Money amount, PaymentMode mode, {String? ref}) {
   // the UI offers "Completed" once the balance reaches zero.
 }
 ```
+
+## 3b. Correcting and removing a payment
+
+```dart
+Stream<List<Payment>> watchPayments(String orderId);   // OLDEST first, deleted_at IS NULL
+
+Future<void> editPayment(String id, {Money amount, String mode, String? reference}) {
+  require(!amount.isZero, 'a payment of nothing is not a payment — remove it');
+  // kind FOLLOWS the sign, because the schema requires it to:
+  //   CHECK ((kind = 'refund') = (amount < 0))
+  final kind = amount.isNegative ? 'refund' : (was refund ? 'balance' : was);
+  update(payments, ...); refreshOrderCache(orderId);
+}
+
+Future<void> removePayment(String id) {
+  update(payments, deletedAt: now);                    // soft, like every delete here
+  record(OpKind.delete); refreshOrderCache(orderId);
+}
+```
+
+**It was append-only, and that was wrong.** `payments.deleted_at` already existed and
+`_paidOf` already filtered on it; nothing ever wrote it, so ₹16,000 typed instead of ₹1,600
+was permanent and the order sat in credit with no way back. Worse, the table was **never
+selected from** — the only query against it was `SUM(amount)` — so `kind`, `mode` and
+`paid_at` were recorded and never seen. A total with nothing behind it is no help when it is
+wrong.
+
+**The edit does not check the amount against the balance** the way recording one does. This
+is the screen for fixing a number that was already wrong; refusing the correction because the
+wrong number is in the way would be circular.
+
+**The ledger is collapsed by default** on the order screen. The Paid line answers the question
+most of the time; this is what you open when that number looks wrong.
 
 ## 4. UPI QR
 

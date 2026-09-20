@@ -28,7 +28,7 @@ CREATE TABLE orders (
   tracking_url            TEXT,
   discount_type           TEXT,                           -- percent|amount|NULL
   discount_value          INTEGER,                        -- basis points if percent, paise if amount
-  discount_amount         INTEGER NOT NULL DEFAULT 0,     -- resolved paise; frozen at invoice
+  discount_amount         INTEGER NOT NULL DEFAULT 0,     -- resolved paise
   delivery_charge         INTEGER NOT NULL DEFAULT 0,     -- paise
   requirements            TEXT,
   item_message            TEXT,                           -- piped on the item, not only on cakes
