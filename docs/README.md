@@ -43,7 +43,6 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | messaging — per-drop "out for delivery" / "delivered", clubbed by day, time and destination | built |
 | orders — advancing an item from order detail and the Kitchen board | built — baking per item, handover per drop |
 | orders — editing and adding items on a live order | built, with what an item *is* locked once a baker starts |
-| menu — seasonality | built — months in Config, shown beside the item in the picker |
 | invoicing — issue, freeze, void | built — one per order, issued when the last item lands, totals frozen at that moment |
 | backup, restore, journal compaction | built — nightly snapshot at 00:02 IST, one owner device, 14 kept. Restore is staged and applied at the next launch |
 | security — app lock | built — off by default, device PIN or biometric, asked on cold start and after five minutes away |

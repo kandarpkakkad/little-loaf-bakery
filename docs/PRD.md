@@ -255,7 +255,8 @@ Use `https://drive.google.com/uc?export=download&id=<file-id>`. Drive keeps prio
 same thing is always called the same thing — which is what makes "sales by product" a real
 number rather than a spelling survey.
 
-- **Menu item:** name, category, photo, lead time in days, active, seasonal window.
+- **Menu item:** name, lead time in days, active. The item *is* the category (D16), and
+  seasonality was removed — a bakery that makes a thing makes it.
 - **No price, no flavour list.** Both are decided per order (§6.2).
 - Maintained in **Config** (§11).
 

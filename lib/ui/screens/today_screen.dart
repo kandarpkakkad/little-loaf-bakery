@@ -9,6 +9,8 @@ import '../../domain/stock/repository.dart';
 import '../shell/shell.dart';
 import '../theme/breakpoints.dart';
 import '../theme/format.dart';
+import '../../platform/sync/sync_service.dart';
+import 'config/sync_screen.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../widgets/forms.dart';
@@ -116,6 +118,21 @@ class TodayScreen extends StatelessWidget {
                         : '${overdue.length} orders are past their date',
                     icon: Icons.error_outline,
                     tone: AlertTone.bad,
+                  ),
+                ),
+              // Only after the first-run offer has been declined: sync is
+              // worth one reminder in the place people actually look, rather
+              // than staying buried in Settings where it never got turned on.
+              if (context.app.sync.status.blocker == SyncBlocker.notConnected)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.sm),
+                  child: LoafAlert(
+                    'Not backed up. Connect Google Drive to share with your '
+                    'other device and keep a copy.',
+                    icon: Icons.cloud_off_outlined,
+                    action: 'Connect',
+                    onAction: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SyncScreen())),
                   ),
                 ),
               if (unconfirmed.isNotEmpty)

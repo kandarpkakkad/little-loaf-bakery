@@ -69,8 +69,12 @@ class MenuItems extends Table with Common, FieldHlc {
   TextColumn get photoPath => text().nullable()();
   IntColumn get leadDays => integer().withDefault(const Constant(0))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
-  IntColumn get seasonFrom => integer().nullable()(); // MMDD
-  IntColumn get seasonTo => integer().nullable()();
+  // Seasonality was removed: a bakery that makes a thing makes it, and the
+  // pickers were two more fields to skip past on the way to saving an item.
+  // The columns stay this release because a v9 peer still writes them —
+  // nothing reads them, and they go in a later one.
+  IntColumn get seasonFrom => integer().nullable()(); // MMDD, unused
+  IntColumn get seasonTo => integer().nullable()();   // unused
 
   @override
   List<String> get customConstraints => [

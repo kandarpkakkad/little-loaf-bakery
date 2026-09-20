@@ -116,6 +116,23 @@ class SyncService extends ChangeNotifier {
     ));
   }
 
+  /// Offers Drive once, on the first launch that has no account.
+  ///
+  /// Sync is the difference between one device and a bakery, and between
+  /// having a backup and not — so it is offered on the way in rather than left
+  /// behind three taps in Settings for someone to discover. Asked once: if it
+  /// is dismissed, Today carries a banner instead and this never raises a
+  /// sheet again on its own.
+  ///
+  /// This is the *interactive* path, and it is meant to prompt. It is the
+  /// opposite of [syncNow], which must never prompt at all.
+  Future<void> offerOnFirstRun() async {
+    if (_status.connected) return;
+    if (await auth.hasBeenOffered()) return;
+    await auth.markOffered();
+    await connect();
+  }
+
   /// The connect button. Must be called from a tap.
   Future<bool> connect() async {
     _set(_status.copyWith(busy: true));
@@ -168,6 +185,10 @@ class SyncService extends ChangeNotifier {
       deviceId: deviceId,
     );
     final report = await engine.sync();
+
+    // Drive refused the token we had. Drop it so the next run asks for a
+    // fresh one instead of retrying a dead one until someone notices.
+    if (!report.ok && '${report.error}'.contains('401')) auth.forgetToken();
 
     _set(_status.copyWith(
       busy: false,

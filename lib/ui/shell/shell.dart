@@ -50,9 +50,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_syncStarted) return;
     _syncStarted = true;
     final sync = context.app.sync;
-    // Silent: nobody has tapped anything yet, so this must never raise a
-    // sign-in sheet over the Today screen.
-    sync.restore().then((_) => sync.syncNow());
+    // restore() and syncNow() are silent by contract — they read the
+    // remembered account and never prompt. offerOnFirstRun() is the one place
+    // that deliberately does, and only on an install that has never been
+    // asked: sync is what makes this a bakery's app rather than one phone's,
+    // and leaving it three taps into Settings meant it simply never happened.
+    sync.restore().then((_) async {
+      await sync.syncNow();
+      if (mounted) await sync.offerOnFirstRun();
+    });
     _syncTimer = Timer.periodic(
         const Duration(minutes: 5), (_) => context.app.sync.syncNow());
   }

@@ -480,8 +480,7 @@ screen Menu                      # S08
 screen MenuItemEdit                      # S09
   route /more/config/menu/:id
   body  Field "Name *" ; Field "Category *" ; Photo ; NumField "Lead time (days)"
-        Seg "Available" [Always, Seasonal] ; when Seasonal: DateRange
-        Switch "Active"
+              Switch "Active"
   notes  NO price field. NO flavour list. Both are per order (D17).
 ```
 
@@ -647,6 +646,6 @@ Every branch above, in one place — so none is discovered during build.
 | 23 | Snapshot | mine · another device's · **stale ≥3 days → warning naming the owner** |
 | 24 | Version gate | ok · banner · **blocked** · no source answered → **never blocks** |
 | 25 | Setup | fresh · existing snapshots found → restore offered |
-| 26 | Menu item | available · inactive · out of season → greyed with the reason |
+| 26 | Menu item | active · inactive |
 | 27 | Material unit | editable when no movements · **locked once movements exist** |
 | 28 | Empty states | every list has one, naming the action that fills it |

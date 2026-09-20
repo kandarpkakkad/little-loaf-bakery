@@ -22,6 +22,7 @@ class DriveAuth {
   /// app's own record instead: written when the user connects, cleared only
   /// when they disconnect.
   final FlutterSecureStorage storage;
+  static const _offeredKey = 'little_loaf_drive_offered';
   static const _emailKey = 'llb_drive_email';
 
   /// The **web** OAuth client id, not an Android one. Android's Credential
@@ -39,6 +40,39 @@ class DriveAuth {
 
   bool _initialized = false;
 
+  /// The last token this device was given, and when it stops being any use.
+  ///
+  /// Held because asking for one is not free: on Android the lightweight path
+  /// goes through Credential Manager, which puts a "Signing you in" sheet over
+  /// whatever the person is doing. Sync runs on open, on every resume and on a
+  /// five-minute timer, so asking each time meant that sheet appearing over an
+  /// order being typed.
+  String? _cached;
+  DateTime? _expiresAt;
+
+  /// One authorisation attempt at a time. Two callers arriving together — a
+  /// resume and the timer, say — used to raise two sheets.
+  Future<String?>? _inFlight;
+
+  /// A minute of slack, so a token is never handed out moments before it dies.
+  static const _slack = Duration(minutes: 1);
+
+  /// Google does not tell us the expiry, so assume the documented hour and
+  /// take the conservative end of it.
+  static const _assumedLife = Duration(minutes: 55);
+
+  bool get _cacheIsGood =>
+      _cached != null &&
+      _expiresAt != null &&
+      DateTime.now().isBefore(_expiresAt!.subtract(_slack));
+
+  /// Drops the cached token. Called when Drive rejects it, so the next run
+  /// asks for a fresh one rather than retrying a dead one forever.
+  void forgetToken() {
+    _cached = null;
+    _expiresAt = null;
+  }
+
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
     await GoogleSignIn.instance.initialize(serverClientId: serverClientId);
@@ -52,12 +86,23 @@ class DriveAuth {
   /// Returns null immediately when nobody has connected, so a device that has
   /// never used Drive makes no Google calls at all.
   Future<String?> silentToken() async {
+    if (_cacheIsGood) return _cached;
     if (await rememberedEmail() == null) return null;
+
+    // Share one attempt rather than each caller starting its own.
+    return _inFlight ??= _authorise().whenComplete(() => _inFlight = null);
+  }
+
+  Future<String?> _authorise() async {
     await _ensureInitialized();
     final user = await GoogleSignIn.instance.attemptLightweightAuthentication();
     if (user == null) return null;
     final auth = await user.authorizationClient.authorizationForScopes(scopes);
-    return auth?.accessToken;
+    if (auth == null) return null;
+
+    _cached = auth.accessToken;
+    _expiresAt = DateTime.now().add(_assumedLife);
+    return _cached;
   }
 
   /// The connect button. Must come from a real tap: on Android the
@@ -82,6 +127,8 @@ class DriveAuth {
     // before this point would leave a device that looks connected but cannot
     // sync.
     await storage.write(key: _emailKey, value: user.email);
+    _cached = granted.accessToken;
+    _expiresAt = DateTime.now().add(_assumedLife);
     return granted.accessToken;
   }
 
@@ -89,11 +136,23 @@ class DriveAuth {
   /// safe to call on every launch.
   Future<String?> rememberedEmail() => storage.read(key: _emailKey);
 
+  /// Whether this install has already been offered Drive once.
+  ///
+  /// Kept so the first-run offer is exactly that. Someone who declines gets a
+  /// banner they can act on later, not the same sheet every time they open the
+  /// app.
+  Future<bool> hasBeenOffered() async =>
+      await storage.read(key: _offeredKey) != null;
+
+  Future<void> markOffered() =>
+      storage.write(key: _offeredKey, value: 'yes');
+
   /// Forgets the account on this device. Drive keeps every file — the folder is
   /// the user's, and deleting their data because they tapped "disconnect" would
   /// be the wrong reading of that word.
   Future<void> disconnect() async {
     await _ensureInitialized();
+    forgetToken();
     await storage.delete(key: _emailKey);
     await GoogleSignIn.instance.disconnect();
   }

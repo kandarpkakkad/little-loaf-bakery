@@ -10,24 +10,16 @@ Tables: `menu_items`
 
 ## 2. Availability
 
-Built — `lib/domain/menu/availability.dart`, eight tests.
+One gate, not two: `active` is a switch somebody flips — "we have stopped
+making this". That is all.
 
-Two gates that mean different things: `active` is a switch somebody flips
-("we have stopped making this"), a season is a fact about the year that needs
-no attention once set. A season is picked by **month** in Config; "from" takes
-the first of the month and "to" the last, so Nov–Jan runs to the 31st.
-
-```dart
-bool availableOn(MenuItem m, Date d) {
-  if (!m.active || m.deletedAt != null) return false;
-  if (m.seasonFrom == null) return true;
-  final md = d.monthDay;                       // MMDD
-  return m.seasonFrom <= m.seasonTo
-      ? md >= m.seasonFrom && md <= m.seasonTo         // Mar–Aug
-      : md >= m.seasonFrom || md <= m.seasonTo;        // Nov–Jan, wrapping the year
-}
-```
-The wrapping case is the one that matters — plum cake runs November to January.
+**Seasonality was removed.** `season_from` / `season_to` were a fact about the
+year that had to be set per item and then never looked at again, and no bakery
+here needed it: a place that makes plum cake in December simply makes it in
+December. What it cost was two month pickers between a person and saving a menu
+item, and a note beside every name in the order picker explaining something
+nobody had asked about. The columns survive this release because a v9 peer
+still writes them; nothing reads them.
 
 ## 3. The picker
 
@@ -36,8 +28,7 @@ A flat list, whole thing on screen — no search-first, and no grouping: the
 item *is* the category ("Cake", "Croissant", "Focaccia"), so there is no second
 level to group by.
 Inactive items are excluded — the picker asks for `list(activeOnly: true)`.
-An item that is merely **out of season is still shown**, with its season beside
-it: a customer can order a Christmas cake in June if they want one in December,
+Everything else is shown by name and nothing else,
 and hiding it would leave someone wondering whether they imagined it.
 ```
 

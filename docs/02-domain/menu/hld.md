@@ -37,7 +37,6 @@ product* becomes a spelling survey. With the menu authoritative, it is a real nu
 | Item deleted while on an open order | The line keeps its name snapshot and stays readable |
 | Item renamed | Existing lines unchanged; new lines take the new name |
 | Two devices add the same item | Two rows. Dedupe is a human decision in Config, not automatic |
-| Out of season but ordered anyway | Allowed; the picker shows it greyed with the reason |
 
 ## Non-goals
 No variants matrix, no modifiers, no per-item options. Flavour, weight and special

@@ -11,8 +11,8 @@ CREATE TABLE menu_items (
   photo_path  TEXT,
   lead_days   INTEGER NOT NULL DEFAULT 0,
   active      INTEGER NOT NULL DEFAULT 1,
-  season_from INTEGER,             -- MMDD, NULL = available always
-  season_to   INTEGER,             -- MMDD; season_to < season_from means it wraps the year
+  season_from INTEGER,             -- unused: seasonality was removed
+  season_to   INTEGER,             -- unused; both go in a later release
   -- common columns
   CHECK (lead_days >= 0),
   CHECK ((season_from IS NULL) = (season_to IS NULL))
@@ -24,8 +24,9 @@ CREATE INDEX ix_menu_name ON menu_items(name) WHERE deleted_at IS NULL;
 changes what a thing costs, so there is no such thing as *the* price of a chocolate truffle
 cake.
 
-`season_to < season_from` is the wrap case, and the one that matters: plum cake runs November
-to January.
+**`season_from` / `season_to` are dead.** Seasonality was removed — a bakery that makes a
+thing makes it, and two month pickers stood between a person and saving a menu item. The
+columns stay one release because a v9 peer still writes them.
 
 **No `category` column.** The item *is* the category — "Cake", "Croissant", "Focaccia". A
 separate category said the same thing twice, and the second copy was the one that drifted.

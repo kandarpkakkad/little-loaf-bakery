@@ -8,7 +8,6 @@ import '../../../platform/storage/database.dart';
 import '../../theme/format.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
-import '../../../domain/menu/availability.dart';
 import '../../widgets/forms.dart';
 import 'address_picker.dart';
 
@@ -30,7 +29,7 @@ Future<DraftLine?> editLine(
   /// has started. Only its schedule stays editable.
   LineStatus? status,
 }) async {
-  // Everything still being made, in season or not. An item that vanished would
+  // Everything still being made. An item that vanished would
   // leave someone wondering whether they imagined it; one shown with a reason
   // answers the question before it is asked.
   final items = await context.app.menu.list(activeOnly: true);
@@ -52,12 +51,6 @@ Future<DraftLine?> editLine(
       status: status,
     ),
   );
-}
-
-/// Why this item is out of season on the day it is wanted, or null.
-String? _seasonNote(MenuItem m) {
-  final label = seasonLabel(m);
-  return label == null ? null : '($label)';
 }
 
 String _trimZero(double v) =>
@@ -303,26 +296,7 @@ class _LineSheetState extends State<_LineSheet> {
                     for (final m in widget.menu)
                       DropdownMenuItem(
                         value: m.id,
-                        // Not disabled: a customer can order a Christmas cake
-                        // in June if they want one in December. The reason is
-                        // shown so the choice is deliberate.
-                        child: Builder(builder: (context) {
-                          final why = _seasonNote(m);
-                          return Row(
-                            children: [
-                              Flexible(child: Text(m.name)),
-                              if (why != null) ...[
-                                const SizedBox(width: Space.sm),
-                                Flexible(
-                                  child: Text(why,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: context.text.bodySmall!
-                                          .copyWith(color: context.colors.ink3)),
-                                ),
-                              ],
-                            ],
-                          );
-                        }),
+                        child: Text(m.name),
                       ),
                   ],
                   onChanged:
