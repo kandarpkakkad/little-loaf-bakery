@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
+import '../../../platform/sync/sync_service.dart';
+import '../../theme/format.dart';
+import '../../widgets/forms.dart';
+import '../config/sync_screen.dart';
 import '../../../common/phone.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
@@ -133,6 +137,49 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ));
           }
 
+          // The alerts Today used to carry. They are things to act on, and
+          // this is where acting on them happens — a screen that only counted
+          // them was a second place to keep agreeing about one number.
+          final live = all
+              .where((o) =>
+                  !o.isCancelled &&
+                  o.status != OrderStatus.completed &&
+                  o.status != OrderStatus.delivered)
+              .toList();
+          final unconfirmed =
+              live.where((o) => o.status == OrderStatus.created).length;
+          final changed = live.where((o) => o.requirementsChanged).length;
+
+          final alerts = <Widget>[
+            if (context.app.sync.status.blocker == SyncBlocker.notConnected)
+              LoafAlert(
+                'Not backed up. Connect Google Drive to share with your other '
+                'device and keep a copy.',
+                icon: Icons.cloud_off_outlined,
+                action: 'Connect',
+                onAction: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SyncScreen())),
+              ),
+            if (unconfirmed > 0)
+              LoafAlert(
+                unconfirmed == 1
+                    ? '1 order not confirmed yet'
+                    : '$unconfirmed orders not confirmed yet',
+                icon: Icons.mark_chat_unread_outlined,
+              ),
+            if (changed > 0)
+              LoafAlert(
+                changed == 1
+                    ? '1 order changed after confirming'
+                    : '$changed orders changed after confirming',
+                icon: Icons.flag_outlined,
+              ),
+          ];
+
+          // Grouped by the day each order is next needed, which is the order
+          // the list is already sorted in (D25) — so a heading can never
+          // disagree with the rows beneath it.
+          final rows = _group(orders);
           final twoPane = context.window.usesRail;
 
           // On a tablet the list keeps its place while an order is read
@@ -142,9 +189,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(
                   Space.lg, Space.md, Space.lg, Space.xxl * 2),
-              itemCount: orders.length,
-              itemBuilder: (context, i) =>
-                  OrderCard(view: orders[i], showDate: true),
+              itemCount: rows.length + alerts.length,
+              itemBuilder: (context, i) {
+                if (i < alerts.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: Space.sm),
+                    child: alerts[i],
+                  );
+                }
+                return _RowTile(row: rows[i - alerts.length]);
+              },
             );
           }
 
@@ -160,14 +214,24 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
                       Space.lg, Space.md, Space.md, Space.xxl),
-                  itemCount: orders.length,
-                  itemBuilder: (context, i) => OrderCard(
-                    view: orders[i],
-                    showDate: true,
-                    selected: orders[i].order.id == selected,
-                    onTap: () =>
-                        setState(() => _selectedId = orders[i].order.id),
-                  ),
+                  itemCount: rows.length + alerts.length,
+                  itemBuilder: (context, i) {
+                    if (i < alerts.length) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: Space.sm),
+                        child: alerts[i],
+                      );
+                    }
+                    final row = rows[i - alerts.length];
+                    return _RowTile(
+                      row: row,
+                      selected: row.order?.order.id == selected,
+                      onTap: row.order == null
+                          ? null
+                          : () => setState(
+                              () => _selectedId = row.order!.order.id),
+                    );
+                  },
                 ),
               ),
               VerticalDivider(width: 1, color: c.ruleSoft),
@@ -187,6 +251,60 @@ class _OrdersScreenState extends State<OrdersScreen> {
           );
         },
       )),
+    );
+  }
+}
+
+/// One line of the list: either a day, or an order due on it.
+class _Row {
+  const _Row.day(this.date) : order = null;
+  const _Row.order(this.order) : date = null;
+
+  final int? date;
+  final OrderView? order;
+}
+
+/// Walks the sorted list and starts a group whenever the day changes.
+///
+/// It relies on the list already being sorted by the same number it groups on
+/// — the earliest outstanding item (D25). That is deliberate: deriving the
+/// heading from the sort key rather than re-sorting means the two cannot
+/// disagree, and an order due Sunday with an item on Friday appears under
+/// Friday, which is when somebody has to do something about it.
+List<_Row> _group(List<OrderView> orders) {
+  final rows = <_Row>[];
+  int? current;
+  var started = false;
+
+  for (final o in orders) {
+    final day = o.nextLineDate ?? o.dueDate;
+    if (!started || day != current) {
+      rows.add(_Row.day(day));
+      current = day;
+      started = true;
+    }
+    rows.add(_Row.order(o));
+  }
+  return rows;
+}
+
+class _RowTile extends StatelessWidget {
+  const _RowTile({required this.row, this.selected = false, this.onTap});
+
+  final _Row row;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final o = row.order;
+    if (o != null) {
+      return OrderCard(view: o, selected: selected, onTap: onTap);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
+      child: SectionLabel(
+          row.date == null ? 'No date' : dayLabel(row.date!)),
     );
   }
 }

@@ -11,7 +11,7 @@ enough to read in one sitting, precise enough to build from, and it makes diverg
 ```
 screen <Name>                       # S-number in a comment
   route   <path>
-  tab     <Today|Orders|Kitchen|Stock|More|—>
+  tab     <Orders|Kitchen|Stock|More|—>
   appbar  title=".." [sub=".."] [back] [action=..]
   body
     <primitive> <args>              # from design-system §4
@@ -34,7 +34,7 @@ screen <Name>                       # S-number in a comment
 
 ```
 shell App
-  tabs   Today · Orders · Kitchen · Stock · More
+  tabs   Orders · Kitchen · Stock · More
   fab    "New order" -> /orders/new          # on every tab
   strip  when @sync.syncing        -> info  "Syncing…"
          when @sync.pending > 0    -> warn  "Offline · @sync.pending waiting"
@@ -65,39 +65,39 @@ screen Setup
   notes  Not a login. Runs once. Generates the UUID v7 device id.
 ```
 
-### S02 · Today
-```
-screen Today
-  route /today   tab Today
-  appbar title="Today" sub=@date.today
-  body
-    Kpis [ "@count.deliveries DELIVERIES", "@count.inOven IN OVEN", "@money.toCollect TO COLLECT" ]
-    when @stock.belowCount > 0
-      Alert warn "@stock.firstName below threshold · @stock.firstLevel left" -> /stock
-    when @share.unsentCount > 0
-      Alert bad  "@share.unsentCount confirmation not sent" action="Send" -> /orders?unshared=1
-    when @orders.flaggedCount > 0
-      Alert warn "⚑ @orders.flaggedCount changed after confirming" -> /orders
-    Micro "NEXT UP"
-    List @orders.todayNext
-      Card
-        Row  strong @o.customer.name          | @o.deliveryTimeOrAnyTime
-        Row  caption "@o.firstItem · @o.flavour" | Money @o.balanceDue
-        Chips @o.dietaryFlags + @o.addressShort
-    when @orders.todayNext.isEmpty
-      Empty "Nothing due today." action="New order"
-```
+### S02 · Removed
+
+**Today is gone.** It answered "what is happening today", and Kitchen answers that better —
+it shows the work itself, per item, at whatever range you ask for. Today restated a slice of
+it as counters, which meant two screens to keep agreeing about one question.
+
+What was worth keeping moved to **Orders**: the alerts. Those are things to act on, and
+Orders is where acting on them happens.
 
 ### S03 · Orders list
 ```
 screen Orders
-  route /orders   tab Orders
+  route /orders   tab Orders          # the app opens here
   appbar title="Orders" action=search
   body
-    Chips filter [ All, Confirmed, "In prod", Unpaid, "Not shared" ]
-    GroupedList @orders.byDeliveryDate        # date → time → created (D-sort)
-      GroupHeader micro @group.dateLong
+    when !@sync.connected
+      Alert warn "Not backed up" action="Connect" -> /more/sync
+    when @orders.unconfirmedCount > 0
+      Alert warn "@orders.unconfirmedCount order(s) not confirmed yet"
+    when @orders.flaggedCount > 0
+      Alert warn "@orders.flaggedCount changed after confirming"
+
+    Chips filter [ All, Open, Done, Cancelled ]
+    GroupedList @orders.byNextNeeded
+      GroupHeader micro @group.dayLabel     # Today · Tomorrow · Fri 21 Sep
       Card -> /orders/:id
+  notes  Grouped by the day an order is **next needed** — its earliest
+         outstanding item (D25) — which is the order the list was already
+         sorted in. The heading is the same number the sort uses, so the groups
+         cannot disagree with the order they appear in.
+
+         An order due Sunday with an item on Friday sits under Friday, because
+         Friday is when somebody has to do something about it.
         Row  strong @o.orderNo | when @o.flagged: Chip warn "⚑"
         Row  caption "@o.firstItem · @o.flavour"
         Row  caption "@o.timeOrAnyTime · @o.status" | Money @o.balanceDue

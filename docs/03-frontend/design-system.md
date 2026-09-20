@@ -169,7 +169,7 @@ scale = max(reference, threshold)
 | Offline | Thin strip under the app bar with a pending count. Nothing is blocked |
 | Sync stale | Persistent `warn` strip after 24h, with Retry |
 | Conflict | `warn` alert linking to the conflict log, both values shown |
-| Not shared | `bad` chip on the order, counted on Today |
+| Not shared | `bad` chip on the order |
 | ⚑ Requirements changed | `warn` banner with **Acknowledge**, on the card and on order detail |
 | Blocked (version) | Full screen, no shell, no way past. Download + Restore |
 

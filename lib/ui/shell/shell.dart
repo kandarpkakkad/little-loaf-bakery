@@ -9,14 +9,20 @@ import '../screens/more_screen.dart';
 import '../screens/orders/new_order_screen.dart';
 import '../screens/orders/orders_screen.dart';
 import '../screens/stock/stock_screen.dart';
-import '../screens/today_screen.dart';
 import '../theme/breakpoints.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 
-/// One shell, five tabs, identical on every device — no roles, so no variants.
-/// The FAB is New order, on every tab: the most common action is never more
-/// than one tap away. docs/03-frontend/navigation.md
+/// One shell, four tabs, identical on every device — no roles, so no variants.
+///
+/// **New order is offered on Orders and Kitchen only.** Those are the two
+/// places where taking one is plausibly the next thing somebody does. Over a
+/// shelf count or a settings list it was an action nobody standing there had
+/// in mind, and a button that is always there stops being a suggestion.
+///
+/// There is no Today tab. Kitchen answers "what is happening today" with the
+/// work itself rather than a count of it, and two screens agreeing about one
+/// question is one screen too many. docs/03-frontend/navigation.md
 ///
 /// On a tablet the tabs move to a rail on the leading edge. The destinations
 /// and their order do not change, so muscle memory carries between the phone
@@ -80,7 +86,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _tab = 0;
 
   static const _tabs = [
-    (icon: Icons.today_outlined, selected: Icons.today, label: 'Today'),
     (icon: Icons.receipt_long_outlined, selected: Icons.receipt_long, label: 'Orders'),
     (icon: Icons.bakery_dining_outlined, selected: Icons.bakery_dining, label: 'Kitchen'),
     (icon: Icons.inventory_2_outlined, selected: Icons.inventory_2, label: 'Stock'),
@@ -90,7 +95,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   // IndexedStack rather than a switch: each tab keeps its scroll position
   // and its filters when you come back to it.
   static const _screens = [
-    TodayScreen(),
     OrdersScreen(),
     KitchenScreen(),
     StockScreen(),
@@ -99,6 +103,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _newOrder() => Navigator.push(
       context, MaterialPageRoute(builder: (_) => const NewOrderScreen()));
+
+  /// Orders and Kitchen. Anywhere else it is an offer nobody asked for.
+  bool get _offersNewOrder => _tab == 0 || _tab == 1;
 
   @override
   Widget build(BuildContext context) {
@@ -117,12 +124,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               indicatorColor: context.colors.accentSoft,
               leading: Padding(
                 padding: const EdgeInsets.symmetric(vertical: Space.lg),
-                child: FloatingActionButton(
-                  onPressed: _newOrder,
-                  backgroundColor: context.colors.brand,
-                  foregroundColor: Colors.white,
-                  tooltip: 'New order',
-                  child: const Icon(Icons.add),
+                // Kept in the layout when it does not apply, so the
+                // destinations below it do not jump up and down as tabs
+                // change — a rail that reflows is harder to aim at.
+                child: Opacity(
+                  opacity: _offersNewOrder ? 1 : 0,
+                  child: IgnorePointer(
+                    ignoring: !_offersNewOrder,
+                    child: FloatingActionButton(
+                      onPressed: _newOrder,
+                      backgroundColor: context.colors.brand,
+                      foregroundColor: Colors.white,
+                      tooltip: 'New order',
+                      child: const Icon(Icons.add),
+                    ),
+                  ),
                 ),
               ),
               destinations: [
@@ -144,13 +160,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return Scaffold(
       body: body,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _newOrder,
-        backgroundColor: context.colors.brand,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('New order'),
-      ),
+      floatingActionButton: !_offersNewOrder
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _newOrder,
+              backgroundColor: context.colors.brand,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('New order'),
+            ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),

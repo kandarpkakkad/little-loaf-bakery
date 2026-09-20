@@ -48,3 +48,28 @@ String timeLabel(int? minutesFromMidnight) {
   final h = h24 % 12 == 0 ? 12 : h24 % 12;
   return '$h:${m.toString().padLeft(2, '0')} $period';
 }
+
+/// "Today", "Tomorrow", "Fri 21 Sep" — a day as somebody would say it.
+///
+/// Near days are named rather than dated because that is how a bakery talks
+/// about them, and the year is absent because an order more than a few months
+/// out is not a thing that happens here.
+String dayLabel(int ms, {DateTime? now}) {
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  final today = now ?? DateTime.now();
+
+  bool sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  if (sameDay(d, today)) return 'Today';
+  if (sameDay(d, today.add(const Duration(days: 1)))) return 'Tomorrow';
+  if (sameDay(d, today.subtract(const Duration(days: 1)))) return 'Yesterday';
+
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final label = '${days[d.weekday - 1]} ${d.day} ${months[d.month - 1]}';
+  return d.year == today.year ? label : '$label ${d.year}';
+}
