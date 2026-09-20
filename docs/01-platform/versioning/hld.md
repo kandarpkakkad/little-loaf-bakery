@@ -26,12 +26,16 @@ and writes `app.json` itself. Without that the file is never created, so it
 never answers, so nothing ever finds itself newer than it: a closed loop with
 no floor anywhere in it.
 
-**While the repository is private the GitHub source never answers**, because an
-unauthenticated call to a private repo's release API is a 404 and a 404 is "no
-answer". The gate still works — `app.json` carries both numbers — but `latest`
-then tracks *the newest installed device*, not the newest published release,
-and the download link on the block screen asks for a GitHub sign-in. Making the
-repository public is what turns the second source on.
+The repository is **public**, so the GitHub source answers for any device —
+including one that has never connected Drive — and the download link on the
+block screen resolves without a sign-in. It went public to give the OAuth
+consent screen a homepage and a privacy policy; turning this source on came
+free with it.
+
+Were it private again, an unauthenticated call to the release API would be a
+404, a 404 is "no answer", and the gate would quietly fall back to `app.json`
+and the peers — still correct, but with `latest` tracking the newest *installed*
+device rather than the newest published release.
 
 ## Purpose
 Let devices run different versions safely, force an upgrade when they cannot, and get the APK

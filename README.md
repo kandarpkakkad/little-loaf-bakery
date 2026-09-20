@@ -164,6 +164,11 @@ in *Testing*, Google expires the grant every seven days and the app shows
 
 ---
 
+The homepage and privacy policy the OAuth consent screen points at live in
+[`site/`](site/) and are published by
+[`pages.yml`](.github/workflows/pages.yml) to
+<https://kandarpkakkad.github.io/little-loaf-bakery/>.
+
 ## Releasing
 
 Signing is not in this repository. `android/key.properties` and

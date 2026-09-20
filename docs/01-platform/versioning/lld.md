@@ -142,7 +142,7 @@ repeat the steps above — or to publish the consent screen, which stops the exp
 | Clock wrong, `published_at` in the future | Ignored; only version integers are compared |
 | Two devices both newer than `latest_version` | Both write; last wins; the values are the same anyway |
 | Downgrade installed deliberately | It sees `kAppVersion < min_supported` and blocks — correct |
-| APK URL requires sign-in | **While the repository is private this is a GitHub sign-in, not a Google one**, and the bakery account is unlikely to have one. The block screen still shows the link; installing the APK by hand is the fallback it names |
+| APK URL requires sign-in | It does not: the repository is public, so a release asset downloads in the phone's browser with no account at all |
 | Drive secrets missing or expired | The announcement step skips (missing) or fails loudly (expired). The release is already published either way, and a device that installs it still announces the version |
 
 ## 6. What to test
