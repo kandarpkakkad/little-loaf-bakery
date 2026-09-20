@@ -86,15 +86,25 @@ only reason a Web client can touch a folder the Android client made.
 
 Getting the refresh token, once:
 
-1. In the Cloud console, add `https://developers.google.com/oauthplayground` as an authorised
-   redirect URI on the Web client.
-2. Open the OAuth Playground → the gear icon → *Use your own OAuth credentials*, and paste the
-   client id and secret.
-3. Step 1: enter the scope `https://www.googleapis.com/auth/drive.file`. Authorise as the
-   bakery account.
-4. Step 2: *Exchange authorisation code for tokens*. Copy the **refresh token**.
-5. Put all three in GitHub → Settings → Secrets and variables → Actions.
-6. Remove the Playground redirect URI again.
+```bash
+# Cloud console → Credentials → the Web client → Authorised redirect URIs
+#   add:  http://localhost:8765/
+tool/mint_refresh_token.py
+```
+
+It reads the Web client out of `secrets/`, **refuses if it is not the one the app ships as
+`kServerClientId`** — a token for the wrong project works perfectly and sees nothing, which is
+the kind of failure you find out about during a release — opens a browser, catches the code on
+localhost, and sets all three repository secrets with `gh`. The token is never pasted anywhere
+and nothing is written to disk. Remove the redirect URI afterwards if you like.
+
+It then **checks the token can actually see the app's Drive folder**, because the whole
+approach rests on `drive.file` treating the Cloud project as "the app" rather than the
+individual client. If that assumption is wrong, this is where it surfaces — not in a release
+that silently announces nothing.
+
+Google's OAuth Playground would do the same job, but it wants the client secret pasted into a
+web page, and there is no reason to send it anywhere.
 
 **While the OAuth project is in Testing, Google expires refresh tokens after seven days.**
 The release will then fail at the announcement step with a clear message, and the fix is to

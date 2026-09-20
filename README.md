@@ -200,6 +200,19 @@ tool/bump_version.sh set 0.3.0  # 0.1.1+2 -> 0.3.0+3
 
 A test fails the build if the two ever drift.
 
+The release also announces itself in Drive, so devices hear about a build
+without waiting for someone to install it. That needs three repository secrets,
+minted once:
+
+```bash
+# Cloud console → Credentials → the Web client → Authorised redirect URIs
+#   add:  http://localhost:8765/
+tool/mint_refresh_token.py
+```
+
+Without them the announcement step skips with a notice and the first device to
+install the new build announces it instead.
+
 Releases are consumed on-device by [Obtainium](https://github.com/ImranR98/Obtainium),
 which watches the repo and offers each new tag.
 
