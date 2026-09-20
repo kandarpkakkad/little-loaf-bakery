@@ -118,6 +118,17 @@ signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
 build**. Test Drive on a locally built debug APK or on a release APK. This is
 not a bug to fix in Dart.
 
+### A row's date and its details must come from the same journey
+
+Whatever a list is grouped, sorted or filed by, everything shown beside it
+belongs to that same journey. The orders list groups on the *next* journey and
+the card printed the *finishing* one's time and fulfilment; the reports list
+files on `soldOn` and the same card printed the promised date. Both put two
+different trips on one row.
+
+`OrderView.nextJourney`, `finishingSubOrder` and `OrderView.soldOn` are the
+three answers — pick the one the surrounding context is actually about.
+
 ### An order-level column describes the *finishing* journey, not the order
 
 `orders.tracking_url`, `address_text`, `delivery_date`, `fulfilment` are caches

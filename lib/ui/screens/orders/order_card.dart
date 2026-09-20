@@ -31,6 +31,7 @@ class OrderCard extends StatelessWidget {
     final c = context.colors;
     final o = view.order;
     final t = view.totals;
+    final next = view.nextJourney;
 
     return InkWell(
       onTap: onTap ??
@@ -65,11 +66,21 @@ class OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
+              // Everything here describes the journey this card is being
+              // shown for, never the order's caches — those hold the
+              // FINISHING journey, so a two-day order filed under Friday read
+              // Sunday's time and Sunday's way out on the same row.
+              //
+              // In a list it is the next journey, which is what the list is
+              // grouped and sorted by. In a report it is the date the sale was
+              // filed under, which is when it actually went.
               [
                 if (showDate)
-                  _dateLabel(DateTime.fromMillisecondsSinceEpoch(o.deliveryDate)),
-                timeLabel(o.deliveryTime),
-                o.fulfilment == 'pickup' ? 'Pickup' : 'Delivery',
+                  _dateLabel(DateTime.fromMillisecondsSinceEpoch(view.soldOn)),
+                timeLabel(next?.deliveryTime ?? view.nextTime),
+                (next?.isPickup ?? o.fulfilment == 'pickup')
+                    ? 'Pickup'
+                    : 'Delivery',
               ].join(' · '),
               style: context.text.bodySmall!.copyWith(color: c.ink2),
             ),

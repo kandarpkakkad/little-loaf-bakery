@@ -77,7 +77,7 @@ class ReportRepository {
     final byMonth = <int, List<OrderView>>{};
 
     for (final v in views) {
-      final d = DateTime.fromMillisecondsSinceEpoch(_soldOn(v));
+      final d = DateTime.fromMillisecondsSinceEpoch(v.soldOn);
       final key = DateTime(d.year, d.month).millisecondsSinceEpoch;
       byMonth.putIfAbsent(key, () => []).add(v);
     }
@@ -104,7 +104,7 @@ class ReportRepository {
     final names = <String, String>{};
 
     for (final v in views) {
-      final on = _soldOn(v);
+      final on = v.soldOn;
       if (from != null && on < from) continue;
       if (to != null && on >= to) continue;
       for (final l in v.lines) {
@@ -130,9 +130,9 @@ class ReportRepository {
 
   /// Every order that landed in one month, newest first.
   ///
-  /// Dated by [_soldOn] — when the last item actually went, falling back to
-  /// the order's own date for anything still outstanding. The same rule the
-  /// chart and the top-items list use.
+  /// Dated by [OrderView.soldOn] — when the last item actually went, falling
+  /// back to the order's own date for anything still outstanding. The same
+  /// rule the chart, the top-items list and the card's own date label use.
   ///
   /// It used to read `order.deliveryDate`, which is a cache of the *promised*
   /// date, so the list and the chart above it could disagree about which
@@ -147,8 +147,8 @@ class ReportRepository {
     final all = await orders.watchOrders().first;
     return [
       for (final v in all)
-        if (!v.isCancelled && _soldOn(v) >= from && _soldOn(v) < to) v,
-    ]..sort((a, b) => _soldOn(b).compareTo(_soldOn(a)));
+        if (!v.isCancelled && v.soldOn >= from && v.soldOn < to) v,
+    ]..sort((a, b) => b.soldOn.compareTo(a.soldOn));
   }
 
   /// The month of the earliest order there is, so a picker knows how far back
@@ -156,7 +156,7 @@ class ReportRepository {
   Future<DateTime?> firstMonth() async {
     final all = await orders.watchOrders().first;
     if (all.isEmpty) return null;
-    final earliest = all.map(_soldOn).reduce((a, b) => a < b ? a : b);
+    final earliest = all.map((v) => v.soldOn).reduce((a, b) => a < b ? a : b);
     final d = DateTime.fromMillisecondsSinceEpoch(earliest);
     return DateTime(d.year, d.month);
   }
@@ -235,18 +235,6 @@ class ReportRepository {
           ..where((t) => t.voidedAt.isNotNull() & t.deletedAt.isNull()))
         .get();
     return {for (final r in rows) r.orderId};
-  }
-
-  /// The day a sale belongs to: when the last item actually went, falling back
-  /// to the order's own date for anything not yet delivered.
-  int _soldOn(OrderView v) {
-    int? latest;
-    for (final l in v.lines) {
-      final at = l.deliveredAt;
-      if (at == null) continue;
-      if (latest == null || at > latest) latest = at;
-    }
-    return latest ?? v.order.deliveryDate;
   }
 
   Future<double> _levelOf(String materialId) async {

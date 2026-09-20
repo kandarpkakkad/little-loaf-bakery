@@ -119,10 +119,7 @@ class _Detail extends StatelessWidget {
                   child: Text(Phone.parse(view.customer.phoneE164).pretty,
                       style: context.text.bodyMedium!.copyWith(color: c.accent2)),
                 ),
-                if (o.addressText != null) ...[
-                  const SizedBox(height: Space.sm),
-                  Text(o.addressText!, style: context.text.bodySmall),
-                ],
+
               ],
             ),
           ),

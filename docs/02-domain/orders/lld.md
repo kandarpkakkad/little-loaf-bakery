@@ -123,6 +123,20 @@ and a box on Sunday *finishes* Sunday but *needs someone* on Friday. Show the
 first, sort by the second — sorting by the due date buries Friday's cake behind
 everything due earlier in the week, and nobody bakes it.
 
+Since D28 they are journeys, not lines: `nextSubOrder` and `finishingSubOrder`
+return the whole thing, not just its date.
+
+**Whatever a row is grouped or filed by, everything else on that row comes from
+the same journey.** The orders list groups on `nextSubOrder` while the card
+printed the *order's* cached time and fulfilment — the finishing journey's — so
+a two-day order sat under Friday's heading reading Sunday's 10 am pickup. The
+reports list files an order under `OrderView.soldOn` (when it actually went)
+while the same card printed `orders.delivery_date` (when it was promised), which
+in a spill-over month is a different month from the one it is listed in.
+
+`OrderView` exposes `nextJourney` and `soldOn` so there is one definition of
+each and no screen has to re-derive them.
+
 **`orders.delivery_date` is never edited.** It is a stored copy of `dueDate`,
 rewritten whenever a line is added, edited, delivered or cancelled. The column
 survives because it is NOT NULL and a v9 peer still reads it — not because

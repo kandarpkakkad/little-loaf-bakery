@@ -26,10 +26,13 @@ class _KitchenScreenState extends State<KitchenScreen> {
   int _view = 0;
   int _days = 1;
 
+  /// `deriveOrderStatus` never returns `ready` or `out` — half a ready order
+  /// is not a thing, and an order does not travel; both collapse to
+  /// `inProduction`, which is what keeps an order whose vans have all left on
+  /// the board. Listing `ready` here did nothing at all.
   static const _active = {
     OrderStatus.confirmed,
     OrderStatus.inProduction,
-    OrderStatus.ready,
   };
 
   @override

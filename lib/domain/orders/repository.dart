@@ -53,6 +53,26 @@ class OrderView {
   /// What it needs *next*, which on a multi-day order is a different date.
   /// This is what the lists sort and group by.
   int? get nextDate => deriveNextDate(subOrders);
+
+  /// The journey being acted on next — the one a list sorted by [nextDate] is
+  /// showing. Anything displayed beside that date belongs to this journey.
+  SubOrder? get nextJourney => nextSubOrder(subOrders);
+
+  /// The day this order counts as trade: when the last item actually went,
+  /// falling back to the promised date while anything is still outstanding.
+  ///
+  /// Reporting files an order under this, so anything showing a date next to a
+  /// reported order must show this one — not `order.deliveryDate`, which is
+  /// the promise and can be a different month.
+  int get soldOn {
+    int? latest;
+    for (final l in lines) {
+      final at = l.deliveredAt;
+      if (at == null) continue;
+      if (latest == null || at > latest) latest = at;
+    }
+    return latest ?? order.deliveryDate;
+  }
   int? get nextTime => deriveNextTime(subOrders);
 
   /// The journeys falling in `[from, to)` and not yet done.

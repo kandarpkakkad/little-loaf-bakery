@@ -644,6 +644,30 @@ int? deriveDueTime(Iterable<SubOrder> subs) {
   return latest;
 }
 
+/// The journey somebody has to act on next: the **earliest** still outstanding.
+///
+/// The counterpart of [finishingSubOrder], and what a list sorted by
+/// [deriveNextDate] is actually showing. A card grouped under Friday must take
+/// its time and its way out from Friday's journey, not from the one that
+/// happens to finish the order — those are different trips on a two-day order,
+/// and reading one under the other's heading is simply wrong.
+SubOrder? nextSubOrder(Iterable<SubOrder> subs) {
+  SubOrder? first;
+  for (final s in subs) {
+    if (s.status.isDone) continue;
+    if (first == null) {
+      first = s;
+      continue;
+    }
+    final a = s.deliveryDate, b = first.deliveryDate;
+    if (a < b ||
+        (a == b && (s.deliveryTime ?? 0) < (first.deliveryTime ?? 0))) {
+      first = s;
+    }
+  }
+  return first;
+}
+
 /// When this order is next needed: the **earliest** journey still outstanding.
 ///
 /// This is what every list sorts on. A cake on Friday and a box on Sunday
