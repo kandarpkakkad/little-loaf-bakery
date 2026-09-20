@@ -130,31 +130,33 @@ enum OrderStatus {
       };
 }
 
-/// The only legal moves. Cancelled is reachable from anything before Delivered;
-/// there is no way back once a cake has been handed over.
+/// The only moves a **person** makes on an order (D26).
+///
+/// Three moments, and nothing else: the conversation that confirms it, the
+/// decision to close the books, and calling it off. Everything between —
+/// in production, ready, out, delivered — is *derived from the items* by
+/// [deriveOrderStatus], so it is not something anyone taps. Moving an item is
+/// how those change.
+///
+/// `ready` and `out` are absent as destinations for a second reason: an order
+/// has neither. Items are ready and go out; the order follows the last of them.
 const Map<OrderStatus, Set<OrderStatus>> kAllowedTransitions = {
   OrderStatus.created: {OrderStatus.confirmed, OrderStatus.cancelled},
-  OrderStatus.confirmed: {OrderStatus.inProduction, OrderStatus.cancelled},
-  OrderStatus.inProduction: {OrderStatus.ready, OrderStatus.cancelled},
-  OrderStatus.ready: {OrderStatus.out, OrderStatus.cancelled},
-  OrderStatus.out: {OrderStatus.delivered, OrderStatus.cancelled},
+  OrderStatus.confirmed: {OrderStatus.cancelled},
+  OrderStatus.inProduction: {OrderStatus.cancelled},
+  OrderStatus.ready: {OrderStatus.cancelled},
+  OrderStatus.out: {OrderStatus.cancelled},
   OrderStatus.delivered: {OrderStatus.completed},
   OrderStatus.completed: {},
   OrderStatus.cancelled: {},
 };
 
-/// The next statuses an order can move to, given how it is being fulfilled.
+/// The next statuses an order can move to.
 ///
-/// A pickup never goes "out for delivery" — nobody is taking it anywhere, the
-/// customer comes to it. Leaving that step in the flow meant tapping through a
-/// status that never happened, so for pickup it is skipped: ready goes straight
-/// to handed over.
-Set<OrderStatus> allowedNext(OrderStatus from, {required bool isPickup}) {
-  if (isPickup && from == OrderStatus.ready) {
-    return const {OrderStatus.delivered, OrderStatus.cancelled};
-  }
-  return kAllowedTransitions[from] ?? const {};
-}
+/// No longer depends on how it is fulfilled: the pickup-skips-"out" rule lives
+/// on the item now, where the fulfilment does.
+Set<OrderStatus> allowedNext(OrderStatus from) =>
+    kAllowedTransitions[from] ?? const {};
 
 /// Whether the order's details may still be changed.
 ///
@@ -232,6 +234,13 @@ class Weight {
         : value.toString();
     return '$n $unit';
   }
+
+  /// Dart's default would be `Instance of 'Weight'`, and a list of mixed
+  /// Strings and Weights joins without complaint — which is exactly how that
+  /// text reached a customer-facing item list. The label is the only sensible
+  /// thing this can ever be.
+  @override
+  String toString() => label;
 }
 
 class Addon {

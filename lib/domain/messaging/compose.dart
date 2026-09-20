@@ -118,13 +118,32 @@ List<String> _itemLines(MessageContext c) => [
       ],
     ];
 
+/// The money line, built by **dropping clauses rather than printing zeros**.
+///
+/// `money()` returns null when an amount is zero — that is the "zero never
+/// shows" rule (D10) — so interpolating it directly puts the literal word
+/// "null" in front of a customer. It did: "Paid null", and "Balance due null"
+/// on any order paid in full. Every amount here goes through [_clause], which
+/// omits itself when there is nothing to say.
 String _moneyLine(MessageContext c) {
   final t = c.totals;
-  if (t.paid.isZero) {
-    return 'Total ${money(t.total)} · Payable on delivery ${money(t.total)}';
-  }
-  return 'Total ${money(t.total)} · Advance received ${money(t.paid)} · '
-      'Balance due ${money(t.balanceDue)}';
+  return [
+    // The total always prints, even at ₹0 — an order with no total is a fact
+    // worth stating, not one to hide.
+    'Total ${money(t.total, showZero: true)}',
+    if (t.paid.isZero)
+      ..._clause('Payable on delivery', t.total)
+    else ...[
+      ..._clause('Advance received', t.paid),
+      ..._clause('Balance due', t.balanceDue),
+    ],
+  ].join(' · ');
+}
+
+/// `['Label ₹500']`, or nothing at all when the amount is zero.
+List<String> _clause(String label, Money amount) {
+  final text = money(amount);
+  return text == null ? const [] : ['$label $text'];
 }
 
 String _confirmation(MessageContext c) => [
@@ -187,8 +206,11 @@ String _delivery(MessageContext c) {
     ],
     '',
     if (owes) ...[
-      'Total ${money(c.totals.total)} · Paid ${money(c.totals.paid)}',
-      '*Balance due ${money(owed)}*',
+      [
+        'Total ${money(c.totals.total, showZero: true)}',
+        ..._clause('Paid', c.totals.paid),
+      ].join(' · '),
+      '*Balance due ${money(owed, showZero: true)}*',
       '',
       ..._payLines(c),
       if (_payLines(c).isNotEmpty) '',

@@ -563,7 +563,7 @@ class _LineTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = [
       if (line.flavour != null) line.flavour!,
-      if (line.weight != null) line.weight!,
+      if (line.weight != null) line.weight!.label,
       if (line.qty > 1) '× ${line.qty}',
       for (final a in line.addons) '+ ${a.name}',
     ].join(' · ');

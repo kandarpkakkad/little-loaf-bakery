@@ -93,12 +93,24 @@ class _KitchenScreenState extends State<KitchenScreen> {
               for (final l in o.linesDueBetween(0, horizon)) (order: o, line: l),
           ];
 
-          if (due.isEmpty) {
+          // The board only draws items that have *started* — in production,
+          // ready, out. So "nothing due" is not the only empty case: an order
+          // sitting unconfirmed has items due and none of them started, and
+          // asking `due.isEmpty` there rendered a blank screen with no
+          // explanation at all.
+          final started = due.where((w) => w.line.status.hasStarted).toList();
+          final boardIsEmpty = _view == 0 ? started.isEmpty : due.isEmpty;
+
+          if (boardIsEmpty) {
             return Pullable(child: EmptyState(
               icon: Icons.bakery_dining_outlined,
-              message: _days == 1
-                  ? 'Nothing to bake today.'
-                  : 'Nothing to bake in the next $_days days.',
+              message: due.isEmpty
+                  ? (_days == 1
+                      ? 'Nothing to bake today.'
+                      : 'Nothing to bake in the next $_days days.')
+                  : 'Nothing has been started yet.\n'
+                      'Confirm an order and move an item to In production '
+                      'to send it here.',
             ));
           }
           return _view == 0 ? _Board(work: due) : _BakeSheet(work: due);

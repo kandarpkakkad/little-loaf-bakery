@@ -138,38 +138,68 @@ void main() {
   });
 
   group('status flow', () {
-    test('a delivery goes out before it is delivered', () {
-      expect(allowedNext(OrderStatus.ready, isPickup: false),
-          contains(OrderStatus.out));
-      expect(allowedNext(OrderStatus.ready, isPickup: false),
-          isNot(contains(OrderStatus.delivered)));
-    });
-
-    test('a pickup skips out-for-delivery entirely', () {
-      final next = allowedNext(OrderStatus.ready, isPickup: true);
-      expect(next, contains(OrderStatus.delivered));
-      expect(next, isNot(contains(OrderStatus.out)),
-          reason: 'nobody is taking a pickup anywhere');
-    });
-
-    test('a pickup can be handed over straight from ready', () async {
-      await f.services.orders
-          .updateDetails(orderId, fulfilment: Fulfilment.pickup);
+    // The pickup-skips-"out" rule moved down to the item with the fulfilment
+    // (D25), and an order no longer has ready or out at all (D26). What is
+    // left at order level is the three moments a person decides.
+    test('an order is confirmed by confirming it, items and all', () async {
       final orders = f.services.orders;
       await orders.moveTo(orderId, OrderStatus.confirmed);
-      await orders.moveTo(orderId, OrderStatus.inProduction);
-      await orders.moveTo(orderId, OrderStatus.ready);
-      await orders.moveTo(orderId, OrderStatus.delivered);
-      expect((await order())['status'], 'delivered');
+
+      final v = await orders.watchOrder(orderId).first;
+      expect(v!.status, OrderStatus.confirmed,
+          reason: 'the status every screen reads is derived from the items');
+      expect(v.lines.every((l) => l.status == LineStatus.confirmed), isTrue,
+          reason: 'confirming an order is what confirms its items');
+      expect((await order())['confirmed_at'], isNotNull);
     });
 
-    test('a delivery still cannot skip out', () async {
+    test('confirming twice is refused by the derived status', () async {
       final orders = f.services.orders;
       await orders.moveTo(orderId, OrderStatus.confirmed);
-      await orders.moveTo(orderId, OrderStatus.inProduction);
-      await orders.moveTo(orderId, OrderStatus.ready);
-      expect(() => orders.moveTo(orderId, OrderStatus.delivered),
+      expect(() => orders.moveTo(orderId, OrderStatus.confirmed),
           throwsStateError);
+    });
+
+    test('an order cannot be walked forward by hand', () async {
+      final orders = f.services.orders;
+      await orders.moveTo(orderId, OrderStatus.confirmed);
+      for (final to in [OrderStatus.inProduction, OrderStatus.ready,
+          OrderStatus.out, OrderStatus.delivered]) {
+        expect(() => orders.moveTo(orderId, to), throwsStateError,
+            reason: '$to follows the items; it is not a button');
+      }
+    });
+
+    test('a pickup is handed over by moving its item', () async {
+      final orders = f.services.orders;
+      await orders.moveTo(orderId, OrderStatus.confirmed);
+      var v = await orders.watchOrder(orderId).first;
+
+      for (final l in v!.lines) {
+        await orders.updateLine(l.id!, fulfilment: Fulfilment.pickup);
+        for (final st in const [LineStatus.inProduction, LineStatus.ready,
+            LineStatus.delivered]) {
+          await orders.moveLine(l.id!, st);
+        }
+      }
+
+      v = await orders.watchOrder(orderId).first;
+      expect(v!.status, OrderStatus.delivered);
+      expect((await order())['status'], 'delivered',
+          reason: 'the column is a cache of the derived value');
+    });
+
+    test('a pickup item still cannot go out for delivery', () async {
+      final orders = f.services.orders;
+      await orders.moveTo(orderId, OrderStatus.confirmed);
+      final v = await orders.watchOrder(orderId).first;
+      final l = v!.lines.first;
+      await orders.updateLine(l.id!, fulfilment: Fulfilment.pickup);
+      await orders.moveLine(l.id!, LineStatus.inProduction);
+      await orders.moveLine(l.id!, LineStatus.ready);
+
+      expect(() => orders.moveLine(l.id!, LineStatus.out), throwsStateError,
+          reason: 'nobody is taking a pickup anywhere');
     });
   });
 

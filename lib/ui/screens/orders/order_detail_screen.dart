@@ -63,7 +63,7 @@ class _Detail extends StatelessWidget {
     final o = view.order;
     final t = view.totals;
     final isPickup = o.fulfilment == 'pickup';
-    final next = allowedNext(view.status, isPickup: isPickup);
+    final next = allowedNext(view.status);
 
     return Scaffold(
       backgroundColor: c.paper,
@@ -363,12 +363,13 @@ class _StatusRow extends StatelessWidget {
 
   final OrderView view;
 
+  /// An order has no "ready" and no "out" — items do, and the order follows
+  /// the last of them. Showing steps nothing can ever reach reads as a stalled
+  /// order rather than a finished one.
   static const _flow = [
     OrderStatus.created,
     OrderStatus.confirmed,
     OrderStatus.inProduction,
-    OrderStatus.ready,
-    OrderStatus.out,
     OrderStatus.delivered,
     OrderStatus.completed,
   ];

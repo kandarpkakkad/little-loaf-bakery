@@ -230,7 +230,7 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
 
               SegmentedButton<int>(
                 segments: const [
-                  ButtonSegment(value: 0, label: Text('No discount')),
+                  ButtonSegment(value: 0, label: Text('None')),
                   ButtonSegment(value: 1, label: Text('%')),
                   ButtonSegment(value: 2, label: Text('₹')),
                 ],

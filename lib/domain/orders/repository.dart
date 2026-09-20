@@ -458,7 +458,7 @@ class OrderRepository {
       // The order is due when its last item is. Stored rather than left to the
       // reader because the column is NOT NULL and a v9 peer still reads it —
       // but it is a copy of the derivation, never something a person typed.
-      await _refreshOrderDate(id, hlc);
+      await _refreshOrderCache(id, hlc);
 
       await _insertStatusEvent(id, null, OrderStatus.created, now, hlc);
 
@@ -549,53 +549,76 @@ class OrderRepository {
   /// The app offers a move; a person takes it. An illegal move throws rather
   /// than silently doing nothing — a status that changed without anyone
   /// choosing it is the one bug this design exists to prevent.
+  ///
+  /// **This dispatches; it does not write a status.** The order's status is
+  /// derived from its items (D26), so the three moves a person can make are
+  /// the three moments the order records: confirmed, completed, cancelled.
+  /// Writing a status column here instead was how confirming an order came to
+  /// do nothing at all — the column said confirmed, the items stayed created,
+  /// and every screen reads the items.
   Future<void> moveTo(String orderId, OrderStatus to, {String? reason}) async {
+    // Checked against the **derived** status, which is what the screen used to
+    // decide what to offer. Reading the stored column here meant the guard and
+    // the buttons could disagree, and a legal-looking tap threw.
+    final from = await _derivedStatus(orderId);
+    if (!allowedNext(from).contains(to)) {
+      throw StateError('${from.label} cannot become ${to.label}');
+    }
+
+    switch (to) {
+      case OrderStatus.confirmed:
+        return confirm(orderId);
+      case OrderStatus.completed:
+        return complete(orderId);
+      case OrderStatus.cancelled:
+        return _cancel(orderId, reason);
+      default:
+        // Unreachable through allowedNext, and worth saying why rather than
+        // failing obscurely if someone widens the table again.
+        throw StateError(
+            '${to.label} is derived from the items — move the items instead');
+    }
+  }
+
+  /// The order's status as everything that displays it computes it.
+  Future<OrderStatus> _derivedStatus(String orderId) async {
+    final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+        .getSingle();
+    return deriveOrderStatus(
+      await _linesOf(orderId),
+      confirmedAt: o.confirmedAt,
+      completedAt: o.completedAt,
+    );
+  }
+
+  /// Calling the whole order off. Cancels every live item, so the derived
+  /// status follows and the kitchen stops on all of them at once.
+  Future<void> _cancel(String orderId, String? reason) async {
+    if (reason == null || reason.trim().isEmpty) {
+      throw StateError('Cancelling an order needs a reason');
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final hlc = mutations.lastHlc.toString();
-    await db.transaction(() async {
-      final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
-          .getSingle();
-      final from = OrderStatus.parse(o.status);
-      // Pickup skips "out for delivery", so what is legal depends on the order.
-      final isPickup = o.fulfilment == 'pickup';
-      if (!allowedNext(from, isPickup: isPickup).contains(to)) {
-        throw StateError('${from.label} cannot become ${to.label}');
-      }
 
-      // Completing is the act of closing the books on an order, so it cannot
-      // happen while money is still owed. Enforced here rather than only in the
-      // UI: a stale screen, or a peer's op, must not be able to close an order
-      // that is still short.
-      if (to == OrderStatus.completed) {
-        final totals = OrderTotals(
-          lines: await _linesOf(orderId),
-          discountType: o.discountType == null
-              ? null
-              : DiscountType.values.byName(o.discountType!),
-          discountValue: o.discountValue ?? 0,
-          deliveryCharge: Money(o.deliveryCharge),
-          paid: await _paidOf(orderId),
-        );
-        if (totals.hasBalance) {
-          throw StateError('Cannot complete: '
-              '₹${(totals.balanceDue.paise / 100).toStringAsFixed(2)} still due');
+    await db.transaction(() async {
+      final from = await _derivedStatus(orderId);
+      for (final l in await _linesOf(orderId)) {
+        if (l.status.isLive) {
+          await _writeLineStatus(
+              l.id!, l.status, LineStatus.cancelled, now, hlc, reason: reason);
         }
       }
-      await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
-        OrdersCompanion(
-          status: Value(to.wire),
-          updatedAtHlc: Value(hlc),
-          cancelReason: to == OrderStatus.cancelled ? Value(reason) : const Value.absent(),
-          deliveredAt:
-              to == OrderStatus.delivered ? Value(now) : const Value.absent(),
-        ),
-      );
+      await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+          .write(OrdersCompanion(
+        cancelReason: Value(reason.trim()),
+        updatedAtHlc: Value(hlc),
+      ));
       await mutations.record('orders', orderId, OpKind.upsert, {
-        'status': to.wire,
-        if (to == OrderStatus.cancelled) 'cancel_reason': reason,
-        if (to == OrderStatus.delivered) 'delivered_at': now,
+        'cancel_reason': reason.trim(),
       });
-      await _insertStatusEvent(orderId, from, to, now, hlc, reason: reason);
+      await _insertStatusEvent(
+          orderId, from, OrderStatus.cancelled, now, hlc, reason: reason);
+      await _refreshOrderCache(orderId, hlc);
     });
   }
 
@@ -626,7 +649,7 @@ class OrderRepository {
       await _writeLineStatus(lineId, from, to, now, hlc, reason: reason);
       // Delivering or cancelling changes which lines are still outstanding,
       // and so which of them the order is due on.
-      await _refreshOrderDate(i.orderId, hlc);
+      await _refreshOrderCache(i.orderId, hlc);
 
       // The bill covers the order, so it is issued once — when the last live
       // item has gone, not as each one does.
@@ -646,8 +669,26 @@ class OrderRepository {
   /// its outstanding items, and it moves when they do. The column exists
   /// because it is NOT NULL and a v9 peer still reads it; this keeps the copy
   /// honest after anything that can change a line.
-  Future<void> _refreshOrderDate(String orderId, String hlc) async {
+  /// Rewrites everything on the order that is really a **copy of its items**.
+  ///
+  /// The date, the time and the status are all derived. They live on the order
+  /// as columns because they are NOT NULL and a v9 peer still reads them — so
+  /// they are kept as a cache, written from the items after anything that can
+  /// move them, and never read back as truth by this build.
+  Future<void> _refreshOrderCache(String orderId, String hlc) async {
     final lines = await _linesOf(orderId);
+    final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
+        .getSingle();
+    final status = deriveOrderStatus(lines,
+        confirmedAt: o.confirmedAt, completedAt: o.completedAt);
+
+    await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
+      OrdersCompanion(status: Value(status.wire), updatedAtHlc: Value(hlc)),
+    );
+    await mutations.record('orders', orderId, OpKind.upsert, {
+      'status': status.wire,
+    });
+
     // Fall back to every line once nothing is outstanding, so a fully
     // delivered order keeps the date it actually happened on rather than
     // reverting to nothing.
@@ -810,7 +851,7 @@ class OrderRepository {
             hlc, reason: 'item edited');
       }
       if (deliveryDate != null || deliveryTime != kUnchanged) {
-        await _refreshOrderDate(i.orderId, hlc);
+        await _refreshOrderCache(i.orderId, hlc);
       }
     });
   }
@@ -836,7 +877,7 @@ class OrderRepository {
         await _writeLineStatus(
             id, LineStatus.created, LineStatus.confirmed, now, hlc);
       }
-      await _refreshOrderDate(orderId, hlc);
+      await _refreshOrderCache(orderId, hlc);
     });
     return id;
   }
@@ -893,6 +934,7 @@ class OrderRepository {
       }
       await _insertStatusEvent(
           orderId, OrderStatus.created, OrderStatus.confirmed, now, hlc);
+      await _refreshOrderCache(orderId, hlc);
     });
   }
 
@@ -931,6 +973,7 @@ class OrderRepository {
       });
       await _insertStatusEvent(
           orderId, OrderStatus.delivered, OrderStatus.completed, now, hlc);
+      await _refreshOrderCache(orderId, hlc);
     });
   }
 

@@ -116,14 +116,28 @@ void main() {
       }
     });
 
-    test('never skips a step forward', () {
-      const order = [OrderStatus.created, OrderStatus.confirmed,
-        OrderStatus.inProduction, OrderStatus.ready, OrderStatus.out,
-        OrderStatus.delivered, OrderStatus.completed];
-      for (var i = 0; i < order.length - 1; i++) {
-        final forward = kAllowedTransitions[order[i]]!
-            .where((s) => s != OrderStatus.cancelled);
-        expect(forward, {order[i + 1]});
+    test('an order offers only the moves a person actually makes', () {
+      // D26: everything between confirmed and delivered is derived from the
+      // items, so it is not something anyone taps. Three moments remain.
+      expect(kAllowedTransitions[OrderStatus.created],
+          {OrderStatus.confirmed, OrderStatus.cancelled});
+      expect(kAllowedTransitions[OrderStatus.delivered],
+          {OrderStatus.completed});
+
+      for (final s in [OrderStatus.confirmed, OrderStatus.inProduction,
+          OrderStatus.ready, OrderStatus.out]) {
+        expect(kAllowedTransitions[s], {OrderStatus.cancelled},
+            reason: '$s moves when its items do, not when anyone taps');
+      }
+    });
+
+    test('nothing forward is reachable by typing it', () {
+      for (final to in [OrderStatus.inProduction, OrderStatus.ready,
+          OrderStatus.out, OrderStatus.delivered]) {
+        for (final from in OrderStatus.values) {
+          expect(allowedNext(from), isNot(contains(to)),
+              reason: '$to is derived from the items');
+        }
       }
     });
 
