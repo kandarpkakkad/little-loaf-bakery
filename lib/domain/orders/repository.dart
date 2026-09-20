@@ -55,7 +55,30 @@ class OrderView {
 
   /// The journey being acted on next — the one a list sorted by [nextDate] is
   /// showing. Anything displayed beside that date belongs to this journey.
+  ///
+  /// **Null once everything is done**, which is what [shownJourney] is for.
   SubOrder? get nextJourney => nextSubOrder(subOrders);
+
+  /// The journey this order is *about*: the next one still to happen, or —
+  /// once nothing is outstanding — the one it finished on.
+  ///
+  /// Every "outstanding" derivation goes null on a delivered order, so a card
+  /// reading [nextJourney] alone showed a completed order as "Any time" with
+  /// the order's cached fulfilment. A finished order should say what it was.
+  SubOrder? get shownJourney =>
+      nextSubOrder(subOrders) ?? finishingSubOrder(subOrders);
+
+  /// The day this order sits under in a list: what it needs next while
+  /// anything is outstanding, and its last journey's day once nothing is.
+  ///
+  /// Grouping on `nextDate ?? dueDate` filed every completed order under
+  /// "No date", because both skip journeys that are done.
+  ///
+  /// The last fallback is `order.delivery_date` and **not** [soldOn], for two
+  /// reasons: the list is sorted in SQL on that column and the grouping walks
+  /// it assuming the two agree, and `soldOn` is a precise timestamp — grouping
+  /// on it would put a fresh heading above every delivered order.
+  int get listDate => nextDate ?? dueDate ?? order.deliveryDate;
 
   /// The day this order counts as trade: when the last item actually went,
   /// falling back to the promised date while anything is still outstanding.

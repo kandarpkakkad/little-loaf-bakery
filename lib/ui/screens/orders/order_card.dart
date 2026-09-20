@@ -31,7 +31,7 @@ class OrderCard extends StatelessWidget {
     final c = context.colors;
     final o = view.order;
     final t = view.totals;
-    final next = view.nextJourney;
+    final shown = view.shownJourney;
 
     return InkWell(
       onTap: onTap ??
@@ -66,32 +66,25 @@ class OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              // Everything here describes the journey this card is being
-              // shown for, never the order's caches — those hold the
-              // FINISHING journey, so a two-day order filed under Friday read
-              // Sunday's time and Sunday's way out on the same row.
+              // The time comes from the journey this card is being shown
+              // for, never from the order's caches — those hold the FINISHING
+              // journey, so a two-day order filed under Friday read Sunday's
+              // time on the same row. The handover covers all of them, because
+              // one label cannot honestly stand for a pickup and a delivery.
               //
-              // In a list it is the next journey, which is what the list is
-              // grouped and sorted by. In a report it is the date the sale was
-              // filed under, which is when it actually went.
+              // The date is the report's: when the sale was filed, which is
+              // when it actually went.
               [
                 if (showDate)
                   _dateLabel(DateTime.fromMillisecondsSinceEpoch(view.soldOn)),
-                timeLabel(next?.deliveryTime ?? view.nextTime),
-                (next?.isPickup ?? o.fulfilment == 'pickup')
-                    ? 'Pickup'
-                    : 'Delivery',
+                timeLabel(shown?.deliveryTime),
+                _handover(view),
               ].join(' · '),
               style: context.text.bodySmall!.copyWith(color: c.ink2),
             ),
             const SizedBox(height: 2),
             Text(
-              // Live only: the amount beside this line excludes cancelled
-              // items, so naming them here made the two disagree.
-              view.lines
-                  .where((l) => l.isLive)
-                  .map((l) => '${l.itemName}${l.qty > 1 ? ' ×${l.qty}' : ''}')
-                  .join(', '),
+              _items(view),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: context.text.bodySmall!.copyWith(color: c.ink2),
@@ -148,6 +141,37 @@ class _Chip extends StatelessWidget {
             style: context.text.labelSmall!
                 .copyWith(color: colors.$1, fontWeight: FontWeight.w600)),
       );
+}
+
+/// The items, grouped by name and counted.
+///
+/// One row per order item read "Croissant, Croissant ×2" when the same thing
+/// was both collected and delivered — which looks like a mistake rather than
+/// two handovers. Live only: the amount beside this line excludes cancelled
+/// items, so naming them here would make the two disagree.
+String _items(OrderView view) {
+  final counts = <String, int>{};
+  for (final l in view.lines) {
+    if (!l.isLive) continue;
+    counts[l.itemName] = (counts[l.itemName] ?? 0) + l.qty;
+  }
+  return counts.entries
+      .map((e) => e.value > 1 ? '${e.key} ×${e.value}' : e.key)
+      .join(', ');
+}
+
+/// How this order is handed over, across **all** its journeys.
+///
+/// `orders.fulfilment` is a cache of the finishing journey, so a card built
+/// from it said "Delivery" for an order half of which the customer collected.
+String _handover(OrderView view) {
+  final live = [for (final s in view.subOrders) if (s.isLive) s];
+  if (live.isEmpty) return 'Delivery';
+  final pickups = live.where((s) => s.isPickup).length;
+  final deliveries = live.length - pickups;
+  if (pickups > 0 && deliveries > 0) return 'Delivery + pickup';
+  if (live.length == 1) return pickups == 1 ? 'Pickup' : 'Delivery';
+  return pickups > 0 ? '$pickups pickups' : '$deliveries deliveries';
 }
 
 String _dateLabel(DateTime d) {

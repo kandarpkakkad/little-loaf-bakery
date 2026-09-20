@@ -277,7 +277,7 @@ List<_Row> _group(List<OrderView> orders) {
   var started = false;
 
   for (final o in orders) {
-    final day = o.nextDate ?? o.dueDate;
+    final day = o.listDate;
     if (!started || day != current) {
       rows.add(_Row.day(day));
       current = day;

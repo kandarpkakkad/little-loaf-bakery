@@ -118,6 +118,17 @@ signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
 build**. Test Drive on a locally built debug APK or on a release APK. This is
 not a bug to fix in Dart.
 
+### Every "outstanding" derivation goes null on a finished order
+
+`nextDate`, `dueDate` and `nextJourney` all skip journeys that are done, so on
+a delivered order they are all null. A list grouped on `nextDate ?? dueDate`
+filed every completed order under **"No date"**, and a card reading
+`nextJourney` alone showed one as "Any time" with the order's cached
+fulfilment.
+
+`OrderView.listDate` and `OrderView.shownJourney` carry the fallback. A
+finished order should say what it *was*.
+
 ### A row's date and its details must come from the same journey
 
 Whatever a list is grouped, sorted or filed by, everything shown beside it
@@ -138,6 +149,12 @@ answer: Friday's van went out under Sunday's tracking link, and a two-day order
 was confirmed with only the later date.
 
 Acting on one journey? Take the value from that journey.
+
+### One label cannot stand for several journeys
+
+A card that said "Delivery" for an order half of which the customer collected
+was reading `orders.fulfilment` — the finishing journey's. Anything summarising
+a whole order has to look at every journey, or say which one it means.
 
 ### Cancelled lines are excluded from totals, so exclude them from listings too
 
