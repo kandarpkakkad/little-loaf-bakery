@@ -4,6 +4,17 @@
 Built — `lib/domain/reporting/repository.dart` and **More › Reports**, ten
 tests.
 
+**Any month, not just the last twelve.** The screen opens on this month and
+arrows step either side — "last month" is the common ask and should be one tap.
+The label opens a picker for anything further back, bounded by the oldest order
+there is, because paging into empty years reads as a broken screen. A month
+shows how many orders it holds, what they come to, and the orders themselves.
+
+A month's orders are dated by **when they are due**, not when they were taken:
+"September's orders" means the ones September has to bake. Orders not yet gone
+are included — for the current month that is most of them — and cancelled ones
+are not, because they were never trade.
+
 **Deviation from the design below, deliberately.** It called for a
 `v_order_totals` view as "the single definition of a total". The app already
 has one — `OrderTotals` in Dart — and every screen reads it. A SQL copy would

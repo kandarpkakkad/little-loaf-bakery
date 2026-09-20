@@ -128,6 +128,40 @@ class ReportRepository {
     ]..sort((a, b) => b.revenue.paise.compareTo(a.revenue.paise));
   }
 
+  /// Every order due in one month, newest first.
+  ///
+  /// Dated by **when it is due**, not when it was taken: "September's orders"
+  /// means the ones September has to bake, which is the question someone
+  /// looking back at a month is actually asking.
+  ///
+  /// Includes orders that have not gone out yet — for the current month that
+  /// is most of them — and excludes cancelled ones, which were never trade.
+  Future<List<OrderView>> ordersIn(int year, int month) async {
+    final from = DateTime(year, month).millisecondsSinceEpoch;
+    final to = DateTime(year, month + 1).millisecondsSinceEpoch;
+
+    final all = await orders.watchOrders().first;
+    return [
+      for (final v in all)
+        if (!v.isCancelled &&
+            v.order.deliveryDate >= from &&
+            v.order.deliveryDate < to)
+          v,
+    ]..sort((a, b) => b.order.deliveryDate.compareTo(a.order.deliveryDate));
+  }
+
+  /// The month of the earliest order there is, so a picker knows how far back
+  /// it can go rather than offering empty years.
+  Future<DateTime?> firstMonth() async {
+    final all = await orders.watchOrders().first;
+    if (all.isEmpty) return null;
+    final earliest = all
+        .map((v) => v.order.deliveryDate)
+        .reduce((a, b) => a < b ? a : b);
+    final d = DateTime.fromMillisecondsSinceEpoch(earliest);
+    return DateTime(d.year, d.month);
+  }
+
   /// Money owed across every order that is not yet settled.
   Future<Money> outstanding() async {
     final all = await orders.watchOrders().first;
