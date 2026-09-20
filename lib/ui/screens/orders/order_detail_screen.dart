@@ -647,6 +647,8 @@ Future<void> _editItem(
 
 Future<void> _addItem(BuildContext context, OrderView view) async {
   final orders = context.app.orders;
+  // Resolved before the await below, not reached for across it.
+  final messenger = ScaffoldMessenger.of(context);
   final added = await editLine(
     context,
     // Every item already on the order, so the new one can join any journey
@@ -659,7 +661,13 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
     customerId: view.customer.id,
   );
   if (added == null) return;
-  await orders.addLine(view.order.id, added);
+  try {
+    await orders.addLine(view.order.id, added);
+  } on StateError catch (e) {
+    // A date in the past is refused here, same as everywhere else.
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    return;
+  }
   if (!context.mounted) return;
 
   // The customer agreed to an order that no longer matches what is written

@@ -10,6 +10,19 @@ import 'package:little_loaf/platform/sync/remote_store.dart';
 import 'package:little_loaf/platform/sync/sync_engine.dart';
 import 'package:little_loaf/ui/theme/theme.dart';
 
+/// A day at local midnight, [offset] days from today.
+///
+/// Fixtures used to mint dates as small integers — `date: 1000` is 1 January
+/// 1970 — or as a hardcoded `DateTime(2026, 9, 10)`. Both stopped working when
+/// scheduling into the past was refused: the first was always in the past, and
+/// the second became so. A day relative to today cannot rot either way.
+int dayAfter(int offset) {
+  final n = DateTime.now();
+  return DateTime(n.year, n.month, n.day)
+      .add(Duration(days: offset))
+      .millisecondsSinceEpoch;
+}
+
 /// A real database — schema, constraints, indexes and all — held in memory.
 ///
 /// Widget tests run against the same tables the phone does, so a CHECK

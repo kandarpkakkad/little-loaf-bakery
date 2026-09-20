@@ -118,6 +118,17 @@ signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
 build**. Test Drive on a locally built debug APK or on a release APK. This is
 not a bug to fix in Dart.
 
+### Never mint a date as a small integer in a test
+
+`date: 1000` is 1 January 1970. Fixtures used it as "some day" and `5000` as
+"a later day", and a hardcoded `DateTime(2026, 9, 10)` for the same job — which
+worked until scheduling into the past was refused, and then 63 tests failed at
+once. A hardcoded date rots on its own schedule too: September 2026 was the
+future when those were written.
+
+Use `dayAfter(n)` from the harness. Relative days keep their ordering and
+cannot go stale.
+
 ### Every "outstanding" derivation goes null on a finished order
 
 `nextDate`, `dueDate` and `nextJourney` all skip journeys that are done, so on

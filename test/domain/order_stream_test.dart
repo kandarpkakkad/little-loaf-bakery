@@ -23,7 +23,7 @@ void main() {
         DraftLine(
             menuItemId: menu, itemName: 'Cake', basePrice: Money.rupees(1000))
       ],
-      deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
+      deliveryDate: dayAfter(1),
     );
   });
 

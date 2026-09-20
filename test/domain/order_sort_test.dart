@@ -103,7 +103,7 @@ class AppServicesFixture {
     return AppServicesFixture(s, menuId, customerId);
   }
 
-  Future<String> order(String label, int dayOfSept, int? minutes) =>
+  Future<String> order(String label, int dayOffset, int? minutes) =>
       s.orders.create(
         customerId: customerId,
         lines: [
@@ -113,7 +113,7 @@ class AppServicesFixture {
             basePrice: Money.rupees(100),
           )
         ],
-        deliveryDate: DateTime(2026, 9, dayOfSept).millisecondsSinceEpoch,
+        deliveryDate: dayAfter(dayOffset),
         deliveryTime: minutes,
       );
 
@@ -132,16 +132,16 @@ class AppServicesFixture {
             menuItemId: menuId,
             itemName: label,
             basePrice: Money.rupees(100),
-            deliveryDate: DateTime(2026, 9, first).millisecondsSinceEpoch,
+            deliveryDate: dayAfter(first),
           ),
           DraftLine(
             menuItemId: menuId,
             itemName: '$label (second)',
             basePrice: Money.rupees(100),
-            deliveryDate: DateTime(2026, 9, last).millisecondsSinceEpoch,
+            deliveryDate: dayAfter(last),
           ),
         ],
-        deliveryDate: DateTime(2026, 9, first).millisecondsSinceEpoch,
+        deliveryDate: dayAfter(first),
       );
 
   /// Walks a line all the way to delivered, one legal step at a time.

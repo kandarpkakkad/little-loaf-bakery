@@ -644,6 +644,22 @@ int? deriveDueTime(Iterable<SubOrder> subs) {
   return latest;
 }
 
+/// Whether a schedule has already been and gone.
+///
+/// A date with **no time is only past once the day is over** — "any time
+/// today" is still ahead of you at nine in the evening, and rejecting it would
+/// be wrong.
+///
+/// The comparison is to the minute, not the second: a phone whose clock is a
+/// few seconds behind should not refuse an order for the time being typed.
+bool isPastSchedule(int date, int? time, {DateTime? now}) {
+  final at = now ?? DateTime.now();
+  final today = DateTime(at.year, at.month, at.day).millisecondsSinceEpoch;
+  if (date < today) return true;
+  if (date > today || time == null) return false;
+  return time < at.hour * 60 + at.minute;
+}
+
 /// The journey somebody has to act on next: the **earliest** still outstanding.
 ///
 /// The counterpart of [finishingSubOrder], and what a list sorted by

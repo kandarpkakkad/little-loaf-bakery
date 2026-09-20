@@ -239,10 +239,26 @@ class _LineSheetState extends State<_LineSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _date ?? now.add(const Duration(days: 1)),
-      firstDate: now.subtract(const Duration(days: 1)),
+      // Today at the earliest. Nothing is scheduled into the past.
+      firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked == null) return;
+    setState(() {
+      _date = picked;
+      // Moving onto today can strand a time that has already gone.
+      if (_time != null && _isPast(picked, _time)) _time = null;
+    });
+  }
+
+  /// True when this day and time have been and gone. `showTimePicker` cannot
+  /// be bounded, so the check happens after the choice rather than before it.
+  bool _isPast(DateTime? day, TimeOfDay? t) {
+    if (day == null) return false;
+    return isPastSchedule(
+      DateTime(day.year, day.month, day.day).millisecondsSinceEpoch,
+      t == null ? null : t.hour * 60 + t.minute,
+    );
   }
 
   Future<void> _pickTime() async {
@@ -250,6 +266,13 @@ class _LineSheetState extends State<_LineSheet> {
       context: context,
       initialTime: _time ?? const TimeOfDay(hour: 11, minute: 0),
     );
+    if (picked == null) return;
+    if (_isPast(_date, picked)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('That time has already passed today')));
+      return;
+    }
     setState(() => _time = picked);
   }
 

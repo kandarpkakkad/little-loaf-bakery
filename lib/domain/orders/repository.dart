@@ -786,6 +786,18 @@ class OrderRepository {
       if (s.key == key) return s.id;
     }
 
+    // Nothing may be *scheduled* into the past. The check sits here, after the
+    // find, so it only ever applies to a journey being opened: editing an item
+    // on an order whose day has already gone still works, because that item's
+    // journey already exists and is returned above. Moving it to a different
+    // past day is a new journey, and is refused.
+    //
+    // The pickers are bounded too, but this is the guard that matters — a
+    // sync op or any future caller reaches here without passing them.
+    if (isPastSchedule(l.deliveryDate!, l.deliveryTime)) {
+      throw StateError('That date and time have already passed');
+    }
+
     // A new journey. Its number is one past the highest ever used on this
     // order, including numbers whose journeys have since emptied — a number
     // that comes back meaning something else is worse than a gap.

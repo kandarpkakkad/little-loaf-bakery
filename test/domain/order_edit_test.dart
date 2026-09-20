@@ -30,7 +30,7 @@ void main() {
           requirements: 'no fondant',
         ),
       ],
-      deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
+      deliveryDate: dayAfter(1),
       deliveryTime: 600,
     );
   });
@@ -64,7 +64,7 @@ void main() {
         fulfilment: Fulfilment.delivery,
         deliveryType: DeliveryType.local,
         addressText: '14 Turner Rd',
-        deliveryDate: DateTime(2026, 9, 20).millisecondsSinceEpoch,
+        deliveryDate: dayAfter(1),
         deliveryTime: 600,
         deliveryCharge: Money.rupees(50),
       ),
@@ -87,7 +87,7 @@ void main() {
         deliveryType: DeliveryType.local,
         addressText: '14 Turner Rd',
         // a different day, so a different trip
-        deliveryDate: DateTime(2026, 9, 22).millisecondsSinceEpoch,
+        deliveryDate: dayAfter(3),
         deliveryTime: 600,
         deliveryCharge: Money.rupees(50),
       ),

@@ -107,44 +107,44 @@ void main() {
 
   test('two lines keep two different dates', () async {
     final id = await order([
-      draft('Cake', date: 1000, address: '14 Turner Rd'),
-      draft('Croissants', date: 5000, fulfilment: Fulfilment.pickup),
+      draft('Cake', date: dayAfter(1), address: '14 Turner Rd'),
+      draft('Croissants', date: dayAfter(5), fulfilment: Fulfilment.pickup),
     ]);
 
     final v = await view(id);
     // Two dates means two journeys, made by the repository rather than by
     // anybody asking for them (D28).
     expect(v.subOrders, hasLength(2));
-    expect(v.subOrders.map((s) => s.deliveryDate), [1000, 5000]);
+    expect(v.subOrders.map((s) => s.deliveryDate), [dayAfter(1), dayAfter(5)]);
     expect(v.subOrders.map((s) => s.seq), [1, 2]);
     expect(v.subOrders[0].fulfilment, Fulfilment.delivery);
     expect(v.subOrders[1].fulfilment, Fulfilment.pickup);
     expect(v.subOrders[0].addressText, '14 Turner Rd');
     expect(v.subOrders[1].deliveryType, isNull,
         reason: 'a pickup carries no delivery type');
-    expect(v.lines.map((l) => subOf(v, l).deliveryDate), [1000, 5000]);
+    expect(v.lines.map((l) => subOf(v, l).deliveryDate), [dayAfter(1), dayAfter(5)]);
   });
 
   test('the order is due when its last outstanding line is', () async {
     final id = await order([
-      draft('Cake', date: 5000),
-      draft('Croissants', date: 1000),
+      draft('Cake', date: dayAfter(5)),
+      draft('Croissants', date: dayAfter(1)),
     ]);
     var v = await view(id);
-    expect(v.dueDate, 5000, reason: 'the order is not done until Sunday');
-    expect(v.nextDate, 1000, reason: 'but Friday still needs a baker');
+    expect(v.dueDate, dayAfter(5), reason: 'the order is not done until Sunday');
+    expect(v.nextDate, dayAfter(1), reason: 'but Friday still needs a baker');
 
     // delivering the far one shortens the order
     await f.services.orders.confirm(id);
-    final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 5000);
+    final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == dayAfter(5));
     await advance(far.id!, LineStatus.delivered);
 
     v = await view(id);
-    expect(v.dueDate, 1000, reason: 'only Friday left to do');
+    expect(v.dueDate, dayAfter(1), reason: 'only Friday left to do');
   });
 
   test('the order status follows the lines', () async {
-    final id = await order([draft('Cake', date: 1000), draft('Buns', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
     var v = await view(id);
     expect(v.status, OrderStatus.created, reason: 'not confirmed yet');
 
@@ -167,7 +167,7 @@ void main() {
   });
 
   test('an illegal line move is refused', () async {
-    final id = await order([draft('Cake', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1))]);
     final v = await view(id);
     expect(
       () => f.services.orders.moveLine(v.lines.first.id!, LineStatus.delivered),
@@ -178,7 +178,7 @@ void main() {
 
   test('a pickup journey is never sent out for delivery', () async {
     final id = await order([
-      draft('Croissants', date: 1000, fulfilment: Fulfilment.pickup),
+      draft('Croissants', date: dayAfter(1), fulfilment: Fulfilment.pickup),
     ]);
     var v = await view(id);
     await f.services.orders.confirm(id);
@@ -196,7 +196,7 @@ void main() {
 
   test('cancelling a line needs a reason and drops it from the total',
       () async {
-    final id = await order([draft('Cake', date: 1000), draft('Buns', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
     var v = await view(id);
     expect(v.totals.subtotal, Money.rupees(1000));
 
@@ -214,7 +214,7 @@ void main() {
   });
 
   test('cancelling after payment leaves the order in credit', () async {
-    final id = await order([draft('Cake', date: 1000), draft('Buns', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
     await f.services.orders.addPayment(
         orderId: id, amount: Money.rupees(1000), kind: 'advance', mode: 'upi');
 
@@ -230,8 +230,8 @@ void main() {
 
   test('moveAllLines catches up what it legally can', () async {
     final id = await order([
-      draft('Cake', date: 1000),
-      draft('Buns', date: 1000, fulfilment: Fulfilment.pickup),
+      draft('Cake', date: dayAfter(1)),
+      draft('Buns', date: dayAfter(1), fulfilment: Fulfilment.pickup),
     ]);
     await f.services.orders.confirm(id);
 
@@ -259,11 +259,11 @@ void main() {
         DraftLine(
             menuItemId: menuId, itemName: 'Cake', basePrice: Money.rupees(500))
       ],
-      deliveryDate: 4242,
+      deliveryDate: dayAfter(4),
     );
     final v = await view(id);
-    expect(subOf(v, v.lines.single).deliveryDate, 4242);
-    expect(v.dueDate, 4242);
+    expect(subOf(v, v.lines.single).deliveryDate, dayAfter(4));
+    expect(v.dueDate, dayAfter(4));
   });
 
   test('an item cannot exist without a date, because a journey needs one',
@@ -283,7 +283,7 @@ void main() {
   });
 
   test('completing is refused while the order is in credit', () async {
-    final id = await order([draft('Cake', date: 1000), draft('Buns', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
     await f.services.orders.confirm(id);
     await f.services.orders.addPayment(
         orderId: id, amount: Money.rupees(1000), kind: 'advance', mode: 'upi');
@@ -309,35 +309,35 @@ void main() {
   group('editing a line', () {
     test('moving an item later moves the whole order later', () async {
       final id =
-          await order([draft('Cake', date: 1000), draft('Buns', date: 2000)]);
+          await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(3))]);
       var v = await view(id);
-      expect(v.dueDate, 2000);
+      expect(v.dueDate, dayAfter(3));
 
       // push the far item out by a week
-      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 2000);
-      await f.services.orders.updateLine(far.id!, deliveryDate: 9000);
+      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == dayAfter(3));
+      await f.services.orders.updateLine(far.id!, deliveryDate: dayAfter(9));
 
       v = await view(id);
-      expect(v.dueDate, 9000,
+      expect(v.dueDate, dayAfter(9),
           reason: 'derived, so it follows the item without being told');
-      expect(v.nextDate, 1000, reason: 'the near item did not move');
+      expect(v.nextDate, dayAfter(1), reason: 'the near item did not move');
     });
 
     test('moving the last item earlier pulls the order in', () async {
       final id =
-          await order([draft('Cake', date: 1000), draft('Buns', date: 8000)]);
+          await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(8))]);
       var v = await view(id);
-      expect(v.dueDate, 8000);
+      expect(v.dueDate, dayAfter(8));
 
-      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == 8000);
-      await f.services.orders.updateLine(far.id!, deliveryDate: 1500);
+      final far = v.lines.firstWhere((l) => subOf(v, l).deliveryDate == dayAfter(8));
+      await f.services.orders.updateLine(far.id!, deliveryDate: dayAfter(2));
 
       v = await view(id);
-      expect(v.dueDate, 1500);
+      expect(v.dueDate, dayAfter(2));
     });
 
     test('price and quantity changes reach the total', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       var v = await view(id);
       expect(v.totals.subtotal, Money.rupees(500));
 
@@ -348,7 +348,7 @@ void main() {
     });
 
     test('switching an item to pickup moves it to a pickup journey', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       var v = await view(id);
       expect(v.subOrders.single.deliveryType, DeliveryType.local);
 
@@ -368,7 +368,7 @@ void main() {
     });
 
     test('a delivered item cannot be edited', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       await f.services.orders.confirm(id);
       final v = await view(id);
       await advance(v.lines.first.id!, LineStatus.delivered);
@@ -382,20 +382,20 @@ void main() {
     });
 
     test('an item added later joins the order and its dates', () async {
-      final id = await order([draft('Cake', date: 1000)]);
-      await f.services.orders.addLine(id, draft('Cookies', date: 7000));
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      await f.services.orders.addLine(id, draft('Cookies', date: dayAfter(7)));
 
       final v = await view(id);
       expect(v.lines, hasLength(2));
-      expect(v.dueDate, 7000);
+      expect(v.dueDate, dayAfter(7));
       expect(v.totals.subtotal, Money.rupees(1000));
     });
 
     test('an item added to a confirmed order is confirmed with it', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       await f.services.orders.confirm(id);
 
-      await f.services.orders.addLine(id, draft('Cookies', date: 1000));
+      await f.services.orders.addLine(id, draft('Cookies', date: dayAfter(1)));
 
       final v = await view(id);
       final added = v.lines.firstWhere((l) => l.itemName == 'Cookies');
@@ -406,8 +406,8 @@ void main() {
     });
 
     test('an item added before confirmation is only created', () async {
-      final id = await order([draft('Cake', date: 1000)]);
-      await f.services.orders.addLine(id, draft('Cookies', date: 1000));
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      await f.services.orders.addLine(id, draft('Cookies', date: dayAfter(1)));
 
       final v = await view(id);
       expect(v.lines.firstWhere((l) => l.itemName == 'Cookies').status,
@@ -417,13 +417,13 @@ void main() {
 
     test('an item added while the order is in production is still confirmed',
         () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       await f.services.orders.confirm(id);
       var v = await view(id);
       await f.services.orders
           .moveLine(v.lines.first.id!, LineStatus.inProduction);
 
-      await f.services.orders.addLine(id, draft('Cookies', date: 1000));
+      await f.services.orders.addLine(id, draft('Cookies', date: dayAfter(1)));
       v = await view(id);
       final added = v.lines.firstWhere((l) => l.itemName == 'Cookies');
       expect(added.status, LineStatus.confirmed,
@@ -442,7 +442,7 @@ void main() {
     }
 
     test('flavour, weight, quantity and price all lock', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       final lineId = await started(id);
 
       for (final change in [
@@ -460,27 +460,27 @@ void main() {
 
     test('when and where it goes still change — a van can be redirected',
         () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       final lineId = await started(id);
 
       await f.services.orders.updateLine(
         lineId,
-        deliveryDate: 6000,
+        deliveryDate: dayAfter(6),
         deliveryTime: 1020,
         addressText: 'The office',
       );
 
       final v = await view(id);
       final journey = subOf(v, v.lines.single);
-      expect(journey.deliveryDate, 6000);
+      expect(journey.deliveryDate, dayAfter(6));
       expect(journey.deliveryTime, 1020);
       expect(journey.addressText, 'The office');
-      expect(v.dueDate, 6000, reason: 'and the order follows it');
+      expect(v.dueDate, dayAfter(6), reason: 'and the order follows it');
     });
 
     test('an item nobody has started is still fully editable', () async {
       final id =
-          await order([draft('Cake', date: 1000), draft('Buns', date: 1000)]);
+          await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
       await f.services.orders.confirm(id);
       var v = await view(id);
 
@@ -504,7 +504,7 @@ void main() {
     });
 
     test('confirming the order confirms its items', () async {
-      final id = await order([draft('Cake', date: 1000)]);
+      final id = await order([draft('Cake', date: dayAfter(1))]);
       var v = await view(id);
       expect(v.lines.single.status, LineStatus.created);
       expect(v.lines.single.status.isEditable, isTrue);

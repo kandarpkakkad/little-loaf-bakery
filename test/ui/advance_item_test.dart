@@ -55,7 +55,7 @@ void main() {
   }
 
   testWidgets('the button offers exactly the next step', (tester) async {
-    final id = await order([draft('Cake', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1))]);
     await f.services.orders.confirm(id);
     await pump(tester, id);
 
@@ -76,7 +76,7 @@ void main() {
 
   testWidgets('a pickup is collected, never sent out', (tester) async {
     final id = await order([
-      draft('Buns', date: 1000, fulfilment: Fulfilment.pickup, address: null),
+      draft('Buns', date: dayAfter(1), fulfilment: Fulfilment.pickup, address: null),
     ]);
     await f.services.orders.confirm(id);
     var v = await view(id);
@@ -93,8 +93,8 @@ void main() {
       (tester) async {
     // same day, same time, same address — one van, one doorbell
     final id = await order([
-      draft('Cake', date: 1000, time: 540),
-      draft('Cookies', date: 1000, time: 540),
+      draft('Cake', date: dayAfter(1), time: 540),
+      draft('Cookies', date: dayAfter(1), time: 540),
     ]);
     await f.services.orders.confirm(id);
     for (final l in (await view(id)).lines) {
@@ -111,8 +111,8 @@ void main() {
   testWidgets('items going to different places move separately',
       (tester) async {
     final id = await order([
-      draft('Cake', date: 1000, time: 540, address: '14 Turner Rd'),
-      draft('Cookies', date: 1000, time: 540, address: 'The office'),
+      draft('Cake', date: dayAfter(1), time: 540, address: '14 Turner Rd'),
+      draft('Cookies', date: dayAfter(1), time: 540, address: 'The office'),
     ]);
     await f.services.orders.confirm(id);
     for (final l in (await view(id)).lines) {
@@ -135,7 +135,7 @@ void main() {
   });
 
   testWidgets('a delivered item offers nothing further', (tester) async {
-    final id = await order([draft('Cake', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1))]);
     await f.services.orders.confirm(id);
     final v = await view(id);
     for (final st in [LineStatus.inProduction, LineStatus.ready]) {
@@ -161,7 +161,7 @@ void main() {
 
   testWidgets('an unconfirmed order is not advanced item by item',
       (tester) async {
-    final id = await order([draft('Cake', date: 1000)]);
+    final id = await order([draft('Cake', date: dayAfter(1))]);
     await pump(tester, id);
 
     expect(find.text('Confirm'), findsNothing,

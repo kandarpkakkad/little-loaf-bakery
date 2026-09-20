@@ -350,7 +350,7 @@ to the end of their day under *Any time*. Created time breaks every tie.
 | **Base price** * | ₹ | Typed. Last 3 prices shown; the customer's own last price first |
 | **Add-ons** | 0..n | Name + price each. Priced for the item, not multiplied by quantity |
 | **Note** | | Internal |
-| **Date** * · **Time** · **Delivery or pickup** · **Address** | | What decides which journey it joins |
+| **Date** * · **Time** · **Delivery or pickup** · **Address** | | What decides which journey it joins. **Never in the past** — the picker starts at today, and the repository refuses it outright |
 | **Message on the item** | | Piped, iced, written on the box. Proofread on its own |
 | **Special requirements** | free text | |
 | **Dietary** | chips | Eggless, nut-free, gluten-free, sugar-free |

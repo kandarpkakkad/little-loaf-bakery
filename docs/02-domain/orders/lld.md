@@ -307,6 +307,41 @@ final prior = await orders.lastWithAddressFor(customerId);
 Pin capture: paste a shared link, extract `lat,lng` where present, keep `pin_url` regardless
 — a Plus Code or place link often resolves better than bare coordinates. **No GPS, ever.**
 
+## 8a. Nothing is scheduled into the past
+
+```dart
+/// A date with NO TIME is only past once the day is over -- "any time today"
+/// is still ahead of you at nine in the evening. To the minute, not the
+/// second, so a phone a few seconds behind does not refuse the time being
+/// typed.
+bool isPastSchedule(int date, int? time, {DateTime? now}) {
+  final today = midnight(now ?? DateTime.now());
+  if (date < today) return true;
+  if (date > today || time == null) return false;
+  return time < minutesSinceMidnight(now);
+}
+```
+
+The guard lives in `_subOrderFor`, **after** the find and before a journey is
+opened. That placement is the whole design:
+
+| | |
+|---|---|
+| New order, past date | Refused |
+| Item added to a live order for a past date | Refused |
+| Item moved to a different past date | Refused -- a different date is a different journey |
+| Item edited on an order whose day has already gone | **Allowed.** Its journey already exists and is returned before the check |
+
+The pickers are bounded too -- `firstDate` is today, and a time already gone
+is rejected with a message, since `showTimePicker` cannot be bounded. But the
+repository is the guard that counts: a sync op or any future caller reaches it
+without passing them.
+
+**Back-dating is therefore impossible**, including for the owner entering
+yesterday's paper order. That is deliberate. It also means history cannot be
+seeded: a past month's sales can only come from orders that were placed before
+that month and have since been delivered.
+
 ## 8b. Delivery type and tracking
 
 ```dart
