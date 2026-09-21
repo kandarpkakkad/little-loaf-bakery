@@ -116,6 +116,7 @@ jobs:
           #!/usr/bin/env bash
           for attempt in 1 2 3; do
             if "$@"; then exit 0; fi
+            if [ "$attempt" = 3 ]; then break; fi
             echo "::warning::attempt $attempt failed: $* — retrying"
             sleep $((attempt * 10))
           done
@@ -128,7 +129,7 @@ jobs:
         run: flutter analyze
 
       - name: Test
-        run: "$RUNNER_TEMP/retry.sh" flutter test
+        run: bash "$RUNNER_TEMP/retry.sh" flutter test
 
       # --split-per-abi, not --target-platform. The latter only filters
       # Flutter's own libraries: SQLCipher arrives from package:sqlite3's build
@@ -165,7 +166,7 @@ jobs:
             | grep 'SHA1:' || true
 
       - name: Build
-        run: "$RUNNER_TEMP/retry.sh" flutter build apk --debug --split-per-abi
+        run: bash "$RUNNER_TEMP/retry.sh" flutter build apk --debug --split-per-abi
 
       # A mismatch here is otherwise found on a phone, as a sign-in that fails
       # with a number. The fingerprint is public — it is what is pasted into

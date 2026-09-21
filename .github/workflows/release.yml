@@ -111,6 +111,7 @@ jobs:
           #!/usr/bin/env bash
           for attempt in 1 2 3; do
             if "$@"; then exit 0; fi
+            if [ "$attempt" = 3 ]; then break; fi
             echo "::warning::attempt $attempt failed: $* — retrying"
             sleep $((attempt * 10))
           done
@@ -125,7 +126,7 @@ jobs:
       # Runs before anything is signed or published: a red test must not become
       # a release someone installs.
       - name: Test
-        run: "$RUNNER_TEMP/retry.sh" flutter test
+        run: bash "$RUNNER_TEMP/retry.sh" flutter test
 
       # --split-per-abi, not --target-platform. The latter only filters
       # Flutter's own libraries: SQLCipher arrives from package:sqlite3's build
@@ -204,7 +205,7 @@ jobs:
           EOF
 
       - name: Build release
-        run: "$RUNNER_TEMP/retry.sh" flutter build apk --release --split-per-abi
+        run: bash "$RUNNER_TEMP/retry.sh" flutter build apk --release --split-per-abi
 
       # Proves the artefact is signed by the real key rather than the debug
       # fallback, which is silent and otherwise only noticed by users.
