@@ -110,9 +110,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 padding:
                     const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
                 child: SegmentedButton<bool>(
+                  // By date first, because it is what a phone opens on and
+                  // the selected segment reads better leading the pair. Which
+                  // one is selected is decided below and is unchanged.
                   segments: const [
-                    ButtonSegment(value: true, label: Text('Board')),
                     ButtonSegment(value: false, label: Text('By date')),
+                    ButtonSegment(value: true, label: Text('Board')),
                   ],
                   selected: {_board ?? context.window.isWide},
                   onSelectionChanged: (v) => setState(() => _board = v.first),
