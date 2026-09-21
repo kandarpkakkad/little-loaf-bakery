@@ -126,8 +126,11 @@ jobs:
         run: |
           if [ -z "$DEBUG_KEYSTORE_B64" ]; then
             echo "::warning::ANDROID_DEBUG_KEYSTORE_BASE64 is not set. The APK will build and run, but it is signed with a throwaway key, so Google Sign-In and therefore Drive sync will not work in it."
+            echo "HAS_DEBUG_KEY=false" >> "$GITHUB_ENV"
             exit 0
           fi
+          echo "HAS_DEBUG_KEY=true" >> "$GITHUB_ENV"
+
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE_B64" | base64 --decode > ~/.android/debug.keystore
           keytool -list -v -keystore ~/.android/debug.keystore \
@@ -136,6 +139,28 @@ jobs:
 
       - name: Build
         run: flutter build apk --debug --split-per-abi
+
+      # A mismatch here is otherwise found on a phone, as a sign-in that fails
+      # with a number. The fingerprint is public — it is what is pasted into
+      # the Cloud console — so there is nothing to hide by keeping it out of
+      # the workflow, and everything to gain from failing where it is visible.
+      - name: Verify it is the registered debug key
+        if: ${{ env.HAS_DEBUG_KEY == 'true' }}
+        env:
+          # The SHA-1 registered for com.littleloaf.little_loaf.debug.
+          EXPECTED: 078c6665476636c21db2c891bd88ac204e2089f9
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          GOT=$("$APKSIGNER" verify --print-certs "$APK" \
+                | grep -i 'SHA-1 digest' | head -1 \
+                | sed 's/.*: *//' | tr -d ' :' | tr 'A-Z' 'a-z')
+          echo "signed by : $GOT"
+          echo "registered: $EXPECTED"
+          if [ "$GOT" != "$EXPECTED" ]; then
+            echo "::error::This APK is signed by a certificate Google has not been told about, so Drive sign-in will fail in it. Check ANDROID_DEBUG_KEYSTORE_BASE64."
+            exit 1
+          fi
 
       # arm64 for real phones and tablets, x86_64 for the emulators. A universal
       # debug APK is ~170 MB and nobody installs the 32-bit one.
