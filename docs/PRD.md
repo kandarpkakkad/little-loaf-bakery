@@ -693,7 +693,8 @@ content wants:
 | **Orders** | Status board in columns, or the date list — the board by default. A phone opens on the date list |
 | **Kitchen** | Four stages side by side, each scrolling on its own |
 | **New order** | Two columns: customer and money on the left, items on the right, so a ten-line order never pushes the total out of view |
-| **Customers · Menu · Materials · Stock** | A card each, in columns. On a phone they stay one divided card — a divider separates rows in a single column and means nothing across two |
+| **Customers** | A list beside the customer, the way Orders reads — and the pane shows what they have ordered, which is the question somebody opens a customer to answer. On a phone it stays an expansion tile |
+| **Menu · Materials · Stock** | A card each, in columns. On a phone they stay one divided card — a divider separates rows in a single column and means nothing across two |
 | **Every sheet** | A centred dialog, capped at 560. A bottom sheet is a phone shape |
 | **Reports** | The month on the left, the summaries on the right, so the charts stop competing with the lists for one column |
 | **Order detail** | The journeys on the left, the money on the right — **except when embedded** in the Orders two-pane, where it is already half a tablet and splitting again gives two columns too narrow to read |

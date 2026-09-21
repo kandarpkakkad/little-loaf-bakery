@@ -9,11 +9,22 @@ import '../../common/phone.dart';
 import '../widgets/forms.dart';
 import '../widgets/primitives.dart';
 import 'orders/address_picker.dart';
+import '../../domain/orders/repository.dart';
+import 'orders/order_card.dart';
+import 'orders/order_detail_screen.dart';
 
 /// Customers exist because orders created them. There is no "add customer"
 /// here on purpose — a customer with no order is a contact, not a customer.
-class CustomersScreen extends StatelessWidget {
+class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
+
+  @override
+  State<CustomersScreen> createState() => _CustomersScreenState();
+}
+
+class _CustomersScreenState extends State<CustomersScreen> {
+  /// Which customer the pane is showing, on a screen wide enough to have one.
+  String? _selectedId;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -36,22 +47,40 @@ class CustomersScreen extends StatelessWidget {
                 message: 'No customers yet.\nThey are added by taking an order.',
               );
             }
-            // One long divided card on a phone, a card each in columns on a
-            // tablet. A divider is how you separate rows in a single column;
-            // across two columns it stops meaning anything, so the card
-            // boundary does the work instead.
+            // A list beside the customer on a tablet, the way Orders reads.
+            // An expansion tile is a phone answer to not having room for a
+            // second pane; with the room, the pane is better — it can show
+            // what they have ordered, which is the thing you actually came to
+            // look at.
             if (!context.window.isCompact) {
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                    Space.lg, Space.md, Space.lg, Space.xxl),
+              final selected = customers.any((x) => x.id == _selectedId)
+                  ? _selectedId
+                  : customers.first.id;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CardGrid(children: [
-                    for (final c in customers)
-                      LoafCard(
-                        padding: EdgeInsets.zero,
-                        child: _CustomerTile(customer: c),
+                  SizedBox(
+                    width: 340,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.lg, Space.md, Space.md, Space.xxl),
+                      itemCount: customers.length,
+                      itemBuilder: (context, i) => _CustomerRow(
+                        customer: customers[i],
+                        selected: customers[i].id == selected,
+                        onTap: () =>
+                            setState(() => _selectedId = customers[i].id),
                       ),
-                  ]),
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: context.colors.ruleSoft),
+                  Expanded(
+                    child: CustomerDetail(
+                      key: ValueKey(selected),
+                      customer:
+                          customers.firstWhere((x) => x.id == selected),
+                    ),
+                  ),
                 ],
               );
             }
@@ -83,8 +112,12 @@ class CustomersScreen extends StatelessWidget {
 /// Name and number on the face of it; addresses when it is opened. A customer
 /// keeps as many as they order to, so the list is the point rather than a
 /// single line squeezed into the subtitle.
-class _CustomerTile extends StatelessWidget {
-  const _CustomerTile({required this.customer});
+/// A customer's saved addresses, with a way to add one.
+///
+/// Shared by the phone's expansion tile and the tablet's pane, so the two can
+/// never drift into showing different things about the same person.
+class _Addresses extends StatelessWidget {
+  const _Addresses({required this.customer});
 
   final Customer customer;
 
@@ -101,6 +134,202 @@ class _CustomerTile extends StatelessWidget {
       pinUrl: made.pinUrl,
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return StreamBuilder<List<CustomerAddress>>(
+      stream: context.app.customers.watchAddresses(customer.id),
+      builder: (context, snap) {
+        final addresses = snap.data;
+        if (addresses == null) {
+          return const Padding(
+            padding: EdgeInsets.all(Space.md),
+            child: LinearProgressIndicator(),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (addresses.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.sm),
+                child: Text('No address saved yet.',
+                    style:
+                        context.text.bodySmall!.copyWith(color: c.ink3)),
+              )
+            else
+              for (final a in addresses)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(a.pinLat != null ? Icons.place : Icons.place_outlined,
+                          size: 16,
+                          color: a.pinLat != null ? c.accent2 : c.ink3),
+                      const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(a.label, style: context.text.bodyMedium),
+                            Text(a.addressText,
+                                style: context.text.bodySmall!
+                                    .copyWith(color: c.ink2)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, size: 16, color: c.ink3),
+                        tooltip: 'Remove address',
+                        onPressed: () =>
+                            context.app.customers.removeAddress(a.id),
+                      ),
+                    ],
+                  ),
+                ),
+            TextButton.icon(
+              onPressed: () => _add(context),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add address'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A name in the list beside the pane.
+class _CustomerRow extends StatelessWidget {
+  const _CustomerRow({
+    required this.customer,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Customer customer;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Material(
+      color: selected ? c.accentSoft : Colors.transparent,
+      borderRadius: BorderRadius.circular(Radii.sm),
+      child: ListTile(
+        onTap: onTap,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.sm)),
+        title: Text(customer.name),
+        subtitle: Micro(Phone.parse(customer.phoneE164).pretty),
+        trailing: customer.allergyNote == null
+            ? null
+            : Icon(Icons.warning_amber_rounded, size: 18, color: c.warn),
+      ),
+    );
+  }
+}
+
+/// One customer: who they are, where they are, and what they have ordered.
+///
+/// The orders are the reason this is a pane rather than an expansion tile —
+/// "what did they have last time" is the question somebody opens a customer
+/// to answer, and a tile had nowhere to put it.
+class CustomerDetail extends StatelessWidget {
+  const CustomerDetail({super.key, required this.customer});
+
+  final Customer customer;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.xxl),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(customer.name, style: context.text.titleLarge),
+                  const SizedBox(height: 2),
+                  Text(Phone.parse(customer.phoneE164).pretty,
+                      style: context.text.bodyMedium!.copyWith(color: c.ink2)),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => editCustomer(context, customer),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit'),
+            ),
+          ],
+        ),
+        if (customer.allergyNote != null) ...[
+          const SizedBox(height: Space.md),
+          LoafAlert(customer.allergyNote!, icon: Icons.warning_amber_rounded),
+        ],
+        if (customer.notes != null) ...[
+          const SizedBox(height: Space.md),
+          Text(customer.notes!,
+              style: context.text.bodySmall!.copyWith(color: c.ink3)),
+        ],
+
+        const SectionLabel('Addresses'),
+        LoafCard(child: _Addresses(customer: customer)),
+
+        const SectionLabel('Orders'),
+        StreamBuilder<List<OrderView>>(
+          stream: context.app.orders.watchOrders(),
+          builder: (context, snap) {
+            final all = snap.data;
+            if (all == null) {
+              return const Padding(
+                padding: EdgeInsets.all(Space.md),
+                child: LinearProgressIndicator(),
+              );
+            }
+            final theirs =
+                all.where((o) => o.customer.id == customer.id).toList();
+            if (theirs.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.md),
+                child: Text('Nothing ordered yet.',
+                    style: context.text.bodySmall!.copyWith(color: c.ink3)),
+              );
+            }
+            return Column(
+              children: [
+                for (final o in theirs)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.sm),
+                    child: OrderCard(
+                      view: o,
+                      showDate: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                OrderDetailScreen(orderId: o.order.id)),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerTile extends StatelessWidget {
+  const _CustomerTile({required this.customer});
+
+  final Customer customer;
 
   @override
   Widget build(BuildContext context) {
@@ -126,66 +355,7 @@ class _CustomerTile extends StatelessWidget {
           const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StreamBuilder<List<CustomerAddress>>(
-          stream: context.app.customers.watchAddresses(customer.id),
-          builder: (context, snap) {
-            final addresses = snap.data;
-            if (addresses == null) {
-              return const Padding(
-                padding: EdgeInsets.all(Space.md),
-                child: LinearProgressIndicator(),
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (addresses.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Space.sm),
-                    child: Text('No address saved yet.',
-                        style:
-                            context.text.bodySmall!.copyWith(color: c.ink3)),
-                  )
-                else
-                  for (final a in addresses)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Space.sm),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(a.pinLat != null ? Icons.place : Icons.place_outlined,
-                              size: 16,
-                              color: a.pinLat != null ? c.accent2 : c.ink3),
-                          const SizedBox(width: Space.sm),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(a.label, style: context.text.bodyMedium),
-                                Text(a.addressText,
-                                    style: context.text.bodySmall!
-                                        .copyWith(color: c.ink2)),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.close, size: 16, color: c.ink3),
-                            tooltip: 'Remove address',
-                            onPressed: () =>
-                                context.app.customers.removeAddress(a.id),
-                          ),
-                        ],
-                      ),
-                    ),
-                TextButton.icon(
-                  onPressed: () => _add(context),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add address'),
-                ),
-              ],
-            );
-          },
-        ),
+        _Addresses(customer: customer),
       ],
     );
   }
