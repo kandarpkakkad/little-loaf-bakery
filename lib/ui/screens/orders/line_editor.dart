@@ -527,6 +527,7 @@ class _LineSheetState extends State<_LineSheet> {
                   hint: 'Piped on this one — "Happy 40th"'),
               LoafField(
                   label: 'Special requirements',
+                  hint: 'Gold lettering, no fondant figures',
                   controller: _requirements,
                   maxLines: 2),
               Padding(

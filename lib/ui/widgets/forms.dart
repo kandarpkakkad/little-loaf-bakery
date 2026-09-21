@@ -155,7 +155,10 @@ class LoafPhoneField extends StatelessWidget {
         controller: controller,
         required: required,
         helper: helper,
-        hint: '98765 43210',
+        // Not a plausible number. '98765 43210' reads as a real one somebody
+        // typed, which is exactly what a placeholder must not do. The country
+        // code stays as a prefix, because that part IS fixed.
+        hint: 'xxxxxxxxxx',
         prefix: '${country.code} ',
         keyboardType: TextInputType.phone,
         onChanged: onChanged,

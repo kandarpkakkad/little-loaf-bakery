@@ -74,6 +74,23 @@ not
 Match the density of the file you are in. If it explains itself thoroughly,
 keep explaining. Do not add a comment to every line of a file that has none.
 
+### A placeholder is guidance; a value is content
+
+Two rules, and both were broken:
+
+- **Style the hint.** `InputDecorationTheme` had a `labelStyle` and no
+  `hintStyle`, so every placeholder inherited the body colour and read exactly
+  like something already typed.
+- **A placeholder must not look like real data.** The phone hint was
+  `98765 43210`, which reads as somebody's number. It is `xxxxxxxxxx` now — a
+  shape, not a sample. `+91` stays as a **prefix**, because that part really is
+  fixed.
+
+And do not seed a field with a literal default to mean "nothing": `'0'` in the
+lead-days box and `'Home'` in a new address label are values a person has to
+notice and delete. Leave the field empty, say it in the hint, and apply the
+default on save.
+
 ### Money is integer paise
 
 `Money` wraps an `int`. Never a `double`, never a float. Percentages are basis

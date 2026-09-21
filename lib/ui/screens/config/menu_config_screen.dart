@@ -123,7 +123,11 @@ class _MenuRow extends StatelessWidget {
 Future<void> _edit(BuildContext context, MenuItem? existing) async {
   final app = context.app;
   final name = TextEditingController(text: existing?.name ?? '');
-  final lead = TextEditingController(text: '${existing?.leadDays ?? 0}');
+  // Empty for a new item, not '0'. A zero typed into the box by the app is a
+  // value somebody has to notice and delete; a placeholder says the same thing
+  // and leaves the field alone.
+  final lead = TextEditingController(
+      text: existing == null ? '' : '${existing.leadDays}');
   final formKey = GlobalKey<FormState>();
 
   final saved = await showModalBottomSheet<bool>(
@@ -157,6 +161,7 @@ Future<void> _edit(BuildContext context, MenuItem? existing) async {
             ),
             LoafField(
               label: 'Notice needed (days)',
+              hint: '0 for same day',
               controller: lead,
               keyboardType: TextInputType.number,
               inputFormatters: qtyInput,

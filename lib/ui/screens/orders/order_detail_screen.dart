@@ -1120,7 +1120,10 @@ Future<void> _editPayment(BuildContext context, Payment p) async {
                     setDialogState(() => mode = v.first),
               ),
               const SizedBox(height: Space.md),
-              LoafField(label: 'Reference', controller: reference),
+              LoafField(
+                  label: 'Reference',
+                  controller: reference,
+                  hint: 'UPI reference, cheque number…'),
             ],
           ),
           actions: [

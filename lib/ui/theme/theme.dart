@@ -112,6 +112,11 @@ ThemeData loafTheme(Brightness brightness) {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.md),
       labelStyle: TextStyle(color: c.ink3, fontSize: 13),
+      // A placeholder is guidance, not content. Without this it inherits the
+      // body colour and reads exactly like something already typed — somebody
+      // saw a phone number in the field and went looking for whose it was.
+      hintStyle: TextStyle(color: c.ink3),
+      helperStyle: TextStyle(color: c.ink3, fontSize: 12),
     ),
 
     chipTheme: ChipThemeData(

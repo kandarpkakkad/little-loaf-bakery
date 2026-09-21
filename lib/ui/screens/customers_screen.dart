@@ -210,8 +210,15 @@ Future<void> editCustomer(BuildContext context, Customer customer) async {
                 controller: phone,
                 helper: 'Changing this moves their whole order history',
               ),
-              LoafField(label: 'Allergy note', controller: allergy),
-              LoafField(label: 'Notes', controller: notes, maxLines: 3),
+              LoafField(
+                  label: 'Allergy note',
+                  controller: allergy,
+                  hint: 'Carried onto every order they place'),
+              LoafField(
+                  label: 'Notes',
+                  controller: notes,
+                  hint: 'Never shown to the customer',
+                  maxLines: 3),
               FilledButton(
                 onPressed: () {
                   if (formKey.currentState!.validate()) {

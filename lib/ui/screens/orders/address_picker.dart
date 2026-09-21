@@ -65,8 +65,9 @@ class _AddressSheet extends StatefulWidget {
 
 class _AddressSheetState extends State<_AddressSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _label =
-      TextEditingController(text: widget.existing?.label ?? 'Home');
+  // Blank for a new one: the hint already says what belongs here, and 'Home'
+  // sitting in the box is a value, not a suggestion.
+  late final _label = TextEditingController(text: widget.existing?.label ?? '');
   late final _address =
       TextEditingController(text: widget.existing?.addressText ?? '');
   late final _link = TextEditingController(text: widget.existing?.pinUrl ?? '');
@@ -163,13 +164,15 @@ class _AddressSheetState extends State<_AddressSheet> {
                 LoafField(
                   label: 'Label',
                   controller: _label,
-                  required: true,
+                  // Not required — an unnamed door is still a door, and it is
+                  // saved as Home rather than refused.
                   hint: 'Home, Office…',
                 ),
                 LoafField(
                   label: 'Address',
                   controller: _address,
                   required: true,
+                  hint: 'Flat, street, area, city',
                   maxLines: 3,
                 ),
                 LoafField(
@@ -204,7 +207,9 @@ class _AddressSheetState extends State<_AddressSheet> {
                       context,
                       AddressDraft(
                         id: widget.existing?.id,
-                        label: _label.text.trim(),
+                        label: _label.text.trim().isEmpty
+                            ? 'Home'
+                            : _label.text.trim(),
                         addressText: _address.text.trim(),
                         pinLat: _lat,
                         pinLng: _lng,

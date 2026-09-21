@@ -114,8 +114,13 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
                         LoafField(
                             label: 'Phone',
                             controller: _phone,
+                            hint: '+91 xxxxxxxxxx',
                             keyboardType: TextInputType.phone),
-                        LoafField(label: 'Address', controller: _address, maxLines: 3),
+                        LoafField(
+                            label: 'Address',
+                            controller: _address,
+                            hint: 'Shop, street, area, city',
+                            maxLines: 3),
                       ],
                     ),
                   ),
