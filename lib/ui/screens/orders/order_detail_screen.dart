@@ -1007,22 +1007,6 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
 /// that customer's chat. A `wa.me` link can pre-select the chat but cannot
 /// carry an attachment — which is exactly why the invoice is text.
 /// docs/00-overview/decisions.md D13.
-/// Whether WhatsApp is on this phone at all.
-///
-/// Answered by asking the system whether anything handles `whatsapp://`, which
-/// works because the manifest declares that scheme — without the declaration
-/// Android would say no to everything (see `<queries>`).
-///
-/// Not cached: installing WhatsApp mid-session is rare, and a remembered "no"
-/// that outlives the install is worse than one channel call per message.
-Future<bool> _hasWhatsApp() async {
-  try {
-    return await canLaunchUrl(Uri.parse('whatsapp://send'));
-  } catch (_) {
-    return false;
-  }
-}
-
 Future<void> _offerMessage(
     BuildContext context, OrderView view, MessageKind kind,
     {Money? justPaid,
@@ -1037,12 +1021,6 @@ Future<void> _offerMessage(
       trackingUrl: trackingUrl,
       isUpdate: isUpdate);
   if (!context.mounted || !isOffered(kind, ctx)) return;
-
-  // No WhatsApp, no sheet. Composing a message somebody cannot send and then
-  // putting a dead button under it wastes the one moment they were paying
-  // attention. The status move has already happened either way.
-  if (!await _hasWhatsApp() || !context.mounted) return;
-
   final text = compose(kind, ctx);
 
   final send = await loafSheet<bool>(
@@ -1102,23 +1080,30 @@ Future<void> _offerMessage(
     // go on — which is the same failure as a Drive error hidden behind a
     // generic sentence.
     var launched = false;
+    final tried = <String>[];
+    // wa.me first. It is Meta's documented Click-to-Chat and the route that
+    // has actually been seen to work on this phone; `whatsapp://` follows it
+    // rather than leading, because leading with it opened nothing at all.
     for (final u in [
-      // The scheme first: straight to the chat, no browser in between.
-      whatsappUri(phoneE164: view.customer.phoneE164, text: text),
-      // wa.me only if that somehow finds nothing, despite the check above.
       waMeUri(phoneE164: view.customer.phoneE164, text: text),
+      whatsappUri(phoneE164: view.customer.phoneE164, text: text),
     ]) {
       try {
         launched = await launchUrl(u, mode: LaunchMode.externalApplication);
-      } catch (_) {
+        if (!launched) tried.add('${u.scheme}: refused');
+      } catch (e) {
         launched = false;
+        tried.add('${u.scheme}: $e');
       }
       if (launched) break;
     }
     if (!launched) {
+      // Which route failed, and how. "Could not open WhatsApp" on its own
+      // cost a round trip and a screen recording to get no further forward.
       messenger.showSnackBar(SnackBar(
-        content: const Text('Could not open WhatsApp. The message is copied — '
-            'paste it into the chat.'),
+        duration: const Duration(seconds: 10),
+        content: Text('Could not open WhatsApp — ${tried.join(' · ')}. '
+            'The message is copied; paste it into the chat.'),
         action: SnackBarAction(
           label: 'Copy again',
           onPressed: () => Clipboard.setData(ClipboardData(text: text)),
@@ -1135,18 +1120,7 @@ Future<void> _offerMessage(
 }
 
 Future<void> _messageSheet(BuildContext context, OrderView view) async {
-  final messenger = ScaffoldMessenger.of(context);
   final ctx = await _messageContext(context, view);
-  if (!context.mounted) return;
-
-  // Asked for outright, so it gets an answer. An offer that arrives by itself
-  // can simply not arrive; a button somebody pressed cannot do nothing.
-  if (!await _hasWhatsApp()) {
-    messenger.showSnackBar(const SnackBar(
-      content: Text('WhatsApp is not installed on this phone.'),
-    ));
-    return;
-  }
   if (!context.mounted) return;
 
   final kinds = MessageKind.values.where((k) => isOffered(k, ctx)).toList();

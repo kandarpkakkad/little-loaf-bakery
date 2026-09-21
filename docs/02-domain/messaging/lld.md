@@ -29,35 +29,31 @@ survive `encodeComponent` intact, or the message arrives as literal punctuation.
 ## 2b. Getting there
 
 ```dart
-// The route the app takes. Straight to the chat, no browser in between.
-whatsapp://send?phone=<digits>&text=<encoded>
-
-// The fallback, only if that somehow resolves to nothing.
-https://wa.me/<digits>?text=<encoded>
+// Tried in order. Both, every time -- there is no pre-flight check.
+https://wa.me/<digits>?text=<encoded>      // Meta's documented Click-to-Chat
+whatsapp://send?phone=<digits>&text=<…>    // the app's own scheme
 ```
 
-`wa.me` was the primary and is now the fallback. It works whether or not
-WhatsApp is installed, which sounds like a virtue and is not: without the app
-it opens a web page asking the person to install one, which is a worse answer
-than the app saying nothing.
+**`wa.me` leads.** It was made the fallback once, with `whatsapp://` in front
+on the reasoning that the scheme goes straight to the chat while `wa.me` can
+route through a browser. On a real phone that opened nothing at all, so the
+order is back.
 
-**No WhatsApp, no sheet.** Whether anything handles `whatsapp://` is the test
-for whether it is installed, and when it is not the message is never offered —
-composing something somebody cannot send and putting a dead button under it
-wastes the one moment they were paying attention. The status move happens
-either way.
+**There is no "is WhatsApp installed" check, and there must not be one.** That
+was tried too: `canLaunchUrl('whatsapp://send')` gated whether the message
+sheet appeared, and on a phone with WhatsApp plainly installed it answered no
+— so the sheet never came up and the feature was simply gone. A detection that
+cannot be exercised off-device must not decide whether a feature exists.
+**Offer the message; let the launch fail loudly if it fails.**
 
-The check works only because the manifest declares that scheme. Without the
-`<queries>` entry Android answers no to everything, which is the hole that made
-every outbound link in the app fail silently before v0.6.1 — WhatsApp, Maps,
-the dialler and the update screen's download button alike.
+**A failed launch names the route and the error** — `"wa.me: refused ·
+whatsapp: …"` — and copies the text to the clipboard rather than throwing away
+the work of composing it. "Could not open WhatsApp" on its own cost a round
+trip and a screen recording to get no further forward.
 
-**One exception, deliberately.** The WhatsApp button in the app bar says
-"WhatsApp is not installed on this phone". An offer that arrives by itself can
-simply not arrive; a button somebody pressed cannot do nothing.
-
-**A failed launch is never silent.** It says so and copies the message to the
-clipboard, rather than throwing away the work of composing it.
+The `<queries>` declarations still matter: without them Android reports that
+nothing handles any of these, which is what made every outbound link in the app
+fail silently before v0.6.1.
 
 ## 3. Composition
 

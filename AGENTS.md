@@ -118,6 +118,17 @@ sites must use an explicit `.label`. `Weight` had neither, a `List<Object>`
 joined without complaint, and customers saw `INSTANCE OF 'WEIGHT'` where the
 weight should have been.
 
+### Never gate a feature on a check you cannot run
+
+`canLaunchUrl('whatsapp://send')` decided whether the message sheet appeared.
+On a phone with WhatsApp installed it answered false, so the sheet never came
+up and the whole feature was gone — a strictly worse outcome than the problem
+the check was meant to prevent, shipped because nothing off-device could
+exercise it.
+
+Platform detections belong in the *handling* of a failure, never in the
+*decision to offer*. Offer the thing; let it fail loudly and say why.
+
 ### An error message says the reason, not the fact
 
 A caught exception is evidence. Putting `Text('Could not connect to Google
