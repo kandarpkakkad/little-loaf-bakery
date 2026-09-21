@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/scope.dart';
@@ -1044,7 +1045,30 @@ Future<void> _offerMessage(
       return;
     }
     final uri = waMeUri(phoneE164: view.customer.phoneE164, text: text);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Say so when it does not open. This returned false and told nobody, so
+    // the sheet closed and WhatsApp did not appear and there was nothing to
+    // go on — which is the same failure as a Drive error hidden behind a
+    // generic sentence.
+    var launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      launched = false;
+    }
+    if (!launched) {
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Could not open WhatsApp. The message is copied — '
+            'paste it into the chat.'),
+        action: SnackBarAction(
+          label: 'Copy again',
+          onPressed: () => Clipboard.setData(ClipboardData(text: text)),
+        ),
+      ));
+      // The work of composing it should not be lost because a link failed.
+      await Clipboard.setData(ClipboardData(text: text));
+    }
     if (context.mounted) {
       await context.app.orders
           .logShare(view.order.id, _kindWire(kind), launched: launched);
