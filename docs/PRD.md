@@ -504,10 +504,24 @@ and survives the app being closed or the phone rebooting.
 
 | When | Covers | Why |
 |---|---|---|
-| **6 am**, on any day with work on it | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
-| **2 hours before** a journey's time | one journey | Enough left to finish and box |
-| **30 minutes before** | one journey | Leave now |
+| **6 am**, on any day with work or shopping | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
+| **30 minutes before** a journey's time | one journey | Leave now |
 | **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
+
+**Two per journey, not three.** A two-hour warning was built and removed: two
+hours out is not a moment anybody acts on, and at thirty orders a day it was a
+third of the day's notifications saying nothing new. At ten orders a day the
+set above is about twenty-two notifications; at thirty it is sixty-two. That
+number is the constraint every addition has to answer to — a phone that buzzes
+every ten minutes gets its notifications turned off, and then the one that
+mattered does not arrive either.
+
+**What is low is on the morning too**, as one line — "Low: Butter, Flour" — and
+a morning with nothing due but something to buy still speaks, because that is
+exactly the morning you would want to know. It appears on the **next** morning
+only: the order book is known days ahead, how much butter there will be on
+Thursday is not. The schedule is rebuilt whenever stock moves, so by the time
+Thursday is tomorrow its line is current.
 
 The six o'clock digest is **not a daily repeat** — it is scheduled only on days
 that actually have a handover, which the order book already knows in advance. A

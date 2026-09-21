@@ -6,6 +6,8 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../domain/orders/model.dart';
 import '../../domain/orders/repository.dart';
+import '../../domain/stock/model.dart';
+import '../../domain/stock/repository.dart';
 import '../../domain/reminders/model.dart';
 
 /// Raises the journey reminders the domain decides on.
@@ -35,8 +37,14 @@ class ReminderService {
       'Reminders before a handover, and a nudge when one is overdue.';
 
   bool _ready = false;
-  StreamSubscription<List<OrderView>>? _watching;
+  StreamSubscription<List<OrderView>>? _watchingOrders;
+  StreamSubscription<List<StockLevel>>? _watchingStock;
   Timer? _debounce;
+
+  // The last seen value of each side, so a change to either can rebuild the
+  // whole schedule without re-reading the other.
+  List<OrderView> _orders = const [];
+  List<String> _low = const [];
 
   /// Sets up the plugin and asks for permission. Safe to call more than once.
   ///
@@ -88,19 +96,38 @@ class ReminderService {
   /// Watching the order stream covers **every** way a journey can change:
   /// somebody edits it here, or a peer's edit arrives over sync and lands in
   /// the same database. One hook, no chance of missing a path.
-  void follow(OrderRepository orders) {
-    _watching?.cancel();
-    _watching = orders.watchOrders().listen((views) {
-      // A burst of writes — confirming an order touches every item — should
-      // rebuild the schedule once, not once per row.
-      _debounce?.cancel();
-      _debounce = Timer(const Duration(seconds: 2), () => refresh(views));
+  void follow(OrderRepository orders, StockRepository stock) {
+    _watchingOrders?.cancel();
+    _watchingStock?.cancel();
+
+    _watchingOrders = orders.watchOrders().listen((views) {
+      _orders = views;
+      _rebuildSoon();
     });
+
+    // Stock moves the morning line, so it has to rebuild the schedule too —
+    // butter that ran out at four o'clock should be on tomorrow's list.
+    _watchingStock = stock.watchLevels().listen((levels) {
+      _low = [
+        for (final l in levels)
+          if (l.material.active && l.state == StockState.below) l.material.name,
+      ];
+      _rebuildSoon();
+    });
+  }
+
+  /// A burst of writes — confirming an order touches every item — should
+  /// rebuild the schedule once, not once per row. Both streams share the
+  /// timer, so an order edit and a stock movement together still cost one.
+  void _rebuildSoon() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(seconds: 2), () => refresh(_orders));
   }
 
   Future<void> dispose() async {
     _debounce?.cancel();
-    await _watching?.cancel();
+    await _watchingOrders?.cancel();
+    await _watchingStock?.cancel();
   }
 
   /// Rebuilds the whole schedule: cancel everything, then lay it out again.
@@ -128,8 +155,9 @@ class ReminderService {
         }
       }
 
-      // One per morning that has work on it, across every order.
-      for (final r in morningDigests(journeys)) {
+      // One per morning that has work on it, across every order — plus what
+      // needs buying, on the next morning only.
+      for (final r in morningDigests(journeys, lowStock: _low)) {
         await _schedule(id++, r);
       }
     } catch (_) {

@@ -8,10 +8,11 @@ library;
 import '../orders/model.dart';
 
 enum ReminderSlot {
-  /// Two hours out — enough time to finish and box.
-  twoHours,
-
   /// Thirty minutes out — leave now.
+  ///
+  /// There was a two-hour one as well. It was dropped: two hours before a
+  /// handover is not a moment anybody acts on, and at thirty orders a day it
+  /// was a third of the day's notifications saying nothing new.
   halfHour,
 
   /// An hour past, and nobody has moved it.
@@ -109,12 +110,6 @@ List<Reminder> remindersFor(
     final verb = j.isPickup ? 'collects' : 'delivery';
     moments.addAll([
       (
-        ReminderSlot.twoHours,
-        due.subtract(const Duration(hours: 2)),
-        '2 hours: $who',
-        '$what — $verb at ${_clock(due)} · $ref',
-      ),
-      (
         ReminderSlot.halfHour,
         due.subtract(const Duration(minutes: 30)),
         '30 minutes: $who',
@@ -145,7 +140,11 @@ List<Reminder> remindersFor(
 /// advance as well.
 ///
 /// Tapping it opens the Kitchen, which is the screen the day is worked from.
-List<Reminder> morningDigests(Iterable<SubOrder> journeys, {DateTime? now}) {
+List<Reminder> morningDigests(
+  Iterable<SubOrder> journeys, {
+  List<String> lowStock = const [],
+  DateTime? now,
+}) {
   final at = now ?? DateTime.now();
 
   final byDay = <int, List<SubOrder>>{};
@@ -191,7 +190,54 @@ List<Reminder> morningDigests(Iterable<SubOrder> journeys, {DateTime? now}) {
   }
 
   out.sort((a, b) => a.at.compareTo(b.at));
+
+  // What is low gets one line on the NEXT morning only.
+  //
+  // Not on every morning in the list: the order book is known days ahead, but
+  // how much butter there will be on Thursday is not. Saying so three mornings
+  // running would be three guesses. The schedule is rebuilt whenever stock
+  // moves, so by the time Thursday is the next morning, its line is current.
+  if (lowStock.isNotEmpty) {
+    final nextMorning = _nextMorning(at);
+    final existing = out.indexWhere((r) => r.at == nextMorning);
+    final what = lowStock.length <= 3
+        ? lowStock.join(', ')
+        : '${lowStock.take(3).join(', ')} and ${lowStock.length - 3} more';
+
+    if (existing >= 0) {
+      final r = out[existing];
+      out[existing] = Reminder(
+        subOrderId: r.subOrderId,
+        slot: r.slot,
+        at: r.at,
+        title: r.title,
+        body: '${r.body} · Low: $what',
+      );
+    } else {
+      // A quiet morning, but there is shopping to do — which is exactly the
+      // morning you would want to know.
+      out.insert(
+        0,
+        Reminder(
+          subOrderId: kDigestPayload,
+          slot: ReminderSlot.morning,
+          at: nextMorning,
+          title: lowStock.length == 1
+              ? 'One thing to buy'
+              : '${lowStock.length} things to buy',
+          body: '$what — below threshold',
+        ),
+      );
+    }
+  }
+
   return out;
+}
+
+/// Six o'clock on the next day that has not had its six o'clock yet.
+DateTime _nextMorning(DateTime at) {
+  final today = DateTime(at.year, at.month, at.day, kMorningHour);
+  return today.isAfter(at) ? today : today.add(const Duration(days: 1));
 }
 
 /// Marks a reminder that belongs to the day rather than to one journey.

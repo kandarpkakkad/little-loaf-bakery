@@ -57,7 +57,7 @@ class _BootState extends State<Boot> {
     // journey can change — an edit here, or a peer's edit arriving over sync
     // and landing in the same database — so there is no path that forgets to
     // reschedule. Quiet on failure, like the sync registration above.
-    unawaited(_reminders.init().then((_) => _reminders.follow(services.orders))
+    unawaited(_reminders.init().then((_) => _reminders.follow(services.orders, services.stock))
         .catchError((Object e) => debugPrint('no reminders: $e')));
     return services;
   }
