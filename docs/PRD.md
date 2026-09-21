@@ -345,8 +345,8 @@ to the end of their day under *Any time*. Created time breaks every tie.
 |---|---|---|
 | **Item** * | | **From the menu.** Not typed |
 | **Flavour** | free text | Past flavours suggested |
-| **Weight** | | Blank for anything not sold by weight |
-| **Quantity** * | | Defaults to 1 |
+| **Weight** | g · kg · ml · l | Blank for anything not sold by weight or measure. **Not** pcs or dozen — how many there are is the quantity |
+| **Quantity** * | | Defaults to 1. A stepper you can also **type into** — a hundred buns is not a hundred taps |
 | **Base price** * | ₹ | Typed. Last 3 prices shown; the customer's own last price first |
 | **Add-ons** | 0..n | Name + price each. Priced for the item, not multiplied by quantity |
 | **Note** | | Internal |

@@ -230,7 +230,11 @@ class OrderItems extends Table with Common {
         "CHECK (discount_type IS NULL OR discount_type IN ('percent','amount'))",
         'CHECK (discount_value >= 0)',
         'CHECK ((weight_value IS NULL) = (weight_unit IS NULL))',
-        "CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen'))",
+        // 'pcs' and 'dozen' are legacy: how many there are is the quantity.
+        // They stay accepted because rows written before v15 carry them; the
+        // app offers g, kg, ml and l.
+        "CHECK (weight_unit IS NULL OR weight_unit IN "
+            "('g','kg','ml','l','pcs','dozen'))",
         'CHECK (weight_value IS NULL OR weight_value > 0)',
         // No 'out': an item does not travel, its sub-order does (D29).
         "CHECK (status IN ('created','confirmed','in_production','ready',"

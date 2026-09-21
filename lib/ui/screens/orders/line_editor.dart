@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/scope.dart';
 import '../../../common/money.dart';
@@ -97,6 +98,21 @@ class _LineSheetState extends State<_LineSheet> {
       TextEditingController(text: moneyToField(widget.existing?.basePrice ?? Money.zero));
   late final _note = TextEditingController(text: widget.existing?.note ?? '');
   late int _qty = widget.existing?.qty ?? 1;
+  late final _qtyField = TextEditingController(text: '$_qty');
+
+  /// Moves both the number and the box it is shown in, so the stepper and
+  /// what you typed can never disagree.
+  void _setQty(int to) {
+    setState(() => _qty = to);
+    _qtyField.text = '$to';
+  }
+
+  /// A blank box is one. Leaving it empty would fail the `qty > 0` CHECK, and
+  /// refusing to save is a worse answer than the obvious default.
+  void _settleQty() {
+    if (_qty < 1) _setQty(1);
+    FocusScope.of(context).unfocus();
+  }
   late String? _menuItemId = widget.existing?.menuItemId;
 
   // ── the line's own schedule (D25) ──
@@ -307,7 +323,7 @@ class _LineSheetState extends State<_LineSheet> {
   void dispose() {
     for (final c in [
       _flavour, _weight, _price, _note, _itemMessage, _requirements,
-      _chargeField, _discountField,
+      _chargeField, _discountField, _qtyField,
     ]) {
       c.dispose();
     }
@@ -505,20 +521,41 @@ class _LineSheetState extends State<_LineSheet> {
                     child: Row(
                       children: [
                         IconButton.filledTonal(
-                          onPressed: _locked || _qty <= 1
-                              ? null
-                              : () => setState(() => _qty--),
+                          onPressed:
+                              _locked || _qty <= 1 ? null : () => _setQty(_qty - 1),
                           icon: const Icon(Icons.remove, size: 18),
                         ),
+                        // Typed, not only tapped. A hundred buns is a
+                        // hundred taps otherwise.
                         SizedBox(
-                          width: 34,
-                          child: Text('$_qty',
-                              textAlign: TextAlign.center,
-                              style: context.text.titleMedium),
+                          width: 52,
+                          child: TextField(
+                            controller: _qtyField,
+                            enabled: !_locked,
+                            textAlign: TextAlign.center,
+                            style: context.text.titleMedium,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(4),
+                            ],
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              filled: false,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onChanged: (v) =>
+                                setState(() => _qty = int.tryParse(v) ?? 0),
+                            // Empty while typing is fine; empty when you leave
+                            // is one, because an item of nothing is not a
+                            // thing the CHECK will accept anyway.
+                            onTapOutside: (_) => _settleQty(),
+                            onEditingComplete: _settleQty,
+                          ),
                         ),
                         IconButton.filledTonal(
-                          onPressed:
-                              _locked ? null : () => setState(() => _qty++),
+                          onPressed: _locked ? null : () => _setQty(_qty + 1),
                           icon: const Icon(Icons.add, size: 18),
                         ),
                       ],

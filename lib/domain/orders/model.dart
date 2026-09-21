@@ -286,7 +286,11 @@ class Weight {
   final double value;
   final String unit;
 
-  static const units = ['g', 'kg', 'pcs', 'dozen'];
+  /// Weight and volume only. `pcs` and `dozen` were here and were a
+  /// confusion: how many there are is the **quantity**, and a cake that is
+  /// "1 pcs × 2" says the same thing twice. Rows written before v15 may still
+  /// carry them, so the schema still accepts them — nothing offers them.
+  static const units = ['g', 'kg', 'ml', 'l'];
 
   /// Null unless both halves are present — the schema enforces the same pairing.
   static Weight? maybe(double? value, String? unit) =>

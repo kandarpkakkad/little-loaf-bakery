@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 14;
+const int kSchemaVersion = 15;
 
 @DriftDatabase(
   tables: [
@@ -84,6 +84,7 @@ class AppDatabase extends _$AppDatabase {
     11: _v11ToV12,
     12: _v12ToV13,
     13: _v13ToV14,
+    14: _v14ToV15,
   };
 
   /// The journey becomes a row of its own (D28).
@@ -151,6 +152,20 @@ class AppDatabase extends _$AppDatabase {
     final db = m.database as AppDatabase;
     await m.addColumn(db.orderItems, db.orderItems.discountType);
     await m.addColumn(db.orderItems, db.orderItems.discountValue);
+  }
+
+  /// An item is weighed or measured; how many there are is the quantity.
+  ///
+  /// `pcs` and `dozen` said the same thing twice — "1 pcs × 2" — so the app
+  /// offers `g`, `kg`, `ml` and `l` now. The CHECK is **widened**, not
+  /// narrowed: rows written before this still carry the old two, and a
+  /// constraint that rejected them would make an existing order unsaveable.
+  static Future<void> _v14ToV15(Migrator m) async {
+    final db = m.database as AppDatabase;
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    // The CHECK is part of the table definition, so it is a rebuild and copy.
+    await m.alterTable(TableMigration(db.orderItems));
+    await db.customStatement('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _createIndexes(Migrator m) async {
