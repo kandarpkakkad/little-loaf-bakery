@@ -13847,6 +13847,17 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $SettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _fieldHlcJsonMeta = const VerificationMeta(
+    'fieldHlcJson',
+  );
+  @override
+  late final GeneratedColumn<String> fieldHlcJson = GeneratedColumn<String>(
+    'field_hlc_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
@@ -13856,6 +13867,53 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant('singleton'),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('seed'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _updatedAtHlcMeta = const VerificationMeta(
+    'updatedAtHlc',
+  );
+  @override
+  late final GeneratedColumn<String> updatedAtHlc = GeneratedColumn<String>(
+    'updated_at_hlc',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('0:0:seed'),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _businessNameMeta = const VerificationMeta(
     'businessName',
@@ -13984,7 +14042,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   );
   @override
   List<GeneratedColumn> get $columns => [
+    fieldHlcJson,
     id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
     businessName,
     address,
     phone,
@@ -14009,8 +14072,44 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('field_hlc_json')) {
+      context.handle(
+        _fieldHlcJsonMeta,
+        fieldHlcJson.isAcceptableOrUnknown(
+          data['field_hlc_json']!,
+          _fieldHlcJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at_hlc')) {
+      context.handle(
+        _updatedAtHlcMeta,
+        updatedAtHlc.isAcceptableOrUnknown(
+          data['updated_at_hlc']!,
+          _updatedAtHlcMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
     }
     if (data.containsKey('business_name')) {
       context.handle(
@@ -14105,10 +14204,30 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   Setting map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Setting(
+      fieldHlcJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_hlc_json'],
+      ),
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAtHlc: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at_hlc'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
       businessName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}business_name'],
@@ -14163,7 +14282,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
 }
 
 class Setting extends DataClass implements Insertable<Setting> {
+  final String? fieldHlcJson;
   final String id;
+  final String deviceId;
+  final int createdAt;
+  final String updatedAtHlc;
+  final int? deletedAt;
   final String businessName;
   final String? address;
   final String? phone;
@@ -14179,7 +14303,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   final String? deviceName;
   final int orderSeq;
   const Setting({
+    this.fieldHlcJson,
     required this.id,
+    required this.deviceId,
+    required this.createdAt,
+    required this.updatedAtHlc,
+    this.deletedAt,
     required this.businessName,
     this.address,
     this.phone,
@@ -14195,7 +14324,16 @@ class Setting extends DataClass implements Insertable<Setting> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (!nullToAbsent || fieldHlcJson != null) {
+      map['field_hlc_json'] = Variable<String>(fieldHlcJson);
+    }
     map['id'] = Variable<String>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at_hlc'] = Variable<String>(updatedAtHlc);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
     map['business_name'] = Variable<String>(businessName);
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
@@ -14222,7 +14360,16 @@ class Setting extends DataClass implements Insertable<Setting> {
 
   SettingsCompanion toCompanion(bool nullToAbsent) {
     return SettingsCompanion(
+      fieldHlcJson: fieldHlcJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fieldHlcJson),
       id: Value(id),
+      deviceId: Value(deviceId),
+      createdAt: Value(createdAt),
+      updatedAtHlc: Value(updatedAtHlc),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       businessName: Value(businessName),
       address: address == null && nullToAbsent
           ? const Value.absent()
@@ -14253,7 +14400,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Setting(
+      fieldHlcJson: serializer.fromJson<String?>(json['fieldHlcJson']),
       id: serializer.fromJson<String>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAtHlc: serializer.fromJson<String>(json['updatedAtHlc']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
       businessName: serializer.fromJson<String>(json['businessName']),
       address: serializer.fromJson<String?>(json['address']),
       phone: serializer.fromJson<String?>(json['phone']),
@@ -14275,7 +14427,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'fieldHlcJson': serializer.toJson<String?>(fieldHlcJson),
       'id': serializer.toJson<String>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAtHlc': serializer.toJson<String>(updatedAtHlc),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
       'businessName': serializer.toJson<String>(businessName),
       'address': serializer.toJson<String?>(address),
       'phone': serializer.toJson<String?>(phone),
@@ -14293,7 +14450,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   }
 
   Setting copyWith({
+    Value<String?> fieldHlcJson = const Value.absent(),
     String? id,
+    String? deviceId,
+    int? createdAt,
+    String? updatedAtHlc,
+    Value<int?> deletedAt = const Value.absent(),
     String? businessName,
     Value<String?> address = const Value.absent(),
     Value<String?> phone = const Value.absent(),
@@ -14306,7 +14468,12 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> deviceName = const Value.absent(),
     int? orderSeq,
   }) => Setting(
+    fieldHlcJson: fieldHlcJson.present ? fieldHlcJson.value : this.fieldHlcJson,
     id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     businessName: businessName ?? this.businessName,
     address: address.present ? address.value : this.address,
     phone: phone.present ? phone.value : this.phone,
@@ -14322,7 +14489,16 @@ class Setting extends DataClass implements Insertable<Setting> {
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
+      fieldHlcJson: data.fieldHlcJson.present
+          ? data.fieldHlcJson.value
+          : this.fieldHlcJson,
       id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAtHlc: data.updatedAtHlc.present
+          ? data.updatedAtHlc.value
+          : this.updatedAtHlc,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       businessName: data.businessName.present
           ? data.businessName.value
           : this.businessName,
@@ -14354,7 +14530,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   @override
   String toString() {
     return (StringBuffer('Setting(')
+          ..write('fieldHlcJson: $fieldHlcJson, ')
           ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('businessName: $businessName, ')
           ..write('address: $address, ')
           ..write('phone: $phone, ')
@@ -14372,7 +14553,12 @@ class Setting extends DataClass implements Insertable<Setting> {
 
   @override
   int get hashCode => Object.hash(
+    fieldHlcJson,
     id,
+    deviceId,
+    createdAt,
+    updatedAtHlc,
+    deletedAt,
     businessName,
     address,
     phone,
@@ -14389,7 +14575,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Setting &&
+          other.fieldHlcJson == this.fieldHlcJson &&
           other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAtHlc == this.updatedAtHlc &&
+          other.deletedAt == this.deletedAt &&
           other.businessName == this.businessName &&
           other.address == this.address &&
           other.phone == this.phone &&
@@ -14404,7 +14595,12 @@ class Setting extends DataClass implements Insertable<Setting> {
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
+  final Value<String?> fieldHlcJson;
   final Value<String> id;
+  final Value<String> deviceId;
+  final Value<int> createdAt;
+  final Value<String> updatedAtHlc;
+  final Value<int?> deletedAt;
   final Value<String> businessName;
   final Value<String?> address;
   final Value<String?> phone;
@@ -14418,7 +14614,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> orderSeq;
   final Value<int> rowid;
   const SettingsCompanion({
+    this.fieldHlcJson = const Value.absent(),
     this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAtHlc = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.businessName = const Value.absent(),
     this.address = const Value.absent(),
     this.phone = const Value.absent(),
@@ -14433,7 +14634,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
+    this.fieldHlcJson = const Value.absent(),
     this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAtHlc = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.businessName = const Value.absent(),
     this.address = const Value.absent(),
     this.phone = const Value.absent(),
@@ -14448,7 +14654,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.rowid = const Value.absent(),
   });
   static Insertable<Setting> custom({
+    Expression<String>? fieldHlcJson,
     Expression<String>? id,
+    Expression<String>? deviceId,
+    Expression<int>? createdAt,
+    Expression<String>? updatedAtHlc,
+    Expression<int>? deletedAt,
     Expression<String>? businessName,
     Expression<String>? address,
     Expression<String>? phone,
@@ -14463,7 +14674,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (fieldHlcJson != null) 'field_hlc_json': fieldHlcJson,
       if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAtHlc != null) 'updated_at_hlc': updatedAtHlc,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (businessName != null) 'business_name': businessName,
       if (address != null) 'address': address,
       if (phone != null) 'phone': phone,
@@ -14482,7 +14698,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 
   SettingsCompanion copyWith({
+    Value<String?>? fieldHlcJson,
     Value<String>? id,
+    Value<String>? deviceId,
+    Value<int>? createdAt,
+    Value<String>? updatedAtHlc,
+    Value<int?>? deletedAt,
     Value<String>? businessName,
     Value<String?>? address,
     Value<String?>? phone,
@@ -14497,7 +14718,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int>? rowid,
   }) {
     return SettingsCompanion(
+      fieldHlcJson: fieldHlcJson ?? this.fieldHlcJson,
       id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAtHlc: updatedAtHlc ?? this.updatedAtHlc,
+      deletedAt: deletedAt ?? this.deletedAt,
       businessName: businessName ?? this.businessName,
       address: address ?? this.address,
       phone: phone ?? this.phone,
@@ -14517,8 +14743,23 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (fieldHlcJson.present) {
+      map['field_hlc_json'] = Variable<String>(fieldHlcJson.value);
+    }
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAtHlc.present) {
+      map['updated_at_hlc'] = Variable<String>(updatedAtHlc.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
     }
     if (businessName.present) {
       map['business_name'] = Variable<String>(businessName.value);
@@ -14564,7 +14805,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   @override
   String toString() {
     return (StringBuffer('SettingsCompanion(')
+          ..write('fieldHlcJson: $fieldHlcJson, ')
           ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAtHlc: $updatedAtHlc, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('businessName: $businessName, ')
           ..write('address: $address, ')
           ..write('phone: $phone, ')
@@ -23957,7 +24203,12 @@ typedef $$PeerCursorsTableProcessedTableManager =
     >;
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
+      Value<String?> fieldHlcJson,
       Value<String> id,
+      Value<String> deviceId,
+      Value<int> createdAt,
+      Value<String> updatedAtHlc,
+      Value<int?> deletedAt,
       Value<String> businessName,
       Value<String?> address,
       Value<String?> phone,
@@ -23973,7 +24224,12 @@ typedef $$SettingsTableCreateCompanionBuilder =
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
+      Value<String?> fieldHlcJson,
       Value<String> id,
+      Value<String> deviceId,
+      Value<int> createdAt,
+      Value<String> updatedAtHlc,
+      Value<int?> deletedAt,
       Value<String> businessName,
       Value<String?> address,
       Value<String?> phone,
@@ -23997,8 +24253,33 @@ class $$SettingsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get fieldHlcJson => $composableBuilder(
+    column: $table.fieldHlcJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24067,8 +24348,33 @@ class $$SettingsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get fieldHlcJson => $composableBuilder(
+    column: $table.fieldHlcJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -24137,8 +24443,27 @@ class $$SettingsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get fieldHlcJson => $composableBuilder(
+    column: $table.fieldHlcJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAtHlc => $composableBuilder(
+    column: $table.updatedAtHlc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<String> get businessName => $composableBuilder(
     column: $table.businessName,
@@ -24216,7 +24541,12 @@ class $$SettingsTableTableManager
               $$SettingsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String?> fieldHlcJson = const Value.absent(),
                 Value<String> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> updatedAtHlc = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
                 Value<String> businessName = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
@@ -24230,7 +24560,12 @@ class $$SettingsTableTableManager
                 Value<int> orderSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SettingsCompanion(
+                fieldHlcJson: fieldHlcJson,
                 id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
                 businessName: businessName,
                 address: address,
                 phone: phone,
@@ -24246,7 +24581,12 @@ class $$SettingsTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String?> fieldHlcJson = const Value.absent(),
                 Value<String> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> updatedAtHlc = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
                 Value<String> businessName = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
@@ -24260,7 +24600,12 @@ class $$SettingsTableTableManager
                 Value<int> orderSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SettingsCompanion.insert(
+                fieldHlcJson: fieldHlcJson,
                 id: id,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                updatedAtHlc: updatedAtHlc,
+                deletedAt: deletedAt,
                 businessName: businessName,
                 address: address,
                 phone: phone,

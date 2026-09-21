@@ -5,6 +5,7 @@ import 'package:sqlite3/common.dart' show SqliteException;
 
 import '../../common/hlc.dart';
 import '../storage/database.dart';
+import '../storage/tables.dart' show kSharedSettings;
 import 'merge.dart';
 import 'mutations.dart';
 import 'op.dart';
@@ -61,6 +62,16 @@ class OpApplier {
         // either, so there is nothing to announce.
         return const {};
       });
+
+  /// The one table that is only partly shared. `settings` holds the bakery's
+  /// details, which replicate, alongside this handset's own — its name, its
+  /// lock, its order counter — which must not. A peer has no business setting
+  /// those, so they are refused here as well as never being sent.
+  ///
+  /// Enforced on the reading side too, not only the writing side: a peer on a
+  /// build that got this wrong should not be able to rename this phone.
+  bool _peerMaySet(String entity, String field) =>
+      entity != 'settings' || kSharedSettings.contains(field);
 
   /// True for tables carrying `field_hlc_json` — the ones edited from more
   /// than one place, where per-field timestamps are worth the space.
@@ -127,7 +138,8 @@ class OpApplier {
     // whole op — a newer peer may be sending columns this build never heard of.
     final incoming = <String, Object?>{
       for (final e in op.fields.entries)
-        if (columns.contains(e.key)) e.key: e.value,
+        if (columns.contains(e.key) && _peerMaySet(op.entity, e.key))
+          e.key: e.value,
     };
 
     final existing = await _load(op.entity, op.entityId);

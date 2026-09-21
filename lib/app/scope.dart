@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../domain/customers/repository.dart';
 import '../domain/menu/repository.dart';
 import '../domain/orders/repository.dart';
+import '../domain/settings/repository.dart';
 import '../domain/reporting/repository.dart';
 import '../domain/stock/repository.dart';
 import '../platform/security/app_lock.dart';
@@ -27,6 +28,7 @@ class AppServices {
         customers = CustomerRepository(db, mutations),
         orders = OrderRepository(db, mutations),
         stock = StockRepository(db, mutations),
+        settingsRepo = SettingsRepository(db, mutations),
         sync = SyncService(db: db, mutations: mutations, deviceId: deviceId) {
     reports = ReportRepository(db, orders);
     updates = AppUpdates(sync);
@@ -40,6 +42,7 @@ class AppServices {
   final CustomerRepository customers;
   final OrderRepository orders;
   final StockRepository stock;
+  final SettingsRepository settingsRepo;
 
   /// Built after the field initialisers because it reads through
   /// [orders] rather than the database directly — one definition of a
@@ -55,7 +58,7 @@ class AppServices {
   /// what the other devices say they are running.
   late final AppUpdates updates;
 
-  Future<Setting> settings() => db.select(db.settings).getSingle();
+  Future<Setting> settings() => settingsRepo.read();
 }
 
 class AppScope extends InheritedWidget {

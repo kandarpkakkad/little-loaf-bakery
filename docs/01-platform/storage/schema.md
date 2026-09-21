@@ -4,7 +4,7 @@
 schema file follows.** Module schemas live beside their module; nothing is duplicated in an
 HLD or LLD.
 
-Current schema version: **15**
+Current schema version: **16**
 
 ---
 
@@ -113,6 +113,18 @@ migrate from.
 | 13 | **Invoicing removed** (D30). `invoices` dropped, and `gstin` / `gst_enabled` / `logo_path` / `terms_line` / `invoice_seq` with it |
 | 14 | **The discount moves to the item** (D31). `order_items.discount_type` / `discount_value` added; the order's stay as caches |
 | **15** | Weight units are `g` / `kg` / `ml` / `l`. The CHECK is **widened**, not narrowed — rows carrying the old `pcs` / `dozen` stay saveable |
+| **16** | **The bakery's details start replicating.** `settings` gains `device_id` / `created_at` / `updated_at_hlc` / `deleted_at` / `field_hlc_json`, seeded `0:0:seed`. Only `kSharedSettings` travels — `device_name`, `app_lock_enabled` and `order_seq` stay on their handset |
+
+**A rebuild must declare its new columns.** `TableMigration(db.settings)` recreates the
+table from its current definition and copies the rows across — including, unless told
+otherwise, columns that do not exist yet. v16 died on `no such column: field_hlc_json`
+until every added column was named in `newColumns`. They still need a default or a
+`columnTransformer`; drift checks that in the constructor, but it cannot guess which
+columns are new.
+
+**A migration test needs a file, not a memory database.** Reopening a closed in-memory
+executor throws `Can't re-open a database after closing it`, and an executor that was never
+closed skips the migration and passes.
 
 **A dropped name has to be grepped for.** Removing `invoice_seq` in v13 left
 `UPDATE settings SET order_seq = 0, invoice_seq = 0` in `backup/snapshot.dart` — a raw SQL

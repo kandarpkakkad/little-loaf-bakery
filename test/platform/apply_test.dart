@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/hlc.dart';
+import 'package:little_loaf/platform/storage/database.dart';
 import 'package:little_loaf/platform/sync/op.dart';
 
 import '../support/harness.dart';
@@ -51,6 +53,35 @@ void main() {
     await sub.cancel();
 
     expect(counts, [0, 1], reason: 'the stream must re-emit with the new row');
+  });
+
+  test('a peer sets the bakery details but cannot touch this handset', () async {
+    // settings is the one table that is only half shared. The bakery's name
+    // must agree on both phones; the handset's own name, its lock and its
+    // order counter must not, or one phone renames or unlocks the other.
+    await f.services.db.update(f.services.db.settings).write(
+          const SettingsCompanion(
+            deviceName: Value('Kitchen tablet'),
+            appLockEnabled: Value(true),
+            orderSeq: Value(42),
+          ),
+        );
+
+    await f.applier.apply(upsert('settings', 'singleton', {
+      'business_name': 'Little Loaf Bakery',
+      'delivery_charge_local': 5000,
+      // These three must be refused however politely a peer asks.
+      'device_name': 'Whose phone?',
+      'app_lock_enabled': false,
+      'order_seq': 999,
+    }, wallMs: 2000));
+
+    final row = await f.row('settings', 'singleton');
+    expect(row!['business_name'], 'Little Loaf Bakery', reason: 'shared: taken');
+    expect(row['delivery_charge_local'], 5000, reason: 'shared: taken');
+    expect(row['device_name'], 'Kitchen tablet', reason: 'local: untouched');
+    expect(row['app_lock_enabled'], 1, reason: 'local: untouched');
+    expect(row['order_seq'], 42, reason: 'local: untouched');
   });
 
   test('an unseen row arrives as an insert', () async {

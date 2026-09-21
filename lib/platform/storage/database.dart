@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 15;
+const int kSchemaVersion = 16;
 
 @DriftDatabase(
   tables: [
@@ -85,6 +85,7 @@ class AppDatabase extends _$AppDatabase {
     12: _v12ToV13,
     13: _v13ToV14,
     14: _v14ToV15,
+    15: _v15ToV16,
   };
 
   /// The journey becomes a row of its own (D28).
@@ -165,6 +166,38 @@ class AppDatabase extends _$AppDatabase {
     await db.customStatement('PRAGMA foreign_keys = OFF');
     // The CHECK is part of the table definition, so it is a rebuild and copy.
     await m.alterTable(TableMigration(db.orderItems));
+    await db.customStatement('PRAGMA foreign_keys = ON');
+  }
+
+  /// The bakery's own details start replicating.
+  ///
+  /// `settings` was the one domain table with no `updated_at_hlc`, so it could
+  /// not take part in the merge at all and the business details were silently
+  /// per-phone. It gains the sync columns here.
+  ///
+  /// A rebuild rather than addColumn, because the table is recreated from its
+  /// current definition and the rows copied across. Every new column must be
+  /// named in `newColumns`: without that, drift copies it from the old table
+  /// and the migration dies on `no such column: field_hlc_json`. They are
+  /// filled from the defaults in the table definition.
+  ///
+  /// The seed `0:0:seed` is older than any real HLC, so whichever phone saves
+  /// first wins the field rather than losing to a row nobody has edited.
+  ///
+  /// Only [kSharedSettings] ever travels — see the note on the table.
+  static Future<void> _v15ToV16(Migrator m) async {
+    final db = m.database as AppDatabase;
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    await m.alterTable(TableMigration(
+      db.settings,
+      newColumns: [
+        db.settings.deviceId,
+        db.settings.createdAt,
+        db.settings.updatedAtHlc,
+        db.settings.deletedAt,
+        db.settings.fieldHlcJson,
+      ],
+    ));
     await db.customStatement('PRAGMA foreign_keys = ON');
   }
 

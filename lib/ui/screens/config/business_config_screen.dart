@@ -1,9 +1,7 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
 import '../../../common/money.dart';
-import '../../../platform/storage/database.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -64,18 +62,19 @@ class _BusinessConfigScreenState extends State<BusinessConfigScreen> {
     }
   }
 
+  /// Two saves, because these are two different things. The bakery's details
+  /// go to the other phone; this handset's name stays here.
   Future<void> _save() async {
-    final db = context.db;
-    await db.update(db.settings).write(SettingsCompanion(
-          businessName: Value(_name.text.trim()),
-          phone: Value(_phone.text.trim().isEmpty ? null : _phone.text.trim()),
-          address: Value(_address.text.trim().isEmpty ? null : _address.text.trim()),
-          upiId: Value(_upi.text.trim().isEmpty ? null : _upi.text.trim()),
-          deliveryChargeLocal: Value(moneyFromField(_local.text).paise),
-          deliveryChargeOutstation: Value(moneyFromField(_outstation.text).paise),
-          deviceName:
-              Value(_deviceName.text.trim().isEmpty ? null : _deviceName.text.trim()),
-        ));
+    final settings = context.app.settingsRepo;
+    await settings.saveBusiness(
+      businessName: _name.text.trim(),
+      phone: _phone.text.trim(),
+      address: _address.text.trim(),
+      upiId: _upi.text.trim(),
+      deliveryChargeLocal: moneyFromField(_local.text).paise,
+      deliveryChargeOutstation: moneyFromField(_outstation.text).paise,
+    );
+    await settings.saveThisDevice(deviceName: _deviceName.text.trim());
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Saved')));

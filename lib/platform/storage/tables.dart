@@ -404,8 +404,43 @@ class PeerCursors extends Table {
 
 // ─────────────────────────────── settings ────────────────────────────────
 
-class Settings extends Table {
+/// The settings columns that replicate. Everything else in `settings` is this
+/// handset's own and is never put in an op nor accepted from one.
+const kSharedSettings = {
+  'business_name',
+  'address',
+  'phone',
+  'invoice_prefix',
+  'upi_id',
+  'payment_phone',
+  'delivery_charge_local',
+  'delivery_charge_outstation',
+};
+
+/// Partly shared, partly this handset's.
+///
+/// The bakery's identity — name, address, phone, UPI, the order-number prefix
+/// and the two delivery charges — is one thing both phones must agree on, so it
+/// replicates. The rest describes the phone it is on and must NOT: `device_name`
+/// names this handset, `app_lock_enabled` is this handset's lock, and
+/// `order_seq` is a local counter that deliberately does not survive a snapshot
+/// (D6). Sending any of them would have one phone rename or unlock the other.
+///
+/// [kSharedSettings] is that split, and it is enforced on both sides — the
+/// repository records only those fields, and the applier accepts only those
+/// fields.
+///
+/// The sync columns carry defaults rather than coming from [Common]: this row
+/// already exists on every install, so the migration has to fill them without
+/// knowing a device id. `0:0:seed` is older than any real HLC, so the first
+/// value a peer sends wins over a row nobody has touched.
+class Settings extends Table with FieldHlc {
   TextColumn get id => text().withDefault(const Constant('singleton'))();
+  TextColumn get deviceId => text().withDefault(const Constant('seed'))();
+  IntColumn get createdAt => integer().withDefault(const Constant(0))();
+  TextColumn get updatedAtHlc =>
+      text().withDefault(const Constant('0:0:seed'))();
+  IntColumn get deletedAt => integer().nullable()();
   TextColumn get businessName => text().withDefault(const Constant('Little Loaf Bakery'))();
   TextColumn get address => text().nullable()();
   TextColumn get phone => text().nullable()();

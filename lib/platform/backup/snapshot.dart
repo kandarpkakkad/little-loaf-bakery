@@ -231,7 +231,13 @@ Future<void> exportTo(AppDatabase db, String path) async {
     copy.execute('DELETE FROM outbox');
     copy.execute('DELETE FROM applied_ops');
     copy.execute('DELETE FROM peer_cursors');
-    copy.execute('UPDATE settings SET order_seq = 0');
+    // The settings row is half the bakery's and half this handset's. The
+    // bakery's half is the point of the backup and travels; the handset's does
+    // not — a restored phone is a different phone (D6), so it does not inherit
+    // the old one's name, and its order counter starts again. app_lock_enabled
+    // stays on deliberately: silently restoring with the lock off would be a
+    // worse surprise than being asked for a PIN.
+    copy.execute('UPDATE settings SET order_seq = 0, device_name = NULL');
     copy.execute('VACUUM');
   } finally {
     copy.close();
