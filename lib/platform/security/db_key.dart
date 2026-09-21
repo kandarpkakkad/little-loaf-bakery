@@ -29,4 +29,10 @@ class DbKeyStore {
     await storage.write(key: _alias, value: hex);
     return hex;
   }
+
+  /// Forgets the key, so the next open makes a new one.
+  ///
+  /// Only meaningful alongside deleting the database it belonged to — a key
+  /// without its file is harmless, a file without its key is the bricked case.
+  Future<void> clear() => storage.delete(key: _alias);
 }

@@ -17,6 +17,29 @@ import 'database.dart';
 /// transaction. Nothing is bundled and nothing is fetched — the app is usable
 /// offline before Google Sign-In has been touched.
 /// See docs/01-platform/storage/schema.md § First run.
+/// Throws away the local database so the app can open again.
+///
+/// The one recovery from a file the key no longer opens. That happens when the
+/// two are separated: Android's automatic backup used to restore the database
+/// onto a fresh install while leaving the Keystore key behind, and a device
+/// whose Keystore is cleared reaches the same place. Backup is off now
+/// (`allowBackup="false"`), but a dead end on the launch screen is not
+/// something to leave to one mitigation.
+///
+/// **Only ever on an explicit choice.** The orders are recoverable from the
+/// Drive snapshot; nothing here can tell whether they are, so nothing here may
+/// decide for somebody.
+Future<void> discardLocalDatabase() async {
+  final dir = await getApplicationDocumentsDirectory();
+  for (final suffix in ['', '-wal', '-shm']) {
+    final f = File(p.join(dir.path, 'little_loaf.db$suffix'));
+    if (f.existsSync()) await f.delete();
+  }
+  // The key goes too. Keeping one that opens nothing only makes the next
+  // failure harder to read.
+  await const DbKeyStore().clear();
+}
+
 Future<AppDatabase> openAppDatabase({DbKeyStore? keys, DeviceIdStore? devices}) async {
   final dir = await getApplicationDocumentsDirectory();
   final file = File(p.join(dir.path, 'little_loaf.db'));

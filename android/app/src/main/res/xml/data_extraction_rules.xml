@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ governs cloud backup and device-to-device transfer here rather
+  than through allowBackup alone. Both are excluded for the same reason: the
+  database is encrypted with a Keystore key that cannot travel with it, so a
+  restored copy is an unopenable file rather than a recovered bakery.
+
+  The data does move between devices — through the app's own Drive snapshot,
+  which is encrypted in transit, decrypted on arrival, and does not depend on
+  a key that stayed behind on the old phone.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>

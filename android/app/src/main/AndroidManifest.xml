@@ -16,8 +16,22 @@
          policy does not apply to it. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <!-- Automatic backup is OFF, and it has to be.
+
+         Android would restore this app's private files onto a fresh install —
+         including the SQLCipher database. The key that decrypts it lives in
+         the Android Keystore, which is device-bound and is NOT backed up. So a
+         restore hands the app an encrypted file it can never open again:
+         "file is not a database", SqliteException(26), on what looks like a
+         clean install.
+
+         Nothing is lost by switching it off. The bakery's backup is the
+         nightly snapshot in its own Drive folder, which restores the data AND
+         is readable on a new device (docs/01-platform/backup). -->
     <application
         android:label="${appLabel}"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">

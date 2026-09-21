@@ -114,6 +114,34 @@ The orders survive with the name scrubbed: the money has to stay auditable, the 
 not. There is no separate document to scrub — invoicing was removed (D30), so an order *is*
 the record.
 
+## 5b. The key and the file must travel together, or not at all
+
+The database is encrypted with a key in the Android Keystore. Keystore keys are
+device-bound and are **never** backed up — so anything that moves the *file*
+without the *key* produces a database nothing can open:
+
+```
+SqliteException(26): file is not a database
+  Causing statement: SELECT count(*) FROM sqlite_master
+```
+
+Android's automatic backup did exactly that. `allowBackup` defaults to true, so
+a fresh install restored the app's private files — the database among them —
+while the key stayed on the old device. The app then generated a new key,
+applied it, and failed the deliberate header check in `connection.dart`.
+
+**Backup is off**: `allowBackup="false"` plus a `data-extraction-rules` file
+excluding both cloud backup and device transfer, which is what governs this
+from Android 12. Nothing is lost — the bakery's backup is the nightly Drive
+snapshot, which is decrypted on write precisely so it can be read on a device
+that has never seen this key (D6, `../backup/`).
+
+**And the failure is recoverable rather than terminal.** The launch screen
+tells the difference between an undecryptable file and a damaged one, and
+offers to discard the local database — behind a confirmation, and never
+automatically, because nothing on that screen can know whether the orders
+reached Drive first.
+
 ## 6. Retention
 
 ```dart
