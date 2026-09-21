@@ -8,10 +8,10 @@
 library;
 
 /// Matches `version:` in pubspec.yaml, and the release tag without its `v`.
-const String kAppVersion = '0.4.10';
+const String kAppVersion = '0.4.11';
 
 /// The build number after the `+`.
-const int kAppBuild = 38;
+const int kAppBuild = 39;
 
 /// The oldest version that can still read what this build writes.
 ///
