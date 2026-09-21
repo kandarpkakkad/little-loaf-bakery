@@ -240,6 +240,50 @@ jobs:
             && gh release upload "$V" dist/*.apk --clobber \
             || gh release create "$V" dist/*.apk --title "$V" --generate-notes
 
+      # Two APKs a release, ~50 MB a pair, and a release every push to main
+      # that asks for one. GitHub keeps them for ever and counts them against
+      # the repository, so this trims the tail.
+      #
+      # The releases themselves stay — tag, title and notes — and so does the
+      # history. Only the binaries go, and only from the eleventh newest
+      # onwards. Ten is far more than anyone rolls back through; the source for
+      # any older version is still there under its tag.
+      #
+      # publishedAt, not createdAt: a release's createdAt is the date of the
+      # COMMIT its tag points at, so tagging an old commit would file a new
+      # release among the ancient ones and prune it immediately.
+      - name: Keep the APKs of the last ten releases only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: 10
+        run: |
+          stale=$(gh release list --limit 200 --json tagName,publishedAt \
+                    --jq "sort_by(.publishedAt) | reverse | .[$KEEP:] | .[].tagName")
+
+          if [ -z "$stale" ]; then
+            echo "$(gh release list --limit 200 --json tagName --jq 'length') releases, none older than the newest $KEEP. Nothing to prune."
+            exit 0
+          fi
+
+          failed=0
+          for tag in $stale; do
+            for asset in $(gh release view "$tag" --json assets --jq '.assets[].name'); do
+              if gh release delete-asset "$tag" "$asset" --yes; then
+                echo "removed $tag/$asset"
+              else
+                echo "::warning::could not remove $tag/$asset"
+                failed=1
+              fi
+            done
+          done
+
+          # The release is already published by this point, so a prune that
+          # fails costs nothing but disk. Say so rather than going quietly.
+          if [ "$failed" = 1 ]; then
+            echo "::error::Some old release assets could not be removed. The release itself published fine — this is only cleanup, and it needs contents:write."
+            exit 1
+          fi
+
       # Runs even when an earlier step failed, so a crashed job never leaves the
       # key on the runner's disk.
       - name: Shred the keys
