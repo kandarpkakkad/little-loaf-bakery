@@ -646,7 +646,7 @@ schedule. Three line charts are a `CustomPainter`, not a dependency.
 | Tab | Holds |
 |---|---|
 | **Orders** | Every order, grouped by the day it is next needed, with search and the alerts that used to live on Today |
-| **Kitchen** | The board — journeys from **confirmed** onward, in columns: Confirmed · In production · Ready · Out. **Opens on the week**, because a cake due Thursday is started on Monday |
+| **Kitchen** | The board — journeys from **confirmed** onward. **Opens on the week**, because a cake due Thursday is started on Monday. On a **tablet** the four stages are columns read left to right; on a **phone** they stack, reversed, so what is nearest the door is at the top of the scroll |
 | **Stock** | Levels, add stock, consumption, wastage, count, purchase list |
 | **More** | Customers, reports, share log, sync & backup, menu items, raw materials, business settings |
 

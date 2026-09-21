@@ -155,33 +155,94 @@ class _Board extends StatelessWidget {
       });
     }
 
-    return ContentWidth(
-      max: 900,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            Space.lg, Space.md, Space.lg, Space.xxl * 2),
+    // The pipeline, in the order work moves through it.
+    const flow = [
+      SubOrderStatus.confirmed,
+      SubOrderStatus.inProduction,
+      SubOrderStatus.ready,
+      SubOrderStatus.out,
+    ];
+
+    // Two genuinely different boards, not one stretched.
+    //
+    // A tablet on the counter has room for the pipeline side by side, read
+    // left to right the way work actually moves. A phone has one column of
+    // anything, so the same four stages become a scroll — and a scroll is
+    // read top-down under time pressure, where what is nearest the door
+    // belongs first. Hence the reversal on the phone and not on the tablet.
+    if (context.window.isCompact) {
+      return ContentWidth(
+        max: 900,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+              Space.lg, Space.md, Space.lg, Space.xxl * 2),
+          children: [
+            for (final status in flow.reversed)
+              if (byStatus[status] != null) ...[
+                SectionLabel('${status.label} · ${byStatus[status]!.length}'),
+                CardGrid(children: [
+                  for (final w in byStatus[status]!) _WorkCard(work: w),
+                ]),
+              ],
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Nearest the door first. A board is read top-down, and the lots
-          // that are out or boxed are the ones somebody is about to hand over
-          // — clearing those off the top leaves what still needs doing below.
-          //
-          // The board still *starts* at confirmed, which is the change that
-          // mattered: work appears when the customer agrees to it rather than
-          // when somebody has already begun. This is only the reading order.
-          for (final status in [
-            SubOrderStatus.out,
-            SubOrderStatus.ready,
-            SubOrderStatus.inProduction,
-            SubOrderStatus.confirmed,
-          ])
-            if (byStatus[status] != null) ...[
-              SectionLabel('${status.label} · ${byStatus[status]!.length}'),
-              CardGrid(children: [
-                for (final w in byStatus[status]!) _WorkCard(work: w),
-              ]),
-            ],
+          for (var i = 0; i < flow.length; i++) ...[
+            if (i > 0) const SizedBox(width: Space.md),
+            Expanded(
+              child: _Column(
+                status: flow[i],
+                work: byStatus[flow[i]] ?? const [],
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// One stage of the pipeline, on a screen wide enough to show them together.
+///
+/// An **empty column still shows**, unlike the phone's stacked view where an
+/// empty heading would be a gap in a scroll. Side by side, "nothing is ready"
+/// is worth knowing at a glance — it is the shape of the day.
+class _Column extends StatelessWidget {
+  const _Column({required this.status, required this.work});
+
+  final SubOrderStatus status;
+  final List<Work> work;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel('${status.label} · ${work.length}'),
+        Expanded(
+          child: work.isEmpty
+              ? Center(
+                  child: Text('Nothing here',
+                      style: context.text.bodySmall!.copyWith(color: c.ink3)),
+                )
+              // Each column scrolls on its own: a long Confirmed list must not
+              // push Ready off the bottom of the screen.
+              : ListView.separated(
+                  padding: const EdgeInsets.only(bottom: Space.xxl),
+                  itemCount: work.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _WorkCard(work: work[i]),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -225,7 +286,11 @@ class _WorkCard extends StatelessWidget {
               children: [
                 Icon(Icons.event, size: 14, color: c.ink3),
                 const SizedBox(width: Space.xs),
-                Text(
+                // Flexible: a quarter-width column on a tablet cannot fit
+                // "Wed 23 Sep · 6:00 pm" on one line, and a Row without it
+                // overflows rather than wrapping.
+                Flexible(
+                  child: Text(
                   [
                     dayLabel(sub.deliveryDate),
                     timeLabel(sub.deliveryTime),
@@ -236,6 +301,7 @@ class _WorkCard extends StatelessWidget {
                     // actually looking at during service.
                     color: isLate(sub) ? c.warn : c.ink2,
                     fontWeight: isLate(sub) ? FontWeight.w600 : null,
+                  ),
                   ),
                 ),
                 if (isLate(sub)) ...[
