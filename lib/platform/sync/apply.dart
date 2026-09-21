@@ -42,6 +42,26 @@ class OpApplier {
     return names;
   }
 
+  /// entity name → the drift table object, so a raw write can say what it
+  /// touched. Cached alongside the columns, and for the same reason.
+  final Map<String, Set<ResultSetImplementation<dynamic, dynamic>>> _tables = {};
+
+  /// Raw SQL is invisible to drift's stream queries. A `customUpdate` that does
+  /// not name its tables writes the row and tells nothing, so every open
+  /// `.watch()` on that table goes on serving the rows it already had. Every
+  /// screen in the app is fed by those streams, so without this an op lands in
+  /// SQLite and stays invisible until the app is restarted — sync working
+  /// perfectly and looking completely broken.
+  Set<ResultSetImplementation<dynamic, dynamic>> _updates(String entity) =>
+      _tables.putIfAbsent(entity, () {
+        for (final t in db.allTables) {
+          if (t.actualTableName == entity) return {t};
+        }
+        // An entity this build does not have. The write will not happen
+        // either, so there is nothing to announce.
+        return const {};
+      });
+
   /// True for tables carrying `field_hlc_json` — the ones edited from more
   /// than one place, where per-field timestamps are worth the space.
   Future<bool> _hasFieldHlc(String entity) async =>
@@ -162,6 +182,7 @@ class OpApplier {
       await db.customInsert(
         'INSERT INTO ${op.entity} (${cols.join(', ')}) VALUES ($placeholders)',
         variables: [for (final c in cols) _bind(row[c])],
+        updates: _updates(op.entity),
       );
       return true;
     } on SqliteException {
@@ -200,6 +221,7 @@ class OpApplier {
     await db.customUpdate(
       'UPDATE ${op.entity} SET ${sets.join(', ')} WHERE id = ?',
       variables: vars,
+      updates: _updates(op.entity),
     );
   }
 
@@ -232,6 +254,7 @@ class OpApplier {
         Variable.withString(op.hlc.toString()),
         Variable.withString(op.entityId),
       ],
+      updates: _updates(op.entity),
     );
     return true;
   }

@@ -177,6 +177,21 @@ Parse a workflow before pushing it:
 ruby -ryaml -e 'Dir[".github/workflows/*.yml"].each { |f| YAML.load_file(f) }'
 ```
 
+### A raw write must name the tables it touched
+
+`customInsert` / `customUpdate` / `customStatement` are invisible to drift's
+stream queries unless you pass `updates:`. The row lands in SQLite and every
+open `.watch()` on that table goes on serving the rows it already had.
+
+`apply.dart` writes generically, by table name, so it is the one place this is
+easy to forget — and it shipped forgotten. Sync pulled a peer's ops, applied
+them correctly, reported success, and not one screen changed until the app was
+restarted. It looked exactly like sync being broken.
+
+**Assert on `watch()`, not `get()`.** All 315 tests passed with this bug in
+place, because every one of them read the row back with `get()`. The screens
+never do.
+
 ### Never mint a date as a small integer in a test
 
 `date: 1000` is 1 January 1970. Fixtures used it as "some day" and `5000` as

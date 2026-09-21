@@ -31,6 +31,28 @@ void main() {
         schemaV: 8,
       );
 
+  test('an applied op wakes the streams the screens watch', () async {
+    // Every screen is fed by watch(), never by get(), so this is the assertion
+    // that decides whether sync is visible. Raw SQL that does not name its
+    // table writes the row and tells drift nothing: the row is there, the
+    // stream never re-emits, and a peer's changes stay invisible until the app
+    // is restarted. The whole suite asserted on get() and saw nothing wrong.
+    final db = f.services.db;
+    final counts = <int>[];
+    final sub = db.select(db.menuItems).watch().listen((r) => counts.add(r.length));
+    await pumpEventQueue();
+
+    await f.applier.apply(upsert('menu_items', 'm1', {
+      'name': 'Focaccia',
+      'lead_days': 0,
+      'active': true,
+    }, wallMs: 1000));
+    await pumpEventQueue();
+    await sub.cancel();
+
+    expect(counts, [0, 1], reason: 'the stream must re-emit with the new row');
+  });
+
   test('an unseen row arrives as an insert', () async {
     await f.applier.apply(upsert('customers', 'c1', {
       'name': 'Asha Rao',
