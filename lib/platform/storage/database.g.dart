@@ -5440,6 +5440,29 @@ class $OrderItemsTable extends OrderItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _discountTypeMeta = const VerificationMeta(
+    'discountType',
+  );
+  @override
+  late final GeneratedColumn<String> discountType = GeneratedColumn<String>(
+    'discount_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _discountValueMeta = const VerificationMeta(
+    'discountValue',
+  );
+  @override
+  late final GeneratedColumn<int> discountValue = GeneratedColumn<int>(
+    'discount_value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5464,6 +5487,8 @@ class $OrderItemsTable extends OrderItems
     itemMessage,
     requirements,
     dietaryFlags,
+    discountType,
+    discountValue,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5656,6 +5681,24 @@ class $OrderItemsTable extends OrderItems
         ),
       );
     }
+    if (data.containsKey('discount_type')) {
+      context.handle(
+        _discountTypeMeta,
+        discountType.isAcceptableOrUnknown(
+          data['discount_type']!,
+          _discountTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('discount_value')) {
+      context.handle(
+        _discountValueMeta,
+        discountValue.isAcceptableOrUnknown(
+          data['discount_value']!,
+          _discountValueMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5753,6 +5796,14 @@ class $OrderItemsTable extends OrderItems
         DriftSqlType.int,
         data['${effectivePrefix}dietary_flags'],
       )!,
+      discountType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}discount_type'],
+      ),
+      discountValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}discount_value'],
+      )!,
     );
   }
 
@@ -5785,6 +5836,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
   final String? itemMessage;
   final String? requirements;
   final int dietaryFlags;
+  final String? discountType;
+  final int discountValue;
   const OrderItem({
     required this.id,
     required this.deviceId,
@@ -5808,6 +5861,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     this.itemMessage,
     this.requirements,
     required this.dietaryFlags,
+    this.discountType,
+    required this.discountValue,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5852,6 +5907,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       map['requirements'] = Variable<String>(requirements);
     }
     map['dietary_flags'] = Variable<int>(dietaryFlags);
+    if (!nullToAbsent || discountType != null) {
+      map['discount_type'] = Variable<String>(discountType);
+    }
+    map['discount_value'] = Variable<int>(discountValue);
     return map;
   }
 
@@ -5895,6 +5954,10 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ? const Value.absent()
           : Value(requirements),
       dietaryFlags: Value(dietaryFlags),
+      discountType: discountType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(discountType),
+      discountValue: Value(discountValue),
     );
   }
 
@@ -5926,6 +5989,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       itemMessage: serializer.fromJson<String?>(json['itemMessage']),
       requirements: serializer.fromJson<String?>(json['requirements']),
       dietaryFlags: serializer.fromJson<int>(json['dietaryFlags']),
+      discountType: serializer.fromJson<String?>(json['discountType']),
+      discountValue: serializer.fromJson<int>(json['discountValue']),
     );
   }
   @override
@@ -5954,6 +6019,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       'itemMessage': serializer.toJson<String?>(itemMessage),
       'requirements': serializer.toJson<String?>(requirements),
       'dietaryFlags': serializer.toJson<int>(dietaryFlags),
+      'discountType': serializer.toJson<String?>(discountType),
+      'discountValue': serializer.toJson<int>(discountValue),
     };
   }
 
@@ -5980,6 +6047,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     Value<String?> itemMessage = const Value.absent(),
     Value<String?> requirements = const Value.absent(),
     int? dietaryFlags,
+    Value<String?> discountType = const Value.absent(),
+    int? discountValue,
   }) => OrderItem(
     id: id ?? this.id,
     deviceId: deviceId ?? this.deviceId,
@@ -6003,6 +6072,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     itemMessage: itemMessage.present ? itemMessage.value : this.itemMessage,
     requirements: requirements.present ? requirements.value : this.requirements,
     dietaryFlags: dietaryFlags ?? this.dietaryFlags,
+    discountType: discountType.present ? discountType.value : this.discountType,
+    discountValue: discountValue ?? this.discountValue,
   );
   OrderItem copyWithCompanion(OrderItemsCompanion data) {
     return OrderItem(
@@ -6050,6 +6121,12 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
       dietaryFlags: data.dietaryFlags.present
           ? data.dietaryFlags.value
           : this.dietaryFlags,
+      discountType: data.discountType.present
+          ? data.discountType.value
+          : this.discountType,
+      discountValue: data.discountValue.present
+          ? data.discountValue.value
+          : this.discountValue,
     );
   }
 
@@ -6077,7 +6154,9 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           ..write('cancelReason: $cancelReason, ')
           ..write('itemMessage: $itemMessage, ')
           ..write('requirements: $requirements, ')
-          ..write('dietaryFlags: $dietaryFlags')
+          ..write('dietaryFlags: $dietaryFlags, ')
+          ..write('discountType: $discountType, ')
+          ..write('discountValue: $discountValue')
           ..write(')'))
         .toString();
   }
@@ -6106,6 +6185,8 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
     itemMessage,
     requirements,
     dietaryFlags,
+    discountType,
+    discountValue,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6132,7 +6213,9 @@ class OrderItem extends DataClass implements Insertable<OrderItem> {
           other.cancelReason == this.cancelReason &&
           other.itemMessage == this.itemMessage &&
           other.requirements == this.requirements &&
-          other.dietaryFlags == this.dietaryFlags);
+          other.dietaryFlags == this.dietaryFlags &&
+          other.discountType == this.discountType &&
+          other.discountValue == this.discountValue);
 }
 
 class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
@@ -6158,6 +6241,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
   final Value<String?> itemMessage;
   final Value<String?> requirements;
   final Value<int> dietaryFlags;
+  final Value<String?> discountType;
+  final Value<int> discountValue;
   final Value<int> rowid;
   const OrderItemsCompanion({
     this.id = const Value.absent(),
@@ -6182,6 +6267,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.itemMessage = const Value.absent(),
     this.requirements = const Value.absent(),
     this.dietaryFlags = const Value.absent(),
+    this.discountType = const Value.absent(),
+    this.discountValue = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrderItemsCompanion.insert({
@@ -6207,6 +6294,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     this.itemMessage = const Value.absent(),
     this.requirements = const Value.absent(),
     this.dietaryFlags = const Value.absent(),
+    this.discountType = const Value.absent(),
+    this.discountValue = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deviceId = Value(deviceId),
@@ -6241,6 +6330,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Expression<String>? itemMessage,
     Expression<String>? requirements,
     Expression<int>? dietaryFlags,
+    Expression<String>? discountType,
+    Expression<int>? discountValue,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6266,6 +6357,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       if (itemMessage != null) 'item_message': itemMessage,
       if (requirements != null) 'requirements': requirements,
       if (dietaryFlags != null) 'dietary_flags': dietaryFlags,
+      if (discountType != null) 'discount_type': discountType,
+      if (discountValue != null) 'discount_value': discountValue,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6293,6 +6386,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     Value<String?>? itemMessage,
     Value<String?>? requirements,
     Value<int>? dietaryFlags,
+    Value<String?>? discountType,
+    Value<int>? discountValue,
     Value<int>? rowid,
   }) {
     return OrderItemsCompanion(
@@ -6318,6 +6413,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
       itemMessage: itemMessage ?? this.itemMessage,
       requirements: requirements ?? this.requirements,
       dietaryFlags: dietaryFlags ?? this.dietaryFlags,
+      discountType: discountType ?? this.discountType,
+      discountValue: discountValue ?? this.discountValue,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6391,6 +6488,12 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
     if (dietaryFlags.present) {
       map['dietary_flags'] = Variable<int>(dietaryFlags.value);
     }
+    if (discountType.present) {
+      map['discount_type'] = Variable<String>(discountType.value);
+    }
+    if (discountValue.present) {
+      map['discount_value'] = Variable<int>(discountValue.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6422,6 +6525,8 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItem> {
           ..write('itemMessage: $itemMessage, ')
           ..write('requirements: $requirements, ')
           ..write('dietaryFlags: $dietaryFlags, ')
+          ..write('discountType: $discountType, ')
+          ..write('discountValue: $discountValue, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -18196,6 +18301,8 @@ typedef $$OrderItemsTableCreateCompanionBuilder =
       Value<String?> itemMessage,
       Value<String?> requirements,
       Value<int> dietaryFlags,
+      Value<String?> discountType,
+      Value<int> discountValue,
       Value<int> rowid,
     });
 typedef $$OrderItemsTableUpdateCompanionBuilder =
@@ -18222,6 +18329,8 @@ typedef $$OrderItemsTableUpdateCompanionBuilder =
       Value<String?> itemMessage,
       Value<String?> requirements,
       Value<int> dietaryFlags,
+      Value<String?> discountType,
+      Value<int> discountValue,
       Value<int> rowid,
     });
 
@@ -18427,6 +18536,16 @@ class $$OrderItemsTableFilterComposer
 
   ColumnFilters<int> get dietaryFlags => $composableBuilder(
     column: $table.dietaryFlags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get discountType => $composableBuilder(
+    column: $table.discountType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get discountValue => $composableBuilder(
+    column: $table.discountValue,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18655,6 +18774,16 @@ class $$OrderItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get discountType => $composableBuilder(
+    column: $table.discountType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get discountValue => $composableBuilder(
+    column: $table.discountValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$OrdersTableOrderingComposer get orderId {
     final $$OrdersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18806,6 +18935,16 @@ class $$OrderItemsTableAnnotationComposer
 
   GeneratedColumn<int> get dietaryFlags => $composableBuilder(
     column: $table.dietaryFlags,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get discountType => $composableBuilder(
+    column: $table.discountType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get discountValue => $composableBuilder(
+    column: $table.discountValue,
     builder: (column) => column,
   );
 
@@ -18986,6 +19125,8 @@ class $$OrderItemsTableTableManager
                 Value<String?> itemMessage = const Value.absent(),
                 Value<String?> requirements = const Value.absent(),
                 Value<int> dietaryFlags = const Value.absent(),
+                Value<String?> discountType = const Value.absent(),
+                Value<int> discountValue = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion(
                 id: id,
@@ -19010,6 +19151,8 @@ class $$OrderItemsTableTableManager
                 itemMessage: itemMessage,
                 requirements: requirements,
                 dietaryFlags: dietaryFlags,
+                discountType: discountType,
+                discountValue: discountValue,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -19036,6 +19179,8 @@ class $$OrderItemsTableTableManager
                 Value<String?> itemMessage = const Value.absent(),
                 Value<String?> requirements = const Value.absent(),
                 Value<int> dietaryFlags = const Value.absent(),
+                Value<String?> discountType = const Value.absent(),
+                Value<int> discountValue = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrderItemsCompanion.insert(
                 id: id,
@@ -19060,6 +19205,8 @@ class $$OrderItemsTableTableManager
                 itemMessage: itemMessage,
                 requirements: requirements,
                 dietaryFlags: dietaryFlags,
+                discountType: discountType,
+                discountValue: discountValue,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -24,6 +24,10 @@ OrderTotals _worked({
             Addon(name: 'Message on cake', price: Money.rupees(50)),
             Addon(name: 'Candles', price: Money.rupees(30)),
           ],
+          // The discount is per item now (D31). The worked example's figures
+          // are unchanged — the whole of it simply sits on the cake.
+          discountType: type,
+          discountValue: value,
         ),
         OrderLine(
           menuItemId: 'm2',
@@ -32,8 +36,6 @@ OrderTotals _worked({
           basePrice: Money.rupees(180),
         ),
       ],
-      discountType: type,
-      discountValue: value,
       deliveryCharge: delivery,
       paid: paid,
     );
@@ -57,16 +59,26 @@ void main() {
       expect(line.total, Money.rupees(2050)); // not 2100
     });
 
-    test('a percentage applies to the subtotal, never to delivery', () {
-      final t = _worked(type: DiscountType.percent, value: 1000); // 10%
-      expect(t.discount, Money.rupees(189)); // 10% of 1890, not of 1990
-      expect(t.total, Money.rupees(1801));
+    test('a percentage applies to its own item, never to delivery', () {
+      // 10% off the CAKE (D31), which is ₹1450 + ₹50 + ₹30 = ₹1530 — its
+      // add-ons go with it, because they are part of what was bought. It used
+      // to be 10% of the whole ₹1890 basket, which is what changed.
+      final t = _worked(type: DiscountType.percent, value: 1000);
+      expect(t.discount, Money.rupees(153));
+      expect(t.subtotal, Money.rupees(1890), reason: 'list price, undiscounted');
+      // ₹1890 − ₹153 + ₹100 delivery. The courier is never discounted, and now
+      // by construction: a delivery is not an item, so there is nothing on it
+      // to take off.
+      expect(t.total, Money.rupees(1837));
     });
 
-    test('a discount larger than the subtotal is clamped', () {
+    test('a discount larger than its item is clamped to that item', () {
       final t = _worked(type: DiscountType.amount, value: 999999900);
-      expect(t.discount, t.subtotal);
-      expect(t.total, t.deliveryCharge); // never negative
+      expect(t.discount, Money.rupees(1530),
+          reason: 'the whole cake, and not a paisa of the loaf beside it');
+      // The loaf still costs what it costs, and delivery is still owed.
+      expect(t.total, Money.rupees(360) + t.deliveryCharge);
+      expect(t.total.paise, greaterThan(0));
     });
 
     test('no discount, no delivery — the rows simply do not exist', () {

@@ -126,12 +126,8 @@ class OrderView {
 
   OrderTotals get totals => OrderTotals(
         lines: lines,
-        discountType: order.discountType == null
-            ? null
-            : (order.discountType == 'percent'
-                ? DiscountType.percent
-                : DiscountType.amount),
-        discountValue: order.discountValue ?? 0,
+        // No discount here: it belongs to the items, and OrderTotals sums it
+        // from them. `orders.discount_*` is a cache like the rest.
         // One charge per journey, computed from the journeys rather than read
         // off the order — the column is a cache, and a view that read it back
         // would show a stale figure for the moment between a change and the
@@ -181,6 +177,8 @@ class DraftLine {
     this.itemMessage,
     this.requirements,
     this.dietaryFlags = 0,
+    this.discountType,
+    this.discountValue = 0,
     this.deliveryCharge,
   });
 
@@ -213,6 +211,11 @@ class DraftLine {
   String? itemMessage;
   String? requirements;
   int dietaryFlags;
+
+  /// What comes off this item. Per item so an offer can be run on one
+  /// thing — basis points when percent, paise when amount.
+  DiscountType? discountType;
+  int discountValue;
 
   /// Null means "work it out": a line opening a new journey takes the default
   /// for its delivery type, and one joining an existing journey takes that
@@ -247,6 +250,8 @@ class DraftLine {
         itemMessage: itemMessage,
         requirements: requirements,
         dietaryFlags: dietaryFlags,
+        discountType: discountType,
+        discountValue: discountValue,
       );
 
   /// The journey this draft belongs to: same day, same time, same way out,
@@ -423,6 +428,10 @@ class OrderRepository {
           itemMessage: i.itemMessage,
           requirements: i.requirements,
           dietaryFlags: i.dietaryFlags,
+          discountType: i.discountType == null
+              ? null
+              : DiscountType.values.byName(i.discountType!),
+          discountValue: i.discountValue,
           qty: i.qty,
           basePrice: Money(i.basePrice),
           note: i.note,
@@ -607,6 +616,8 @@ class OrderRepository {
           itemMessage: Value(l.itemMessage),
           requirements: Value(l.requirements),
           dietaryFlags: Value(l.dietaryFlags),
+          discountType: Value(l.discountType?.name),
+          discountValue: Value(l.discountValue),
         ));
     await mutations.record('order_items', itemId, OpKind.upsert, {
       'order_id': orderId,
@@ -618,6 +629,8 @@ class OrderRepository {
       'item_message': l.itemMessage,
       'requirements': l.requirements,
       'dietary_flags': l.dietaryFlags,
+      'discount_type': l.discountType?.name,
+      'discount_value': l.discountValue,
       // primitives only — the payload is JSON on the wire
       'weight_value': l.weight?.value,
       'weight_unit': l.weight?.unit,
@@ -968,9 +981,19 @@ class OrderRepository {
         subs.map((s) => s.deliveryDate).fold<int?>(
             null, (a, b) => a == null || b > a ? b : a);
 
+    // The discount lives on the items now. The order's columns are kept as a
+    // flat amount summed from them — the only shape that can stand for a
+    // basket of mixed percentages and amounts — so a v13 peer still reads a
+    // sensible figure and nothing here reads them back.
+    final lines = [for (final sub in subs) ...sub.lines];
+    final discount = OrderTotals(lines: lines).discount;
+
     await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
       OrdersCompanion(
         status: Value(status.wire),
+        discountType: Value(discount.isZero ? null : DiscountType.amount.name),
+        discountValue: Value(discount.isZero ? null : discount.paise),
+        discountAmount: Value(discount.paise),
         deliveryCharge: Value(delivery.paise),
         fulfilment: Value(how.name),
         deliveryDate: date == null ? const Value.absent() : Value(date),
@@ -990,6 +1013,9 @@ class OrderRepository {
     );
     await mutations.record('orders', orderId, OpKind.upsert, {
       'status': status.wire,
+      'discount_type': discount.isZero ? null : DiscountType.amount.name,
+      'discount_value': discount.isZero ? null : discount.paise,
+      'discount_amount': discount.paise,
       'delivery_charge': delivery.paise,
       'fulfilment': how.name,
       if (date != null) 'delivery_date': date,
@@ -1027,6 +1053,8 @@ class OrderRepository {
     Object? itemMessage = kUnchanged,
     Object? requirements = kUnchanged,
     int? dietaryFlags,
+    Object? discountType = kUnchanged,
+    int? discountValue,
     Money? deliveryCharge,
   }) async {
     final fields = <String, Object?>{};
@@ -1084,6 +1112,12 @@ class OrderRepository {
           dietaryFlags: dietaryFlags == null
               ? const Value.absent()
               : Value(dietaryFlags),
+          discountType: discountType == kUnchanged
+              ? const Value.absent()
+              : Value((discountType as DiscountType?)?.name),
+          discountValue: discountValue == null
+              ? const Value.absent()
+              : Value(discountValue),
           updatedAtHlc: Value(hlc),
         ),
       );
@@ -1099,6 +1133,10 @@ class OrderRepository {
       if (itemMessage != kUnchanged) fields['item_message'] = itemMessage;
       if (requirements != kUnchanged) fields['requirements'] = requirements;
       if (dietaryFlags != null) fields['dietary_flags'] = dietaryFlags;
+      if (discountType != kUnchanged) {
+        fields['discount_type'] = (discountType as DiscountType?)?.name;
+      }
+      if (discountValue != null) fields['discount_value'] = discountValue;
 
       // ── the journey ────────────────────────────────────────────────────
       // Anything touching when or where means working out which journey this
@@ -1323,10 +1361,6 @@ class OrderRepository {
           .getSingle();
       final totals = OrderTotals(
         lines: await _linesOf(orderId),
-        discountType: o.discountType == null
-            ? null
-            : DiscountType.values.byName(o.discountType!),
-        discountValue: o.discountValue ?? 0,
         deliveryCharge: Money(o.deliveryCharge),
         paid: await _paidOf(orderId),
       );
@@ -1466,9 +1500,9 @@ class OrderRepository {
     Object? pinLat = kUnchanged,
     Object? pinLng = kUnchanged,
     Object? pinUrl = kUnchanged,
-    Object? discountType = kUnchanged,
-    int? discountValue,
-
+    // No discount: it belongs to the item (D31), and `_refreshOrderCache`
+    // writes the order's columns from what the items add up to. Setting them
+    // here would be writing a cache.
     int? dietaryFlags,
     Object? notes = kUnchanged,
     Object? itemMessage = kUnchanged,
@@ -1488,9 +1522,6 @@ class OrderRepository {
       if (pinLat != kUnchanged) 'pin_lat': pinLat,
       if (pinLng != kUnchanged) 'pin_lng': pinLng,
       if (pinUrl != kUnchanged) 'pin_url': pinUrl,
-      if (discountType != kUnchanged)
-        'discount_type': (discountType as DiscountType?)?.name,
-      if (discountValue != null) 'discount_value': discountValue,
       if (dietaryFlags != null) 'dietary_flags': dietaryFlags,
       if (notes != kUnchanged) 'notes': notes,
       if (itemMessage != kUnchanged) 'item_message': itemMessage,
@@ -1517,12 +1548,6 @@ class OrderRepository {
               pinLng == kUnchanged ? const Value.absent() : Value(pinLng as double?),
           pinUrl:
               pinUrl == kUnchanged ? const Value.absent() : Value(pinUrl as String?),
-          discountType: discountType == kUnchanged
-              ? const Value.absent()
-              : Value((discountType as DiscountType?)?.name),
-          discountValue: discountValue == null
-              ? const Value.absent()
-              : Value(discountValue),
           dietaryFlags:
               dietaryFlags == null ? const Value.absent() : Value(dietaryFlags),
           notes: notes == kUnchanged ? const Value.absent() : Value(notes as String?),

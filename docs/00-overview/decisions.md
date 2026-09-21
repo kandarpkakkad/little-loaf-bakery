@@ -282,3 +282,21 @@ mechanism, and `kAllowedTransitions` allows a delivered order to become complete
 else. The window for "this was not trade" now closes at the door.
 **Revisit when:** GST arrives, or a customer asks for a document. Rebuild from D11's reasoning,
 not from the old code.
+
+### D31 · The discount belongs to the item
+**Chose:** `discount_type` and `discount_value` on `order_items`. An order's discount is the
+**sum of what came off each item**.
+**Because:** an offer runs on a thing — ten percent off cakes — and an order-level percentage
+made that somebody's arithmetic. Per item it is just a field.
+**Bought:** reporting gets it for free. `OrderLine.total` is net of the discount and
+`topItems` already sums that, so revenue per product is what it sold for rather than what it
+was listed at.
+**Cost:** a percentage now applies to its own item's **gross**, add-ons included, not to the
+basket. Ten percent off a ₹1530 cake is ₹153, where the same figure on a ₹1890 order was
+₹189. Nothing applies to delivery, which was a rule before and is now true by construction —
+a courier is not an item.
+**Kept:** `orders.discount_type` / `discount_value` / `discount_amount`, written from the
+items as a flat amount. It is the only shape that can stand for a basket of mixed percentages
+and amounts, and a v13 peer still reads a sensible number.
+**Not backfilled:** an existing order keeps its discount on the order. Splitting one figure
+across its items would invent a per-item price nobody agreed to.

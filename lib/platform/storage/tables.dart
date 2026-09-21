@@ -99,6 +99,9 @@ class Orders extends Table with Common, FieldHlc {
   RealColumn get pinLng => real().nullable()();
   TextColumn get pinUrl => text().nullable()();
   TextColumn get trackingUrl => text().nullable()();
+  // Caches of what the ITEMS add up to, like every other money column on an
+  // order. The discount moved to the item in v14; these are written as a flat
+  // amount so a v13 peer still reads a sensible figure.
   TextColumn get discountType => text().nullable()(); // percent|amount
   IntColumn get discountValue => integer().nullable()(); // bp or paise
   IntColumn get discountAmount => integer().withDefault(const Constant(0))();
@@ -214,9 +217,18 @@ class OrderItems extends Table with Common {
   TextColumn get requirements => text().nullable()();
   IntColumn get dietaryFlags => integer().withDefault(const Constant(0))();
 
+  // ── what comes off it ──
+  // Per item, so an offer can be run on one thing without working out what
+  // that means for a basket.
+  TextColumn get discountType => text().nullable()(); // percent|amount
+  IntColumn get discountValue =>
+      integer().withDefault(const Constant(0))(); // bp when percent, else paise
+
   @override
   List<String> get customConstraints => [
         'CHECK (qty > 0)',
+        "CHECK (discount_type IS NULL OR discount_type IN ('percent','amount'))",
+        'CHECK (discount_value >= 0)',
         'CHECK ((weight_value IS NULL) = (weight_unit IS NULL))',
         "CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen'))",
         'CHECK (weight_value IS NULL OR weight_value > 0)',

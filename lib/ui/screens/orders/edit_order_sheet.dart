@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/scope.dart';
-import '../../../common/money.dart';
-import '../../../domain/orders/model.dart';
 import '../../../platform/storage/database.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -42,20 +40,8 @@ class _EditOrderSheet extends StatefulWidget {
 class _EditOrderSheetState extends State<_EditOrderSheet> {
   final _formKey = GlobalKey<FormState>();
 
-  late final _discount = TextEditingController(
-    text: widget.order.discountType == null
-        ? ''
-        : (widget.order.discountType == 'percent'
-            ? ((widget.order.discountValue ?? 0) / 100).toString()
-            : moneyToField(Money(widget.order.discountValue ?? 0))),
-  );
   late final _notes = TextEditingController(text: widget.order.notes ?? '');
 
-  late DiscountType? _discountType = widget.order.discountType == null
-      ? null
-      : (widget.order.discountType == 'percent'
-          ? DiscountType.percent
-          : DiscountType.amount);
 
   bool _saving = false;
 
@@ -66,12 +52,6 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
     try {
       await context.app.orders.updateDetails(
         widget.order.id,
-        discountType: _discountType,
-        discountValue: _discountType == null
-            ? 0
-            : (_discountType == DiscountType.percent
-                ? ((double.tryParse(_discount.text.trim()) ?? 0) * 100).round()
-                : moneyFromField(_discount.text).paise),
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       );
       navigator.pop(true);
@@ -88,7 +68,7 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
     final due = DateTime.fromMillisecondsSinceEpoch(widget.order.deliveryDate);
 
     return ControllerHost(
-      controllers: [_discount, _notes],
+      controllers: [_notes],
       child: Padding(
         padding: EdgeInsets.only(
           left: Space.lg,
@@ -127,39 +107,8 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
                 ),
                 const SizedBox(height: Space.lg),
 
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('None')),
-                    ButtonSegment(value: 1, label: Text('%')),
-                    ButtonSegment(value: 2, label: Text('₹')),
-                  ],
-                  selected: {
-                    _discountType == null
-                        ? 0
-                        : (_discountType == DiscountType.percent ? 1 : 2)
-                  },
-                  onSelectionChanged: (s) => setState(() {
-                    _discountType = switch (s.first) {
-                      1 => DiscountType.percent,
-                      2 => DiscountType.amount,
-                      _ => null,
-                    };
-                    if (_discountType == null) _discount.text = '';
-                  }),
-                ),
-                if (_discountType != null) ...[
-                  const SizedBox(height: Space.md),
-                  LoafField(
-                    label: _discountType == DiscountType.percent
-                        ? 'Discount %'
-                        : 'Amount off',
-                    controller: _discount,
-                    prefix: _discountType == DiscountType.amount ? '₹ ' : null,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: rupeeInput,
-                  ),
-                ],
-
+                // No discount here either — it is set on the item, so an
+                // offer can apply to one thing rather than to a basket.
                 const SizedBox(height: Space.md),
                 LoafField(
                   label: 'Internal notes',

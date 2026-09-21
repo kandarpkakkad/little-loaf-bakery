@@ -133,8 +133,10 @@ void main() {
     await f.services.orders.updateDetails(
       orderId,
       notes: 'ring the bell',
-      discountType: DiscountType.amount,
-      discountValue: 5000,
+      // Two fields at once — the discount used to be the second one, and it
+      // moved to the item (D31). What is being proven is that a multi-field
+      // edit is a single op, not which fields they are.
+      dietaryFlags: Dietary.eggless,
     );
     expect((await f.rows('outbox')).length, before + 1,
         reason: 'one op, so a peer can never see half the edit');

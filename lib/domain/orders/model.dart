@@ -440,6 +440,8 @@ class OrderLine {
     this.itemMessage,
     this.requirements,
     this.dietaryFlags = 0,
+    this.discountType,
+    this.discountValue = 0,
   });
 
   /// Null for a line that has not been saved yet.
@@ -469,15 +471,40 @@ class OrderLine {
   final String? requirements;
   final int dietaryFlags;
 
+  // ── what comes off this item ──
+
+  /// Per item rather than per order, so an offer can be run on one thing —
+  /// ten percent off cakes — without working out what that means for a basket.
+  final DiscountType? discountType;
+
+  /// Basis points when [discountType] is percent, paise when it is amount.
+  final int discountValue;
+
   bool get isLive => status.isLive;
 
   /// The kitchen's moves. Going out and arriving belong to the sub-order.
   Set<LineStatus> get nextStatuses => status.next;
 
-  /// base × qty + add-ons. Add-ons are priced **for the line**, not per unit.
-  Money get total =>
+  /// base × qty + add-ons, before anything comes off.
+  ///
+  /// Add-ons are priced **for the line**, not per unit.
+  Money get gross =>
       basePrice.times(qty) +
       addons.fold(Money.zero, (a, x) => a + x.price);
+
+  /// What comes off this item. A percentage applies to [gross], so an add-on
+  /// is discounted along with the thing it is on — it is part of what was
+  /// bought. Clamped, so an item can never be worth less than nothing.
+  Money get discount => switch (discountType) {
+        null => Money.zero,
+        DiscountType.amount =>
+          Money(discountValue) > gross ? gross : Money(discountValue),
+        DiscountType.percent => gross.percent(discountValue),
+      };
+
+  /// What this item is actually worth. Reporting reads it, so a discounted
+  /// cake counts as what it sold for rather than what it was listed at.
+  Money get total => gross - discount;
   /// Two rows with the same id are the same item, even when they are different
   /// objects — which they routinely are, because a screen re-reads the order
   /// after a move and then compares the result against lines it captured
@@ -499,33 +526,28 @@ class OrderLine {
 class OrderTotals {
   const OrderTotals({
     required this.lines,
-    this.discountType,
-    this.discountValue = 0,
     this.deliveryCharge = Money.zero,
     this.paid = Money.zero,
   });
 
   final List<OrderLine> lines;
-  final DiscountType? discountType;
-
-  /// Basis points when [discountType] is percent, paise when it is amount.
-  final int discountValue;
   final Money deliveryCharge;
   final Money paid;
 
-  /// Cancelled lines leave the total entirely (D27). This is what can put a
-  /// paid-up order into credit.
-  Money get subtotal =>
-      lines.where((l) => l.isLive).fold(Money.zero, (a, l) => a + l.total);
+  Iterable<OrderLine> get _live => lines.where((l) => l.isLive);
 
-  /// A percentage applies to the subtotal, **never to delivery** — nobody
-  /// intends "10% off" to discount the courier. Clamped so a total can never
-  /// go negative.
-  Money get discount => switch (discountType) {
-        null => Money.zero,
-        DiscountType.amount => Money(discountValue) > subtotal ? subtotal : Money(discountValue),
-        DiscountType.percent => subtotal.percent(discountValue),
-      };
+  /// What was ordered, at list price. Cancelled lines leave the total entirely
+  /// (D27) — this is what can put a paid-up order into credit.
+  Money get subtotal =>
+      _live.fold(Money.zero, (a, l) => a + l.gross);
+
+  /// The sum of what came off each item.
+  ///
+  /// The discount is **per item** now, so an offer can be run on one thing
+  /// without working out what that means for a basket. Nothing applies to
+  /// delivery, which was true before and is now true by construction: a
+  /// courier is not an item, so there is nothing on it to discount.
+  Money get discount => _live.fold(Money.zero, (a, l) => a + l.discount);
 
   Money get total => subtotal - discount + deliveryCharge;
   Money get balanceDue => total - paid;

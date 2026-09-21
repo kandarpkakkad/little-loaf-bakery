@@ -384,7 +384,7 @@ balance due  = total − payments
 
 | Field | Rules |
 |---|---|
-| **Discount** | ₹ **or** %. A % applies to the subtotal, never to delivery. Rounds to the nearest rupee. Set on the order |
+| **Discount** | ₹ **or** %, **set on the item** (D31). A % applies to that item's price and its add-ons, never to delivery — a courier is not an item. The order's discount is the sum of them. Rounds to the nearest rupee |
 | **Delivery charge** | **Per journey.** Two cakes in one Friday delivery are charged once; a Friday and a Sunday delivery are charged twice. Seeds from the default for its delivery type; a pickup is never charged. Set on the item, in the item editor — there is deliberately **no order-level delivery charge** |
 | **Advance** | Optional. Confirming with nothing collected is normal, not an error |
 

@@ -5,7 +5,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 /// Schema version — see docs/01-platform/storage/schema.md.
-const int kSchemaVersion = 13;
+const int kSchemaVersion = 14;
 
 @DriftDatabase(
   tables: [
@@ -83,6 +83,7 @@ class AppDatabase extends _$AppDatabase {
   static final Map<int, Future<void> Function(Migrator)> _steps = {
     11: _v11ToV12,
     12: _v12ToV13,
+    13: _v13ToV14,
   };
 
   /// The journey becomes a row of its own (D28).
@@ -133,6 +134,23 @@ class AppDatabase extends _$AppDatabase {
     // logo_path, terms_line, gstin, gst_enabled and invoice_seq do not.
     await m.alterTable(TableMigration(db.settings));
     await db.customStatement('PRAGMA foreign_keys = ON');
+  }
+
+  /// The discount moves to the item.
+  ///
+  /// Additive: the order's own columns stay, because a v13 peer reads them and
+  /// because they are still written — as a flat amount summed from the items,
+  /// which is the only shape that can represent a basket of mixed percentages
+  /// and amounts.
+  ///
+  /// Existing orders keep their discount where it is. Nothing is backfilled
+  /// onto their items: splitting one order-level figure across several items
+  /// would invent a per-item price nobody agreed, and the cache on the order
+  /// still carries the real number.
+  static Future<void> _v13ToV14(Migrator m) async {
+    final db = m.database as AppDatabase;
+    await m.addColumn(db.orderItems, db.orderItems.discountType);
+    await m.addColumn(db.orderItems, db.orderItems.discountValue);
   }
 
   Future<void> _createIndexes(Migrator m) async {

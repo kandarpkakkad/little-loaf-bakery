@@ -31,11 +31,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   final _phone = TextEditingController();
   final _requirements = TextEditingController();
   final _itemMessage = TextEditingController();
-  final _discount = TextEditingController();
   final _advance = TextEditingController();
 
   final List<DraftLine> _lines = [];
-  DiscountType? _discountType;
   String _advanceMode = 'upi';
   bool _saving = false;
 
@@ -88,7 +86,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   void dispose() {
     for (final c in [
       _name, _phone, _requirements, _itemMessage,
-      _discount, _advance,
+      _advance,
     ]) {
       c.dispose();
     }
@@ -119,10 +117,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   OrderTotals get _totals => OrderTotals(
         lines: [for (final l in _lines) l.toLine()],
-        discountType: _discountType,
-        discountValue: _discountType == DiscountType.percent
-            ? ((double.tryParse(_discount.text.trim()) ?? 0) * 100).round()
-            : moneyFromField(_discount.text).paise,
         // One charge per journey (D28): items sharing a day, a time and a
         // place go out together, so their charge is counted once. Worked out
         // here from the drafts, because the journeys themselves do not exist
@@ -162,12 +156,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         phoneE164: phone.e164,
         countryCode: kDefaultCountry.code,
       );
-      final t = _totals;
       final orderId = await app.orders.create(
         customerId: customerId,
         lines: _lines,
-        discountType: _discountType,
-        discountValue: t.discountValue,
         advance: moneyFromField(_advance.text),
         advanceMode: _advanceMode,
       );
@@ -339,45 +330,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 128,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: Space.lg),
-                          child: DropdownButtonFormField<DiscountType?>(
-                            initialValue: _discountType,
-                            // Without this the field takes the width of its
-                            // widest item plus the arrow and overflows the box.
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Discount'),
-                            items: const [
-                              DropdownMenuItem(value: null, child: Text('None')),
-                              DropdownMenuItem(
-                                  value: DiscountType.percent, child: Text('%')),
-                              DropdownMenuItem(
-                                  value: DiscountType.amount, child: Text('₹')),
-                            ],
-                            onChanged: (v) => setState(() => _discountType = v),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        child: LoafField(
-                          label: _discountType == DiscountType.percent
-                              ? 'Percent off'
-                              : 'Amount off',
-                          controller: _discount,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: rupeeInput,
-                          prefix: _discountType == DiscountType.amount ? '₹ ' : null,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                    ],
-                  ),
+                  // No discount here. It belongs to the item now, so an offer
+                  // can be run on one thing — ten percent off cakes — without
+                  // working out what that means for a basket.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

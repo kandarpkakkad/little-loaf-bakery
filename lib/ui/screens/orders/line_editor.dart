@@ -165,6 +165,17 @@ class _LineSheetState extends State<_LineSheet> {
   late final _requirements =
       TextEditingController(text: widget.existing?.requirements ?? '');
   late int _dietary = widget.existing?.dietaryFlags ?? 0;
+
+  // Per item (D31), so an offer can be run on one thing.
+  late DiscountType? _discountType = widget.existing?.discountType;
+  late final _discountField = TextEditingController(
+    text: switch (widget.existing?.discountType) {
+      null => '',
+      DiscountType.percent =>
+        ((widget.existing!.discountValue) / 100).toString(),
+      DiscountType.amount => moneyToField(Money(widget.existing!.discountValue)),
+    },
+  );
   late AddressDraft? _address = _seed?.addressText == null
       ? null
       : AddressDraft(
@@ -296,16 +307,30 @@ class _LineSheetState extends State<_LineSheet> {
   void dispose() {
     for (final c in [
       _flavour, _weight, _price, _note, _itemMessage, _requirements,
-      _chargeField,
+      _chargeField, _discountField,
     ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Money get _lineTotal =>
+  int get _discountValue => _discountType == DiscountType.percent
+      ? ((double.tryParse(_discountField.text.trim()) ?? 0) * 100).round()
+      : moneyFromField(_discountField.text).paise;
+
+  Money get _lineGross =>
       moneyFromField(_price.text).times(_qty) +
       _addons.fold(Money.zero, (a, x) => a + x.price);
+
+  /// Shown live, through the same arithmetic the order will use, so the number
+  /// in the sheet is the number on the bill.
+  Money get _lineDiscount => OrderLine(
+        menuItemId: '', itemName: '', qty: _qty,
+        basePrice: moneyFromField(_price.text), addons: _addons,
+        discountType: _discountType, discountValue: _discountValue,
+      ).discount;
+
+  Money get _lineTotal => _lineGross - _lineDiscount;
 
   Future<void> _addAddon() async {
     dismissKeyboard(context);
@@ -666,6 +691,53 @@ class _LineSheetState extends State<_LineSheet> {
               ],
               const SizedBox(height: Space.md),
 
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 128,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: Space.lg),
+                      child: DropdownButtonFormField<DiscountType?>(
+                        initialValue: _discountType,
+                        // Without this it takes the width of its widest item
+                        // plus the arrow and overflows the box.
+                        isExpanded: true,
+                        decoration:
+                            const InputDecoration(labelText: 'Discount'),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('None')),
+                          DropdownMenuItem(
+                              value: DiscountType.percent, child: Text('%')),
+                          DropdownMenuItem(
+                              value: DiscountType.amount, child: Text('₹')),
+                        ],
+                        onChanged: (v) => setState(() {
+                          _discountType = v;
+                          if (v == null) _discountField.text = '';
+                        }),
+                      ),
+                    ),
+                  ),
+                  if (_discountType != null) ...[
+                    const SizedBox(width: Space.md),
+                    Expanded(
+                      child: LoafField(
+                        label: _discountType == DiscountType.percent
+                            ? 'Percent off'
+                            : 'Amount off',
+                        controller: _discountField,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: rupeeInput,
+                        prefix:
+                            _discountType == DiscountType.amount ? '₹ ' : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: Space.lg, vertical: Space.md),
@@ -676,7 +748,11 @@ class _LineSheetState extends State<_LineSheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Line total', style: context.text.bodyMedium),
+                    Text(
+                        _lineDiscount.isZero
+                            ? 'Line total'
+                            : 'Line total  (−${money(_lineDiscount)})',
+                        style: context.text.bodyMedium),
                     Text(money(_lineTotal, showZero: true)!,
                         style: context.text.titleMedium!
                             .copyWith(color: c.accent2)),
@@ -747,6 +823,8 @@ class _LineSheetState extends State<_LineSheet> {
                           ? null
                           : _requirements.text.trim(),
                       dietaryFlags: _dietary,
+                      discountType: _discountType,
+                      discountValue: _discountType == null ? 0 : _discountValue,
                       // Null when this item is opening a journey of its own:
                       // the repository seeds the default for its delivery
                       // type. Joining an existing one carries its figure, so

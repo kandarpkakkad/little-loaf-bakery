@@ -3,6 +3,22 @@ import 'package:little_loaf/common/money.dart';
 import 'package:little_loaf/domain/messaging/compose.dart';
 import 'package:little_loaf/domain/orders/model.dart';
 
+/// The shared basket. [_linesWith] puts a discount on the cake, because the
+/// discount is per item now (D31) and a message has to add up from them.
+List<OrderLine> _linesWith(DiscountType? type, int value) => [
+      for (final l in _lines)
+        if (l.menuItemId == 'm1')
+          OrderLine(
+            menuItemId: l.menuItemId, itemName: l.itemName,
+            flavour: l.flavour, weight: l.weight, qty: l.qty,
+            basePrice: l.basePrice, addons: l.addons,
+            itemMessage: l.itemMessage, requirements: l.requirements,
+            discountType: type, discountValue: value,
+          )
+        else
+          l,
+    ];
+
 final _lines = [
   OrderLine(
     menuItemId: 'm1', itemName: 'Chocolate Truffle', flavour: 'Belgian dark',
@@ -33,11 +49,9 @@ MessageContext _ctx({
       customerFirstName: 'Meera',
       orderNo: 'LLB-0148-K7QP',
       businessName: 'Little Loaf Bakery',
-      lines: _lines,
+      lines: _linesWith(discount, discountValue),
       totals: OrderTotals(
-        lines: _lines,
-        discountType: discount,
-        discountValue: discountValue,
+        lines: _linesWith(discount, discountValue),
         deliveryCharge: Money.rupees(100),
         paid: paid,
       ),
