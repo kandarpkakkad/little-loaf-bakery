@@ -99,11 +99,36 @@ jobs:
       - name: Dependencies
         run: flutter pub get
 
+      # package:sqlite3 downloads a prebuilt SQLCipher binary per ABI and checks
+      # it against a hash baked into the package. On a runner that download is
+      # flaky: two consecutive runs failed on DIFFERENT files, and the second
+      # fetched the very file the first had failed on. The asset itself is
+      # fine — fetched by hand it hashes exactly as the package expects — so
+      # what arrives on a bad attempt is a truncated or error body, not a
+      # changed artefact.
+      #
+      # A retry is therefore the whole fix. Anything that downloaded cleanly is
+      # cached in .dart_tool/hooks_runner/shared for the rest of the job, so an
+      # attempt only ever has to fetch what the last one missed.
+      - name: Retry helper
+        run: |
+          cat > "$RUNNER_TEMP/retry.sh" <<'SH'
+          #!/usr/bin/env bash
+          for attempt in 1 2 3; do
+            if "$@"; then exit 0; fi
+            echo "::warning::attempt $attempt failed: $* — retrying"
+            sleep $((attempt * 10))
+          done
+          echo "::error::still failing after 3 attempts: $*"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/retry.sh"
+
       - name: Analyze
         run: flutter analyze
 
       - name: Test
-        run: flutter test
+        run: "$RUNNER_TEMP/retry.sh" flutter test
 
       # --split-per-abi, not --target-platform. The latter only filters
       # Flutter's own libraries: SQLCipher arrives from package:sqlite3's build
@@ -138,7 +163,7 @@ jobs:
             | grep 'SHA1:' || true
 
       - name: Build
-        run: flutter build apk --debug --split-per-abi
+        run: "$RUNNER_TEMP/retry.sh" flutter build apk --debug --split-per-abi
 
       # A mismatch here is otherwise found on a phone, as a sign-in that fails
       # with a number. The fingerprint is public — it is what is pasted into
