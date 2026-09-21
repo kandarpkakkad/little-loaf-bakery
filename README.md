@@ -78,8 +78,8 @@ the split is what stops the same person being saved twice.
 
 ### Storage
 
-SQLite through [drift](https://drift.simonbinder.eu), 19 tables, schema
-version 9. Encrypted at rest with **SQLCipher** — selected through a build hook
+SQLite through [drift](https://drift.simonbinder.eu), 20 tables, schema
+version 15. Encrypted at rest with **SQLCipher** — selected through a build hook
 in `pubspec.yaml`:
 
 ```yaml
@@ -122,6 +122,49 @@ Little Loaf Bakery/
 
 Details in [`docs/01-platform/sync/`](docs/01-platform/sync).
 
+### Backup
+
+Sync keeps two phones agreeing with each other. It does not protect against
+both of them agreeing on something wrong — a bad migration, a corrupt file, a
+row deleted last Tuesday. Backup is the separate answer to that, and it has two
+halves that are only complete together:
+
+| | Covers | Written by |
+|---|---|---|
+| **Journals** | The tail — everything since the last snapshot | Every device, continuously |
+| **Snapshot** | Everything before that | One device, at 00:02 IST |
+
+```
+Little Loaf Bakery/
+  snapshot/
+    owner.json       { device_id, claimed_at, last_snapshot_at, through_seq }
+    <yyyy-mm-dd>.db  the whole database, 14 kept
+```
+
+- **One device takes the nightly snapshot.** `owner.json` says which. A device
+  that finds the file missing claims it — so the first install to run is the
+  owner, and a bakery with one phone is never left without backups waiting for
+  a second device that does not exist. Handing the job over is manual: delete
+  the file. Automatic hand-off would need timeouts and heartbeats to solve
+  something that happens once every few years and takes ten seconds by hand.
+- **The snapshot is written decrypted**, and this is deliberate. The database
+  is SQLCipher-encrypted with a key that lives in *this* phone's Keystore and
+  never leaves it, so an encrypted copy would be restorable only onto the
+  device that is already gone. The copy is made with `sqlcipher_export` rather
+  than `VACUUM INTO`, which on a keyed database would faithfully reproduce the
+  one property the file must not have. It is protected by the Drive account.
+- **Restore is snapshot plus a replay of every journal**, which is why
+  compaction may only drop an op once a snapshot contains it.
+- **Restore is staged, not live.** The file is downloaded and checked
+  immediately, parked beside the database, and swapped in at the next launch —
+  before any screen, stream or background isolate is holding a handle to a file
+  that is about to stop existing. So the drill is two steps: restore, reopen.
+
+Restoring runs the same migrations as an upgrade, so it is re-tested after
+every schema change, not only when the backup code moves.
+
+Details in [`docs/01-platform/backup/`](docs/01-platform/backup).
+
 ---
 
 ## Running it
@@ -153,10 +196,22 @@ the binding reports those as pending in whichever test runs next.
 
 ### Google Drive setup
 
-Sync needs three OAuth clients in one Google Cloud project — two Android
-(release and debug SHA-1, same package name) and one **Web**, whose id is the
-`serverClientId` in `lib/platform/sync/drive_auth.dart`. Android clients carry
-no secret; the pairing of package name and signing certificate is the credential.
+Sync needs three OAuth clients in one Google Cloud project — two Android and one
+**Web**, whose id is the `serverClientId` in
+`lib/platform/sync/drive_auth.dart`. Android clients carry no secret; the
+pairing of package name and signing certificate is the credential.
+
+The two Android clients differ in **both** halves of that pair, because a debug
+build is a different application:
+
+| | Package name | Certificate |
+|---|---|---|
+| Release | `com.littleloaf.little_loaf` | the upload key |
+| Debug | `com.littleloaf.little_loaf.debug` | the shared debug key |
+
+That suffix is what lets both install side by side, and it is why a debug build
+also uses its own Drive folder — `Little Loaf Bakery (debug)` — so trying
+something out can never touch the real bakery's records.
 
 Enable the Drive API and add the `drive.file` scope. While the consent screen is
 in *Testing*, Google expires the grant every seven days and the app shows
@@ -186,9 +241,20 @@ twice: a debug APK to try it on, and the signed release APK to install. Nothing
 to remember and nothing to type.
 
 [`release.yml`](.github/workflows/release.yml) then analyzes, tests, builds the
-debug APK, restores the keystore, builds the release APK, **verifies the
-signature is not the debug fallback**, publishes to a GitHub release, and
-shreds the key even if the build failed.
+debug APK, **checks it carries the debug certificate Google was told about**,
+restores the keystore, builds the release APK, **verifies that signature is not
+the debug fallback**, publishes to a GitHub release, removes the APKs from
+releases older than the newest ten, and shreds both keys even if the build
+failed.
+
+Both fingerprint checks exist because the failure they catch is otherwise found
+on a phone, as a sign-in that dies with a number: an Android OAuth client is
+matched on package name **and** signing certificate, so an APK signed by the
+wrong key installs and runs perfectly and simply cannot reach Drive.
+
+Release APKs live on the **Releases** page and stay there. Debug APKs from
+`debug.yml` are run artefacts instead, kept 14 days — long enough to try a
+change, short enough not to accumulate.
 
 Pushing a `v*` tag by hand still works, for re-running a publish that failed
 after the tag was cut. It builds the tag exactly as it stands and refuses if
@@ -247,11 +313,13 @@ as an update.
 
 ## Still missing
 
-- **Journal compaction.** The op log grows without bound. Harmless at bakery
-  volumes for a long time; the rules are written and tested in `merge.dart` but
-  nothing calls them yet.
-- **Invoices, reporting, app lock.** Designed in `docs/`, not built.
 - **iOS.** Nothing prevents it; nothing has been done for it.
+
+Three things that were listed here have since been built or dropped: journal
+compaction runs (`sync_engine.dart` `_compact()`), reporting and the app lock
+exist, and invoicing was removed outright rather than finished — see D30. The
+app sends a WhatsApp message when a payment is recorded; it does not produce a
+document.
 
 The `docs/` tree describes the whole product, including parts that do not exist
 yet. Treat it as intent, not as a description of the code.
