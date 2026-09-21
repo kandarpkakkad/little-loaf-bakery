@@ -1,8 +1,52 @@
 # Working on Little Loaf Bakery
 
 An offline-first Flutter app that runs one bakery: orders, the kitchen board,
-stock, invoices, and WhatsApp messages. No server. Two devices stay in step
+stock, reporting, and WhatsApp messages. No server. Two devices stay in step
 through the owner's own Google Drive.
+
+## Memory, first and last
+
+**Read memory before you start. Write memory before you finish.** Every task,
+both ends. The `neo4j-memory` MCP server holds what this repository cannot:
+what is half-finished, what broke last time, what the owner has already decided
+against.
+
+- **First**, `search_memory` — by keyword, or with no arguments to list
+  everything. Do it before asking the owner a question and before writing code.
+  Much of what looks like a new decision has already been made once.
+- **Last**, `save_memory` for something new, or `update_memory` for something
+  already tracked. Do it before you report back, not after — a task reported as
+  done and never written down is a task the next session repeats.
+
+Memories about this project are the `little-loaf-*` namespace, hanging off the
+`little-loaf-bakery` hub:
+
+| id | holds |
+|---|---|
+| `little-loaf-bakery` | what the product is, its scope and its hard constraints |
+| `little-loaf-architecture` | stack, layering, the domain shape and its decisions |
+| `little-loaf-sync-and-backup` | the Drive model, and its known gaps |
+| `little-loaf-release-pipeline` | workflows, signing keys, distribution |
+| `little-loaf-working-agreements` | how the owner wants work done here |
+| `little-loaf-state-<date>` | current state and open items. Dated, and the first thing to go stale |
+
+**Keep the line between memory and the repository.** This file and `docs/` are
+authoritative for conventions, design and decisions, and a memory that restates
+them is a second copy that will disagree later. Memory is for what has no home
+here: the state of things right now, problems found but not yet fixed, what the
+owner asked for and what they turned down, and the shape of a mistake worth not
+repeating.
+
+**A memory that says nothing new is noise.** Saving is not optional, but neither
+is judgement: update the entry that already covers it rather than adding a
+seventh near-duplicate, and delete what turns out to be wrong.
+
+**If the server is not connected, say so.** It is configured at user scope, so
+its absence means it failed to start or the session began before it did — not
+that memory does not apply. Working a whole session without it and never
+mentioning it is the failure mode to avoid; it has happened.
+
+---
 
 Read [`docs/README.md`](docs/README.md) first, then
 [`docs/00-overview/decisions.md`](docs/00-overview/decisions.md). The decisions
