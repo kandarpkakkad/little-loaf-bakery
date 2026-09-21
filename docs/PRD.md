@@ -502,12 +502,22 @@ message opens with "Little Loaf Bakery".
 can work out from an order it already holds, so it is scheduled on the phone
 and survives the app being closed or the phone rebooting.
 
-| When | Why |
-|---|---|
-| **2 hours before** a journey's time | Enough left to finish and box |
-| **30 minutes before** | Leave now |
-| **1 hour after**, if it has not been handed over | Nobody has moved it |
-| **6 am on the day**, for a journey with no time | There is no hour to count from |
+| When | Covers | Why |
+|---|---|---|
+| **6 am**, on any day with work on it | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
+| **2 hours before** a journey's time | one journey | Enough left to finish and box |
+| **30 minutes before** | one journey | Leave now |
+| **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
+
+The six o'clock digest is **not a daily repeat** — it is scheduled only on days
+that actually have a handover, which the order book already knows in advance. A
+notification on a quiet morning is how people learn to swipe them away without
+reading.
+
+It also covers untimed journeys, which is why they have no reminder of their
+own: an "any time Friday" journey used to get its own 6 am ping, and on a day
+that had a digest too, that was two notifications at the same instant saying
+overlapping things.
 
 Plus a **warning on the journey itself**, shown for as long as it is past its
 time and not handed over — on the order screen and on the Kitchen board. A

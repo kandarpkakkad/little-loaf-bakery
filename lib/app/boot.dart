@@ -9,7 +9,9 @@ import '../platform/storage/connection.dart';
 import '../platform/storage/database.dart';
 import '../platform/sync/background.dart';
 import '../platform/sync/mutations.dart';
+import '../domain/reminders/model.dart';
 import '../ui/shell/lock_gate.dart';
+import '../ui/shell/tabs.dart';
 import '../ui/shell/update_gate.dart';
 import '../ui/shell/shell.dart';
 import '../ui/theme/theme.dart';
@@ -31,7 +33,12 @@ class Boot extends StatefulWidget {
 
 class _BootState extends State<Boot> {
   late final Future<AppServices> _future = _open();
-  final _reminders = ReminderService();
+  // Tapping the morning digest opens the Kitchen, which is the screen the
+  // day is worked from. The service never touches the UI itself; it hands the
+  // payload back and this decides where it means.
+  final _reminders = ReminderService(onOpen: (payload) {
+    if (payload == kDigestPayload) requestedTab.value = kKitchenTab;
+  });
 
   Future<AppServices> _open() async {
     final deviceId = await const DeviceIdStore().readOrCreate();

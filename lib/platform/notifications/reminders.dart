@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../domain/orders/model.dart';
 import '../../domain/orders/repository.dart';
 import '../../domain/reminders/model.dart';
 
@@ -18,10 +19,15 @@ import '../../domain/reminders/model.dart';
 /// no server there is nobody to decide whose phone should ring, and for a
 /// delivery both owners want to know anyway.
 class ReminderService {
-  ReminderService({FlutterLocalNotificationsPlugin? plugin})
+  ReminderService({FlutterLocalNotificationsPlugin? plugin, this.onOpen})
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
+
+  /// Where a tapped notification should take somebody, called with the
+  /// reminder's payload. A callback rather than a direct jump, so this layer
+  /// never reaches into the UI.
+  final void Function(String payload)? onOpen;
 
   static const _channelId = 'journeys';
   static const _channelName = 'Deliveries and pickups';
@@ -46,7 +52,20 @@ class ReminderService {
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
+        onDidReceiveNotificationResponse: (r) {
+          final p = r.payload;
+          if (p != null) onOpen?.call(p);
+        },
       );
+
+      // The app may have been *launched* by the tap, in which case the
+      // callback above has already been and gone before anything was
+      // listening.
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      final p = launch?.notificationResponse?.payload;
+      if (launch?.didNotificationLaunchApp == true && p != null) {
+        onOpen?.call(p);
+      }
 
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
@@ -96,15 +115,22 @@ class ReminderService {
       await _plugin.cancelAll();
 
       var id = 0;
+      final journeys = <SubOrder>[];
       for (final v in views) {
         if (v.isCancelled) continue;
         final who = v.customer.name.split(' ').first;
         for (final j in v.subOrders) {
+          journeys.add(j);
           for (final r in remindersFor(j,
               customerFirstName: who, orderNo: v.order.orderNo)) {
             await _schedule(id++, r);
           }
         }
+      }
+
+      // One per morning that has work on it, across every order.
+      for (final r in morningDigests(journeys)) {
+        await _schedule(id++, r);
       }
     } catch (_) {
       // A schedule that could not be written is not worth crashing over.

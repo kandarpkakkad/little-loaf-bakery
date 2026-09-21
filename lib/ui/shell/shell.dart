@@ -12,6 +12,7 @@ import '../screens/stock/stock_screen.dart';
 import '../theme/breakpoints.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import 'tabs.dart';
 
 /// One shell, four tabs, identical on every device — no roles, so no variants.
 ///
@@ -67,6 +68,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
     _syncTimer = Timer.periodic(
         const Duration(minutes: 5), (_) => context.app.sync.syncNow());
+
+    // A notification may have asked for a tab before this was built, so the
+    // current value is read as well as listened to.
+    _tab = requestedTab.value;
+    requestedTab.addListener(_followRequestedTab);
+  }
+
+  void _followRequestedTab() {
+    if (mounted) setState(() => _tab = requestedTab.value);
   }
 
   @override
@@ -78,6 +88,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    requestedTab.removeListener(_followRequestedTab);
     _syncTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -118,7 +129,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           children: [
             NavigationRail(
               selectedIndex: _tab,
-              onDestinationSelected: (i) => setState(() => _tab = i),
+              onDestinationSelected: (i) => setState(() {
+                _tab = i;
+                requestedTab.value = i;
+              }),
               labelType: NavigationRailLabelType.all,
               backgroundColor: context.colors.surface,
               indicatorColor: context.colors.accentSoft,
@@ -171,7 +185,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        onDestinationSelected: (i) => setState(() {
+                _tab = i;
+                requestedTab.value = i;
+              }),
         destinations: [
           for (final t in _tabs)
             NavigationDestination(

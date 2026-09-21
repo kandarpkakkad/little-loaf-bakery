@@ -17,7 +17,9 @@ enum ReminderSlot {
   /// An hour past, and nobody has moved it.
   overdue,
 
-  /// The morning of an untimed journey, since there is no hour to count from.
+  /// Six in the morning, once for the whole day. Replaced the per-journey
+  /// version: an untimed journey used to get its own 6 am ping, which meant
+  /// two notifications at the same instant saying overlapping things.
   morning,
 }
 
@@ -99,14 +101,10 @@ List<Reminder> remindersFor(
   final moments = <(ReminderSlot, DateTime, String, String)>[];
 
   if (due == null) {
-    // No hour to count from, so it is announced once, early, on its own day.
-    final d = DateTime.fromMillisecondsSinceEpoch(j.deliveryDate);
-    moments.add((
-      ReminderSlot.morning,
-      DateTime(d.year, d.month, d.day, kMorningHour),
-      'Today: $who',
-      '$what — any time today · $ref',
-    ));
+    // Nothing per-journey: an untimed journey has no hour to count from, and
+    // the day's own six o'clock digest already names it. Two notifications at
+    // the same instant about the same cake is how people learn to swipe them
+    // away without reading.
   } else {
     final verb = j.isPickup ? 'collects' : 'delivery';
     moments.addAll([
@@ -138,6 +136,67 @@ List<Reminder> remindersFor(
             subOrderId: j.id, slot: slot, at: fireAt, title: title, body: body),
   ];
 }
+
+/// One notification per day, at six, for every day that has work on it.
+///
+/// Scheduled rather than repeating: a daily repeat would fire on quiet days
+/// too, and the requirement is a morning only when something is actually due.
+/// The order book is known in advance, so the days that need one are known in
+/// advance as well.
+///
+/// Tapping it opens the Kitchen, which is the screen the day is worked from.
+List<Reminder> morningDigests(Iterable<SubOrder> journeys, {DateTime? now}) {
+  final at = now ?? DateTime.now();
+
+  final byDay = <int, List<SubOrder>>{};
+  for (final j in journeys) {
+    if (j.status.isDone || j.liveLines.isEmpty) continue;
+    (byDay[j.deliveryDate] ??= []).add(j);
+  }
+
+  final out = <Reminder>[];
+  for (final entry in byDay.entries) {
+    final d = DateTime.fromMillisecondsSinceEpoch(entry.key);
+    final fireAt = DateTime(d.year, d.month, d.day, kMorningHour);
+    if (!fireAt.isAfter(at)) continue;
+
+    final all = entry.value;
+    final pickups = all.where((j) => j.isPickup).length;
+    final deliveries = all.length - pickups;
+
+    // The earliest hour on the day, so the first line answers "how soon".
+    final times = [
+      for (final j in all)
+        if (j.deliveryTime != null) j.deliveryTime!,
+    ]..sort();
+
+    out.add(Reminder(
+      // The day itself, not a journey: this is about all of them.
+      subOrderId: kDigestPayload,
+      slot: ReminderSlot.morning,
+      at: fireAt,
+      title: all.length == 1
+          ? 'One handover today'
+          : '${all.length} handovers today',
+      body: [
+        if (deliveries > 0)
+          '$deliveries ${deliveries == 1 ? 'delivery' : 'deliveries'}',
+        if (pickups > 0) '$pickups ${pickups == 1 ? 'pickup' : 'pickups'}',
+        if (times.isNotEmpty)
+          'first at ${_clock(DateTime(d.year, d.month, d.day).add(Duration(minutes: times.first)))}'
+        else
+          'no set times',
+      ].join(' · '),
+    ));
+  }
+
+  out.sort((a, b) => a.at.compareTo(b.at));
+  return out;
+}
+
+/// Marks a reminder that belongs to the day rather than to one journey.
+/// The platform side routes a tap on it to the Kitchen.
+const String kDigestPayload = 'kitchen';
 
 /// What is on the journey, short enough for a notification line.
 String _what(SubOrder j) {
