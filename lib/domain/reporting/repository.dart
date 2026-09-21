@@ -71,7 +71,7 @@ class ReportRepository {
   final OrderRepository orders;
 
   /// Revenue counts an order once it is **delivered**.
-  Future<List<MonthOfSales>> salesByMonth({int months = 12}) async {
+  Future<List<MonthOfSales>> salesByMonth({int months = 6}) async {
     final views = await _billableOrders();
     final byMonth = <int, List<OrderView>>{};
 
@@ -81,17 +81,24 @@ class ReportRepository {
       byMonth.putIfAbsent(key, () => []).add(v);
     }
 
-    final out = [
-      for (final e in byMonth.entries)
-        MonthOfSales(
-          month: e.key,
-          orders: e.value.length,
-          revenue: e.value.fold(Money.zero, (a, v) => a + v.totals.total),
-          collected: e.value.fold(Money.zero, (a, v) => a + v.totals.paid),
-        ),
-    ]..sort((a, b) => b.month.compareTo(a.month));
-
-    return out.take(months).toList();
+    // A continuous run, oldest first, **including months with nothing in
+    // them**. Skipping an empty month would compress the gap out of the line
+    // and draw a quiet March as though it never happened — the shape of the
+    // year is exactly what a chart is for.
+    final now = DateTime.now();
+    final out = <MonthOfSales>[];
+    for (var i = months - 1; i >= 0; i--) {
+      final m = DateTime(now.year, now.month - i);
+      final key = m.millisecondsSinceEpoch;
+      final rows = byMonth[key] ?? const [];
+      out.add(MonthOfSales(
+        month: key,
+        orders: rows.length,
+        revenue: rows.fold(Money.zero, (a, v) => a + v.totals.total),
+        collected: rows.fold(Money.zero, (a, v) => a + v.totals.paid),
+      ));
+    }
+    return out;
   }
 
   /// Grouped by `menu_item_id`, never by name, so renaming an item does not

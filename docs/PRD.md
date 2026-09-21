@@ -615,7 +615,10 @@ separately), stock count (sets the value, records the variance).
 
 Orders and money by month, and what sells.
 
-- **Sales by month** — order count and value, as a line chart and a list.
+- **Over time** — orders and order value as **two stacked line charts** sharing one
+  month axis, over the last 3 / 6 / 12 / 24 / 36 months. Six by default.
+- **This month, in three figures** — orders, order value, and what is still pending,
+  side by side.
 - **Any month in the past** — pick a month and year and read that month's orders.
 - **By product** — quantity and revenue per menu item, grouped on `menu_item_id` so a renamed
   item still aggregates, and labelled with its newest name so the report reads in today's words.
@@ -635,7 +638,13 @@ computed from material spend against revenue would be confidently wrong.
 
 **Computed in Dart over `OrderTotals`, not in SQL.** `OrderTotals` is the single definition of
 a total; a SQL view would be a second one, and two definitions of "total" is a bug with a
-schedule. Three line charts are a `CustomPainter`, not a dependency.
+schedule. The charts are a `CustomPainter`, not a dependency.
+
+**Two charts, never two lines on one axis.** A count of orders and a pile of rupees
+are different kinds of measure. Sharing an axis flattens the orders line along the
+bottom; giving them an axis each makes the apparent correlation a function of where
+the scales were pinned. Stacked over one month axis, both are readable and neither
+claims anything about the other.
 
 ---
 

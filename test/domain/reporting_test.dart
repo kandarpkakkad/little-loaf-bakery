@@ -62,10 +62,19 @@ void main() {
   }
 
   group('sales', () {
+    /// The series is a continuous run of months now, empty ones included, so
+    /// a chart's axis does not compress a quiet March out of the year. "No
+    /// sales" is therefore every month reading zero rather than an empty list.
+    Future<void> expectNothingSold() async {
+      final months = await f.services.reports.salesByMonth();
+      expect(months, hasLength(6), reason: 'six months, present but empty');
+      expect(months.every((m) => m.orders == 0), isTrue);
+      expect(months.every((m) => m.revenue.isZero), isTrue);
+    }
+
     test('an undelivered order is not revenue yet', () async {
       await order([draft('Cake', price: 1000)]);
-      expect(await f.services.reports.salesByMonth(), isEmpty,
-          reason: 'promised is not sold');
+      await expectNothingSold(); // promised is not sold
     });
 
     test('a delivered order counts, billed and collected separately', () async {
@@ -75,12 +84,16 @@ void main() {
       await deliverAll(id);
 
       final months = await f.services.reports.salesByMonth();
-      expect(months, hasLength(1));
-      expect(months.single.orders, 1);
-      expect(months.single.revenue, Money.rupees(1000));
-      expect(months.single.collected, Money.rupees(400));
-      expect(months.single.outstanding, Money.rupees(600),
+      expect(months, hasLength(6), reason: 'the default run, oldest first');
+      // It landed this month, which is the last of them.
+      final now = months.last;
+      expect(now.orders, 1);
+      expect(now.revenue, Money.rupees(1000));
+      expect(now.collected, Money.rupees(400));
+      expect(now.outstanding, Money.rupees(600),
           reason: 'the gap between billed and banked is the number worth seeing');
+      expect(months.take(5).every((m) => m.orders == 0), isTrue,
+          reason: 'the months before it are present and empty');
     });
 
     test('an order cancelled before it goes out is never a sale', () async {
@@ -94,8 +107,7 @@ void main() {
       await f.services.orders
           .moveTo(id, OrderStatus.cancelled, reason: 'customer called off');
 
-      expect(await f.services.reports.salesByMonth(), isEmpty,
-          reason: 'never delivered, never trade');
+      await expectNothingSold(); // never delivered, never trade
     });
 
     test('a cancelled item is not counted', () async {
@@ -109,7 +121,8 @@ void main() {
       await deliverAll(id);
 
       final months = await f.services.reports.salesByMonth();
-      expect(months.single.revenue, Money.rupees(1000));
+      expect(months.last.revenue, Money.rupees(1000),
+          reason: 'the buns left with the item, not just off the invoice');
     });
   });
 

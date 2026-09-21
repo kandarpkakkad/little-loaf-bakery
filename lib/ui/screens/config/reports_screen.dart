@@ -11,6 +11,7 @@ import '../../theme/format.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/line_chart.dart';
 import '../../widgets/primitives.dart';
 
 /// What the month looked like.
@@ -30,6 +31,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   /// Which month is being looked at. Starts on this one.
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+
+  /// How far back the charts reach. Six months by default — long enough to
+  /// show a season, short enough that each month is still a readable step.
+  int _range = 6;
   Future<List<OrderView>>? _monthOrders;
   DateTime? _earliest;
 
@@ -37,6 +42,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= _load();
+  }
+
+  void _setRange(int months) {
+    setState(() {
+      _range = months;
+      _future = _load();
+    });
   }
 
   void _showMonth(DateTime m) {
@@ -51,7 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _earliest = await r.firstMonth();
     _monthOrders = r.ordersIn(_month.year, _month.month);
     return _Report(
-      months: await r.salesByMonth(),
+      months: await r.salesByMonth(months: _range),
       products: await r.byProduct(),
       outstanding: await r.outstanding(),
       credit: await r.credit(),
@@ -86,11 +98,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
               padding: const EdgeInsets.fromLTRB(
                   Space.lg, Space.md, Space.lg, Space.xxl),
               children: [
+                // Over time first, then the month you are standing in.
+                _Trend(months: r.months, range: _range, onRange: _setRange),
+
                 _MonthBar(
                   month: _month,
                   earliest: _earliest,
                   onChange: _showMonth,
                 ),
+                _MonthFigures(months: r.months, month: _month),
                 _MonthOrders(
                   month: _month,
                   future: _monthOrders,
@@ -241,6 +257,156 @@ class _Report {
 /// and one tap should answer it. The label itself opens a picker for anything
 /// further back, and neither can leave the range that has orders in it —
 /// paging into empty years reads as a broken screen.
+/// Orders and money over time, and how far back to look.
+///
+/// **Two charts, not two lines on one.** A count of orders and a pile of
+/// rupees are different kinds of measure: share an axis and the orders line
+/// lies flat along the bottom, give them an axis each and the shape of the
+/// correlation becomes whatever you pinned the scales to. Stacked over one
+/// month axis, both are readable and neither is asserting anything about the
+/// other that is not there.
+class _Trend extends StatelessWidget {
+  const _Trend({required this.months, required this.range, required this.onRange});
+
+  final List<MonthOfSales> months;
+  final int range;
+  final ValueChanged<int> onRange;
+
+  static const _ranges = <int, String>{
+    3: '3 months',
+    6: '6 months',
+    12: '1 year',
+    24: '2 years',
+    36: '3 years',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    if (months.isEmpty) return const SizedBox.shrink();
+
+    final labels = [for (final m in months) _short(m.month)];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.sm),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Over time', style: context.text.titleMedium),
+              ),
+              DropdownButton<int>(
+                value: range,
+                underline: const SizedBox.shrink(),
+                items: [
+                  for (final e in _ranges.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => onRange(v ?? 6),
+              ),
+            ],
+          ),
+        ),
+        LoafCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Orders',
+                  style: context.text.bodySmall!.copyWith(color: c.ink3)),
+              LineChart(
+                values: [for (final m in months) m.orders.toDouble()],
+                labels: labels,
+                format: (v) => '${v.round()}',
+              ),
+              const SizedBox(height: Space.lg),
+              Text('Order value',
+                  style: context.text.bodySmall!.copyWith(color: c.ink3)),
+              LineChart(
+                values: [for (final m in months) m.revenue.paise / 100],
+                labels: labels,
+                format: (v) => money(Money.rupees(v), showZero: true)!,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The month you are standing in, in three figures.
+class _MonthFigures extends StatelessWidget {
+  const _MonthFigures({required this.months, required this.month});
+
+  final List<MonthOfSales> months;
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context) {
+    final key = month.millisecondsSinceEpoch;
+    final m = months.where((x) => x.month == key).firstOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Figure(label: 'Orders', value: '${m?.orders ?? 0}'),
+          _Figure(
+              label: 'Order value',
+              value: money(m?.revenue ?? Money.zero, showZero: true)!),
+          // Kept beside the other two rather than under "Money", because what
+          // a month earned and what is still owed on it are one question.
+          _Figure(
+              label: 'Pending',
+              value: money(m?.outstanding ?? Money.zero, showZero: true)!,
+              muted: (m?.outstanding ?? Money.zero).isZero),
+        ],
+      ),
+    );
+  }
+}
+
+class _Figure extends StatelessWidget {
+  const _Figure({required this.label, required this.value, this.muted = false});
+
+  final String label;
+  final String value;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: context.text.bodySmall!.copyWith(color: c.ink3)),
+          const SizedBox(height: 2),
+          Text(value,
+              style: context.text.titleMedium!
+                  .copyWith(color: muted ? c.ink3 : c.ink)),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Sep", or "Sep 25" when the range crosses a year.
+String _short(int ms) {
+  const names = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  final thisYear = DateTime.now().year;
+  return d.year == thisYear
+      ? names[d.month - 1]
+      : '${names[d.month - 1]} ${d.year % 100}';
+}
+
 class _MonthBar extends StatelessWidget {
   const _MonthBar({
     required this.month,
