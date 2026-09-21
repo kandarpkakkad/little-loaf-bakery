@@ -188,7 +188,7 @@ delta. `snapshot/owner.json` records which device that is.
 
 | At 00:02, a device reads `owner.json` | Then |
 |---|---|
-| **Missing** | It **claims it** — writes its own id — and uploads the snapshot |
+| **Missing** | It **claims it** — writes its own id — and uploads the snapshot. This also happens on the **first sync after install**, so a new bakery is backed up from its first day rather than its first midnight |
 | **Matches this device** | Uploads the snapshot |
 | **Names another device** | Skips. Nothing else changes |
 

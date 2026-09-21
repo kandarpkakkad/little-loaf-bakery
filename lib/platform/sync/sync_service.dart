@@ -208,7 +208,26 @@ class SyncService extends ChangeNotifier {
     final store = await _store();
     if (store == null) return;
     try {
-      final owner = SnapshotOwner.parse(await store.readSnapshotMeta());
+      var owner = SnapshotOwner.parse(await store.readSnapshotMeta());
+
+      // Nobody owns the snapshot, so this device takes it — now, rather than
+      // at the first midnight it happens to be awake for.
+      //
+      // A first install used to own nothing until 00:02, which left the only
+      // copy of a bakery's first day on one phone; and compaction waits for a
+      // snapshot, so the journal could not shrink either. Whoever connects
+      // first is the obvious owner: on a single-phone bakery it is the only
+      // candidate, and on two it is the one that got there first, which is as
+      // good a rule as any.
+      //
+      // Deliberately the same claim the nightly run makes, so two devices
+      // connecting at once resolve the way they always did: last write wins
+      // the file and the loser skips from the following night.
+      if (owner == null) {
+        await _claimSnapshot(store);
+        owner = SnapshotOwner.parse(await store.readSnapshotMeta());
+      }
+
       _set(_status.copyWith(
         owner: owner,
         clearOwner: owner == null,
@@ -216,6 +235,24 @@ class SyncService extends ChangeNotifier {
       ));
     } catch (_) {
       // leave the previous answer standing
+    }
+  }
+
+  /// Claims ownership and takes the first snapshot.
+  ///
+  /// Quiet on failure: an unclaimed folder is the state we were already in,
+  /// and a bakery that cannot take a snapshot this minute still has an app
+  /// that works. The nightly run tries again.
+  Future<void> _claimSnapshot(RemoteStore store) async {
+    try {
+      await SnapshotService(
+        db: db,
+        store: store,
+        deviceId: deviceId,
+        workDir: await getTemporaryDirectory(),
+      ).run();
+    } catch (_) {
+      // next time
     }
   }
 

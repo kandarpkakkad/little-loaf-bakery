@@ -104,3 +104,22 @@ would write the conflict log with spurious entries, so the merge sorts first.
 - **Ownership:** delete `owner.json`, confirm exactly one device claims it and the others skip.
 - **Missed 00:02:** force Doze, confirm catch-up and that `last_snapshot_at` is the real time.
 - **Compaction interlock:** with no snapshot, assert nothing compacts.
+
+## Who owns it, and from when
+
+**The first device to connect claims it**, on that first sync — not at the
+first midnight it happens to be awake for.
+
+It used to wait for 00:02. That left a new install owning nothing for up to a
+day, which meant the only copy of a bakery's first day sat on one phone; and
+compaction waits for a snapshot, so the journal could not shrink either. On a
+single-phone bakery the first device is the only candidate; on two it is
+whoever got there first, which is as good a rule as any.
+
+The claim is the same one the nightly run makes, so nothing new can go wrong
+with two devices connecting at once: last write wins the file, and the loser
+skips from the following night.
+
+Failure is quiet. An unclaimed folder is the state it was already in, and a
+bakery that cannot snapshot this minute still has an app that works — the
+nightly run tries again.
