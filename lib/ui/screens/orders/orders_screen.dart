@@ -36,10 +36,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   String _filter = 'open';
 
-  /// Board or by date. The board groups by status, the list by the day each
-  /// order is next needed — two questions about the same orders, not two
-  /// screens.
-  bool _board = true;
+  /// Board or by date, once somebody has chosen. Null means neither has been
+  /// asked for and the window decides.
+  ///
+  /// **A phone opens on the date list**: it shows one column of anything, and
+  /// the question a phone is holding is what is due next, so the orders read
+  /// in delivery order under a heading per day. **A tablet opens on the
+  /// board**, where four columns fit side by side and the question becomes
+  /// where everything has got to.
+  bool? _board;
 
   /// The columns a chip implies, in the order work moves through them.
   ///
@@ -109,7 +114,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ButtonSegment(value: true, label: Text('Board')),
                     ButtonSegment(value: false, label: Text('By date')),
                   ],
-                  selected: {_board},
+                  selected: {_board ?? context.window.isWide},
                   onSelectionChanged: (v) => setState(() => _board = v.first),
                 ),
               ),
@@ -224,7 +229,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           // disagree with the rows beneath it.
           // The board, when it is asked for. Status is the question here, so
           // the date grouping and the two-pane list below do not apply.
-          if (_board) {
+          if (_board ?? context.window.isWide) {
             return _StatusBoard(
               orders: orders,
               columns: _columns,
