@@ -35,6 +35,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
   };
 
   String _filter = 'open';
+
+  /// Board or by date. The board groups by status, the list by the day each
+  /// order is next needed — two questions about the same orders, not two
+  /// screens.
+  bool _board = true;
+
+  /// The columns a chip implies, in the order work moves through them.
+  ///
+  /// `ready` and `out` are deliberately absent: `deriveOrderStatus` never
+  /// returns either — half a ready order is not a thing and an order does not
+  /// travel — so a column for them would always be empty (D29).
+  List<OrderStatus> get _columns => switch (_filter) {
+        'open' => const [
+            OrderStatus.created,
+            OrderStatus.confirmed,
+            OrderStatus.inProduction,
+          ],
+        'done' => const [OrderStatus.delivered, OrderStatus.completed],
+        'cancelled' => const [OrderStatus.cancelled],
+        _ => const [
+            OrderStatus.created,
+            OrderStatus.confirmed,
+            OrderStatus.inProduction,
+            OrderStatus.delivered,
+            OrderStatus.completed,
+            OrderStatus.cancelled,
+          ],
+      };
   String _query = '';
 
   /// Only used when there is room for two panes. On a phone the detail screen
@@ -56,7 +84,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
       appBar: AppBar(
         title: const Text('Orders'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
+          // Search, the Board/By date toggle, and the chips. Size.fromHeight
+          // sets width to infinity, which is what you want here and a trap
+          // everywhere else.
+          preferredSize: const Size.fromHeight(152),
           child: Column(
             children: [
               Padding(
@@ -68,6 +99,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     prefixIcon: Icon(Icons.search, size: 20),
                     isDense: true,
                   ),
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Board')),
+                    ButtonSegment(value: false, label: Text('By date')),
+                  ],
+                  selected: {_board},
+                  onSelectionChanged: (v) => setState(() => _board = v.first),
                 ),
               ),
               SizedBox(
@@ -179,6 +222,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
           // Grouped by the day each order is next needed, which is the order
           // the list is already sorted in (D25) — so a heading can never
           // disagree with the rows beneath it.
+          // The board, when it is asked for. Status is the question here, so
+          // the date grouping and the two-pane list below do not apply.
+          if (_board) {
+            return _StatusBoard(
+              orders: orders,
+              columns: _columns,
+              alerts: alerts,
+            );
+          }
+
           final rows = _group(orders);
           final twoPane = context.window.usesRail;
 
@@ -256,6 +309,120 @@ class _OrdersScreenState extends State<OrdersScreen> {
 }
 
 /// One line of the list: either a day, or an order due on it.
+/// Orders by status, in the order work moves through them.
+///
+/// **Ascending on both a tablet and a phone**, unlike the Kitchen board. The
+/// Kitchen is worked during service, where the lot nearest the door is what
+/// somebody is about to carry out, so its phone view reads backwards. This is
+/// the office view of the same business — what came in, what was agreed, what
+/// is being made — and that reads forwards on any screen.
+class _StatusBoard extends StatelessWidget {
+  const _StatusBoard({
+    required this.orders,
+    required this.columns,
+    required this.alerts,
+  });
+
+  final List<OrderView> orders;
+  final List<OrderStatus> columns;
+  final List<Widget> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    final byStatus = <OrderStatus, List<OrderView>>{};
+    for (final o in orders) {
+      byStatus.putIfAbsent(o.status, () => []).add(o);
+    }
+    // The list arrives sorted by the day each order is next needed, and
+    // grouping preserves that — so a column reads soonest first without
+    // sorting it again.
+
+    if (context.window.isCompact) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(
+            Space.lg, Space.md, Space.lg, Space.xxl * 2),
+        children: [
+          for (final a in alerts)
+            Padding(
+                padding: const EdgeInsets.only(bottom: Space.sm), child: a),
+          for (final st in columns)
+            if (byStatus[st] != null) ...[
+              SectionLabel('${st.label} · ${byStatus[st]!.length}'),
+              CardGrid(children: [
+                for (final o in byStatus[st]!) OrderCard(view: o),
+              ]),
+            ],
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final a in alerts)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
+            child: a,
+          ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.md, Space.lg, Space.lg),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < columns.length; i++) ...[
+                  if (i > 0) const SizedBox(width: Space.md),
+                  Expanded(
+                    child: _StatusColumn(
+                      status: columns[i],
+                      orders: byStatus[columns[i]] ?? const [],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One status, side by side with the others. An empty column still shows —
+/// "nothing is in production" is the shape of the day, and a gap in a row is
+/// only legible if the heading above it is still there.
+class _StatusColumn extends StatelessWidget {
+  const _StatusColumn({required this.status, required this.orders});
+
+  final OrderStatus status;
+  final List<OrderView> orders;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel('${status.label} · ${orders.length}'),
+        Expanded(
+          child: orders.isEmpty
+              ? Center(
+                  child: Text('Nothing here',
+                      style: context.text.bodySmall!.copyWith(color: c.ink3)),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.only(bottom: Space.xxl),
+                  itemCount: orders.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => OrderCard(view: orders[i]),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Row {
   const _Row.day(this.date) : order = null;
   const _Row.order(this.order) : date = null;

@@ -1051,10 +1051,17 @@ Future<void> _offerMessage(
     // go on — which is the same failure as a Drive error hidden behind a
     // generic sentence.
     var launched = false;
-    try {
-      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      launched = false;
+    for (final u in [
+      uri,
+      // If the https link resolves to nothing, try WhatsApp's own scheme.
+      whatsappUri(phoneE164: view.customer.phoneE164, text: text),
+    ]) {
+      try {
+        launched = await launchUrl(u, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        launched = false;
+      }
+      if (launched) break;
     }
     if (!launched) {
       messenger.showSnackBar(SnackBar(

@@ -366,6 +366,9 @@ class _LineSheetState extends State<_LineSheet> {
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'What *'),
             ),
+            // Raw TextFields, so nothing spaces them: LoafField carries its
+            // own bottom padding and these two were sitting edge to edge.
+            const SizedBox(height: Space.md),
             TextField(
               controller: priceC,
               keyboardType: TextInputType.number,

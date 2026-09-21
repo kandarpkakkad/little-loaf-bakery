@@ -101,6 +101,12 @@
             <data android:scheme="tel"/>
         </intent>
         <intent>
+            <!-- WhatsApp's own scheme, the fallback when the https link
+                 resolves to nothing -->
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="whatsapp"/>
+        </intent>
+        <intent>
             <!-- a pin, where one was captured -->
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="geo"/>

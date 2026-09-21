@@ -346,6 +346,18 @@ Uri waMeUri({required String phoneE164, required String text}) => Uri.parse(
       '?text=${Uri.encodeComponent(text)}',
     );
 
+/// WhatsApp's own scheme, for when the `https` link finds nothing.
+///
+/// `wa.me` is the documented route and is kept first, because it degrades
+/// gracefully: with WhatsApp missing it opens the web page rather than
+/// failing. This is the fallback for the case where the link resolves to
+/// nothing at all — and it goes straight to the app instead of through a
+/// browser.
+Uri whatsappUri({required String phoneE164, required String text}) => Uri.parse(
+      'whatsapp://send?phone=${waMeNumber(phoneE164)}'
+      '&text=${Uri.encodeComponent(text)}',
+    );
+
 /// Digits only, no plus.
 ///
 /// Stripping just the '+' was not enough: a number saved as "+91 98765 43210"
