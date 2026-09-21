@@ -515,13 +515,20 @@ and survives the app being closed or the phone rebooting.
 | **30 minutes before** a journey's time | one journey | Leave now. If that mark has already gone — a rush order, or one that arrived on a sync after it — **it fires at once and says how long is really left** |
 | **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
 
-**Two per journey, not three.** A two-hour warning was built and removed: two
-hours out is not a moment anybody acts on, and at thirty orders a day it was a
-third of the day's notifications saying nothing new. At ten orders a day the
-set above is about twenty-two notifications; at thirty it is sixty-two. That
-number is the constraint every addition has to answer to — a phone that buzzes
-every ten minutes gets its notifications turned off, and then the one that
-mattered does not arrive either.
+**One notification per moment, not per journey.** Two cakes leaving at four
+o'clock are one buzz at half past three, naming both. That single change is
+what keeps the phone usable as the bakery grows: volume now follows the number
+of **distinct handover times** in a day rather than the number of orders, so
+ten orders and thirty both cost about **seventeen** notifications where the
+unbatched set cost twenty and sixty.
+
+**Two moments per journey, not three.** A two-hour warning was built and
+removed: two hours out is not a moment anybody acts on, and it was a third of
+the day's notifications saying nothing the thirty-minute one would not.
+
+That total is the constraint every addition has to answer to — a phone that
+buzzes every ten minutes gets its notifications turned off, and then the one
+that mattered does not arrive either.
 
 **What is low is on the morning too**, as one line — "Low: Butter, Flour" — and
 a morning with nothing due but something to buy still speaks, because that is

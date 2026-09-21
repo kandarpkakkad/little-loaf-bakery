@@ -31,6 +31,8 @@ class Reminder {
     required this.at,
     required this.title,
     required this.body,
+    this.who = '',
+    this.what = '',
   });
 
   final String subOrderId;
@@ -38,6 +40,12 @@ class Reminder {
   final DateTime at;
   final String title;
   final String body;
+
+  /// Who it is for and what is on it, kept apart from the rendered title so
+  /// that several journeys sharing a minute can be merged into one
+  /// notification without parsing the text back out of it.
+  final String who;
+  final String what;
 
   @override
   String toString() => '${slot.name} @ $at — $title / $body';
@@ -144,8 +152,55 @@ List<Reminder> remindersFor(
     for (final (slot, fireAt, title, body) in moments)
       if (fireAt.isAfter(at))
         Reminder(
-            subOrderId: j.id, slot: slot, at: fireAt, title: title, body: body),
+          subOrderId: j.id,
+          slot: slot,
+          at: fireAt,
+          title: title,
+          body: body,
+          who: who,
+          what: what,
+        ),
   ];
+}
+
+/// One notification per moment, however many journeys share it.
+///
+/// Two cakes leaving at four o'clock produced two identical buzzes half an
+/// hour earlier. At ten orders a day that is a notification every twenty
+/// minutes and at thirty it is one every eight, which is the point where
+/// somebody turns them off — and then the one that mattered does not arrive
+/// either. Merging by the minute costs nothing and is the difference between
+/// a useful phone and a silenced one.
+///
+/// Grouped on slot **and** minute: a half-hour warning and an overdue nudge
+/// landing together are different things to say.
+List<Reminder> batched(List<Reminder> reminders) {
+  final byMoment = <String, List<Reminder>>{};
+  for (final r in reminders) {
+    final minute = r.at.millisecondsSinceEpoch ~/ 60000;
+    (byMoment['${r.slot.name}|$minute'] ??= []).add(r);
+  }
+
+  return [
+    for (final group in byMoment.values)
+      if (group.length == 1)
+        group.single
+      else
+        Reminder(
+          // Several journeys, so a tap goes to the board rather than to any
+          // one of them.
+          subOrderId: kDigestPayload,
+          slot: group.first.slot,
+          at: group.first.at,
+          title: switch (group.first.slot) {
+            ReminderSlot.halfHour => '${group.length} handovers coming up',
+            ReminderSlot.overdue =>
+              '${group.length} still not handed over',
+            _ => group.first.title,
+          },
+          body: [for (final r in group) '${r.who} — ${r.what}'].join(' · '),
+        ),
+  ]..sort((a, b) => a.at.compareTo(b.at));
 }
 
 /// The soonest a thing needing [leadDays] notice can be promised.

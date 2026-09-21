@@ -157,16 +157,21 @@ class ReminderService {
 
       var id = 0;
       final journeys = <SubOrder>[];
+      final perJourney = <Reminder>[];
       for (final v in views) {
         if (v.isCancelled) continue;
         final who = v.customer.name.split(' ').first;
         for (final j in v.subOrders) {
           journeys.add(j);
-          for (final r in remindersFor(j,
-              customerFirstName: who, orderNo: v.order.orderNo)) {
-            await _schedule(id++, r);
-          }
+          perJourney.addAll(remindersFor(j,
+              customerFirstName: who, orderNo: v.order.orderNo));
         }
+      }
+
+      // Collected first, then merged: two cakes leaving at four produced two
+      // identical buzzes at half past three.
+      for (final r in batched(perJourney)) {
+        await _schedule(id++, r);
       }
 
       // One per morning that has work on it, across every order — plus what
