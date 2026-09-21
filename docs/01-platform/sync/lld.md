@@ -174,9 +174,15 @@ keytool -list -v -keystore ~/.android/debug.keystore \
         -alias androiddebugkey -storepass android -keypass android
 ```
 
-A CI-built debug APK still cannot sign in at all — the runner generates a
-throwaway keystore per build, so its certificate is one Google has never seen.
-Build debug locally when testing Drive.
+A CI-built debug APK is **signed**, like every installable APK — but with a
+keystore the runner generated seconds earlier, so its certificate is one Google
+has never seen. Setting `ANDROID_DEBUG_KEYSTORE_BASE64` in Actions gives the
+runner the same debug keystore this machine uses, and CI builds can then sign
+in. Without it they still install and run; only Drive is unreachable.
+
+```bash
+base64 -i ~/.android/debug.keystore | pbcopy   # paste as the secret's value
+```
 
 The sync screen shows which folder the running build uses, so the question
 "where did my orders go" has an answer on the screen rather than in a commit.

@@ -243,9 +243,12 @@ version, commits it, tags, and builds the same version twice — a debug APK and
 release APK. Every push to `main` that touches code bumps the patch version and builds a
 debug APK; documentation-only pushes build nothing.
 
-> **A debug APK built by CI cannot sign in to Google.** No debug keystore is committed, so the
-> runner generates one per build, and Android OAuth clients are matched on package name **and**
-> signing certificate SHA-1. Test Drive on a locally built debug APK, or on a release build.
+> **A CI debug APK is signed — just not with a key Google knows.** Every installable APK is
+> signed; a bare runner has no `~/.android/debug.keystore`, so Android makes a random one per
+> build. It installs and runs; the only thing that breaks is Google Sign-In, because an OAuth
+> client is matched on package name **and** signing certificate. Put the real debug keystore
+> in `ANDROID_DEBUG_KEYSTORE_BASE64` and CI builds can reach Drive too; without it, build
+> debug locally for anything touching sync.
 
 > **A debug build is a different bakery.** It installs alongside the real app as *Little Loaf
 > debug* with its own database, and syncs to its own Drive folder, `Little Loaf Bakery

@@ -1,8 +1,15 @@
 name: Debug build
 
 # Every push to main, and on demand. This is the build you install to try
-# something out — no signing key involved, so it never needs the secrets and a
-# failure here can never affect a release.
+# something out. It cannot affect a release: it never touches the upload key.
+#
+# It IS signed — every installable APK is. The question is with WHAT. Android
+# signs a debug build with ~/.android/debug.keystore, and a bare runner has
+# none, so the plugin makes a fresh random one per build. That installs fine
+# and runs fine; the only thing it breaks is Google Sign-In, because an OAuth
+# client is matched on package name AND signing certificate. Give the runner
+# the real debug keystore (ANDROID_DEBUG_KEYSTORE_BASE64) and Drive works here
+# too. The earlier wording — "no signing key involved" — was simply wrong.
 #
 # A push to main bumps the patch version first, so every debug APK carries a
 # version that is higher than the last one and the app agrees with its own file
@@ -103,6 +110,30 @@ jobs:
       # hook, which emits all three ABIs regardless, so --target-platform still
       # ships x86_64 and armeabi-v7a copies of libsqlcipher.so — measured at
       # ~9.6 MB of dead weight. --split-per-abi filters correctly.
+      # Without this the runner has no ~/.android/debug.keystore, so the
+      # Android plugin generates a fresh random one per build. Android OAuth
+      # clients are matched on package name AND signing certificate, so such an
+      # APK can never sign in to Google — everything else about it works, but
+      # Drive is unreachable and the failure looks like a bug in the app.
+      #
+      # The keystore arrives as a base64 secret rather than living in the repo:
+      # a debug keystore is not a secret in the usual sense (its password is
+      # literally "android"), but this repository is public, and a committed
+      # one would let anyone sign a package with the bakery's identity.
+      - name: Restore debug signing key
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_B64" ]; then
+            echo "::warning::ANDROID_DEBUG_KEYSTORE_BASE64 is not set. The APK will build and run, but it is signed with a throwaway key, so Google Sign-In and therefore Drive sync will not work in it."
+            exit 0
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_B64" | base64 --decode > ~/.android/debug.keystore
+          keytool -list -v -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android \
+            | grep 'SHA1:' || true
+
       - name: Build
         run: flutter build apk --debug --split-per-abi
 
