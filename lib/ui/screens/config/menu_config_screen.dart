@@ -31,7 +31,7 @@ class MenuConfigScreen extends StatelessWidget {
         label: const Text('Add item'),
       ),
       body: ContentWidth(
-        max: 720,
+        max: context.window.isCompact ? 720 : 1100,
         child: StreamBuilder<List<MenuItem>>(
         stream: app.menu.watchAll(),
         builder: (context, snap) {
@@ -50,18 +50,30 @@ class MenuConfigScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(
                 Space.lg, Space.lg, Space.lg, Space.xxl * 2),
             children: [
-              LoafCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < items.length; i++) ...[
-                      if (i > 0)
-                        Divider(height: 1, color: context.colors.ruleSoft),
-                      _MenuRow(item: items[i]),
+              // A card each in columns on a tablet, one divided card on a
+              // phone: a divider separates rows in a single column and means
+              // nothing across two, where the card boundary does the work.
+              if (!context.window.isCompact)
+                CardGrid(children: [
+                  for (final it in items)
+                    LoafCard(
+                      padding: EdgeInsets.zero,
+                      child: _MenuRow(item: it),
+                    ),
+                ])
+              else
+                LoafCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < items.length; i++) ...[
+                        if (i > 0)
+                          Divider(height: 1, color: context.colors.ruleSoft),
+                        _MenuRow(item: items[i]),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
             ],
           );
         },

@@ -172,6 +172,183 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
   }
 
+  /// The three sections, so one ListView on a phone and two beside each
+  /// other on a tablet are the same screen rather than two of them.
+  List<Widget> _customer(BuildContext context) {
+    return [
+          SectionLabel('Customer',
+              trailing: TextButton.icon(
+                onPressed: _chooseCustomer,
+                icon: const Icon(Icons.person_search, size: 16),
+                label: const Text('Existing'),
+              )),
+          LoafCard(
+            child: Column(
+              children: [
+                LoafField(label: 'Name', controller: _name, required: true),
+                LoafPhoneField(
+                  controller: _phone,
+                  onChanged: _lookUpPhone,
+                ),
+                if (_customerId != null)
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle,
+                          size: 14, color: context.colors.accent2),
+                      const SizedBox(width: Space.sm),
+                      Text('Existing customer',
+                          style: context.text.bodySmall!
+                              .copyWith(color: context.colors.accent2)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+    ];
+  }
+
+  List<Widget> _items(BuildContext context) {
+    final c = context.colors;
+    return [
+          SectionLabel('Items',
+              trailing: TextButton.icon(
+                onPressed: () async {
+                  dismissKeyboard(context);
+                  final line = await editLine(
+                    context,
+                    // a new line starts as a copy of the one above
+                    // the first line copies the order-level defaults;
+                    // later ones copy the line above (D25)
+                    siblings: _lines.isEmpty ? [_orderDefaults] : _lines,
+                    customerId: _customerId,
+                  );
+                  if (line != null) setState(() => _lines.add(line));
+                },
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add item'),
+              )),
+          if (_lines.isEmpty)
+            LoafCard(
+              child: Text('No items yet — add at least one.',
+                  style: context.text.bodyMedium!.copyWith(color: c.ink3)),
+            )
+          else
+            LoafCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < _lines.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: c.ruleSoft),
+                    _LineTile(
+                      line: _lines[i],
+                      onEdit: () async {
+                        dismissKeyboard(context);
+                        final edited = await editLine(
+                              context,
+                              existing: _lines[i],
+                              // Every *other* item, so this one can be moved
+                              // onto any journey the order already has.
+                              siblings: [
+                                for (var j = 0; j < _lines.length; j++)
+                                  if (j != i) _lines[j],
+                              ],
+                              customerId: _customerId,
+                            );
+                        if (edited != null) setState(() => _lines[i] = edited);
+                      },
+                      onRemove: () => setState(() => _lines.removeAt(i)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // No fulfilment here, and no requirements. Both belong to the
+          // item (D25): an order of a birthday cake and a box of buns has
+          // one message piped on one of them, and the box may go out on a
+          // different day to a different address. Asking at this level as
+          // well meant asking twice and letting the two disagree.
+          if (_lines.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.md),
+              child: Row(
+                children: [
+                  Icon(Icons.event, size: 16, color: c.ink3),
+                  const SizedBox(width: Space.sm),
+                  Expanded(
+                    child: Text(
+                      _dueDate == null
+                          ? 'Each item gets its own delivery date.'
+                          : 'Due ${_dateLabel(DateTime.fromMillisecondsSinceEpoch(_dueDate!))} — '
+                              'the last item to go.',
+                      style: context.text.bodySmall!.copyWith(color: c.ink3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    ];
+  }
+
+  List<Widget> _money(BuildContext context) {
+    final c = context.colors;
+    final t = _totals;
+    return [
+          const SectionLabel('Money'),
+          LoafCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // No discount here. It belongs to the item now, so an offer
+                // can be run on one thing — ten percent off cakes — without
+                // working out what that means for a basket.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: LoafField(
+                        label: 'Advance received',
+                        controller: _advance,
+                        prefix: '₹ ',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: rupeeInput,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: Space.md),
+                    SizedBox(
+                      width: 118,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: Space.lg),
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _advanceMode,
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'Mode'),
+                          items: const [
+                            DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                            DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                            DropdownMenuItem(
+                                value: 'transfer', child: Text('Transfer')),
+                          ],
+                          onChanged: (v) => setState(() => _advanceMode = v ?? 'upi'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Divider(color: c.ruleSoft),
+                MoneyRow('Subtotal', t.subtotal),
+                MoneyRow('Discount', -t.discount),
+                MoneyRow('Delivery', t.deliveryCharge),
+                MoneyRow('Total', t.total, strong: true, showZero: true),
+                MoneyRow('Advance', t.paid),
+                if (t.hasBalance) MoneyRow('Balance due', t.balanceDue, strong: true),
+              ],
+            ),
+          ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -210,175 +387,47 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
         ),
       ),
+      // One column on a phone, two on a tablet. Items is the half that grows
+      // — a ten-line order pushes the money off the bottom of a phone and
+      // there is nothing to be done about that, but on a tablet the total can
+      // simply stay in view beside it.
       body: ContentWidth(
-        max: 760,
+        max: context.window.isCompact ? 760 : 1200,
         child: Form(
         key: _formKey,
-        child: ListView(
-          padding:
-              const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xxl),
-          children: [
-            SectionLabel('Customer',
-                trailing: TextButton.icon(
-                  onPressed: _chooseCustomer,
-                  icon: const Icon(Icons.person_search, size: 16),
-                  label: const Text('Existing'),
-                )),
-            LoafCard(
-              child: Column(
+        child: context.window.isCompact
+            ? ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.lg, Space.sm, Space.lg, Space.xxl),
                 children: [
-                  LoafField(label: 'Name', controller: _name, required: true),
-                  LoafPhoneField(
-                    controller: _phone,
-                    onChanged: _lookUpPhone,
-                  ),
-                  if (_customerId != null)
-                    Row(
+                  ..._customer(context),
+                  ..._items(context),
+                  ..._money(context),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.lg, Space.sm, Space.md, Space.xxl),
                       children: [
-                        Icon(Icons.check_circle,
-                            size: 14, color: context.colors.accent2),
-                        const SizedBox(width: Space.sm),
-                        Text('Existing customer',
-                            style: context.text.bodySmall!
-                                .copyWith(color: context.colors.accent2)),
+                        ..._customer(context),
+                        ..._money(context),
                       ],
                     ),
-                ],
-              ),
-            ),
-
-            SectionLabel('Items',
-                trailing: TextButton.icon(
-                  onPressed: () async {
-                    dismissKeyboard(context);
-                    final line = await editLine(
-                      context,
-                      // a new line starts as a copy of the one above
-                      // the first line copies the order-level defaults;
-                      // later ones copy the line above (D25)
-                      siblings: _lines.isEmpty ? [_orderDefaults] : _lines,
-                      customerId: _customerId,
-                    );
-                    if (line != null) setState(() => _lines.add(line));
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add item'),
-                )),
-            if (_lines.isEmpty)
-              LoafCard(
-                child: Text('No items yet — add at least one.',
-                    style: context.text.bodyMedium!.copyWith(color: c.ink3)),
-              )
-            else
-              LoafCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < _lines.length; i++) ...[
-                      if (i > 0) Divider(height: 1, color: c.ruleSoft),
-                      _LineTile(
-                        line: _lines[i],
-                        onEdit: () async {
-                          dismissKeyboard(context);
-                          final edited = await editLine(
-                                context,
-                                existing: _lines[i],
-                                // Every *other* item, so this one can be moved
-                                // onto any journey the order already has.
-                                siblings: [
-                                  for (var j = 0; j < _lines.length; j++)
-                                    if (j != i) _lines[j],
-                                ],
-                                customerId: _customerId,
-                              );
-                          if (edited != null) setState(() => _lines[i] = edited);
-                        },
-                        onRemove: () => setState(() => _lines.removeAt(i)),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-            // No fulfilment here, and no requirements. Both belong to the
-            // item (D25): an order of a birthday cake and a box of buns has
-            // one message piped on one of them, and the box may go out on a
-            // different day to a different address. Asking at this level as
-            // well meant asking twice and letting the two disagree.
-            if (_lines.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: Space.md),
-                child: Row(
-                  children: [
-                    Icon(Icons.event, size: 16, color: c.ink3),
-                    const SizedBox(width: Space.sm),
-                    Expanded(
-                      child: Text(
-                        _dueDate == null
-                            ? 'Each item gets its own delivery date.'
-                            : 'Due ${_dateLabel(DateTime.fromMillisecondsSinceEpoch(_dueDate!))} — '
-                                'the last item to go.',
-                        style: context.text.bodySmall!.copyWith(color: c.ink3),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SectionLabel('Money'),
-            LoafCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // No discount here. It belongs to the item now, so an offer
-                  // can be run on one thing — ten percent off cakes — without
-                  // working out what that means for a basket.
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: LoafField(
-                          label: 'Advance received',
-                          controller: _advance,
-                          prefix: '₹ ',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: rupeeInput,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      SizedBox(
-                        width: 118,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: Space.lg),
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _advanceMode,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Mode'),
-                            items: const [
-                              DropdownMenuItem(value: 'upi', child: Text('UPI')),
-                              DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                              DropdownMenuItem(
-                                  value: 'transfer', child: Text('Transfer')),
-                            ],
-                            onChanged: (v) => setState(() => _advanceMode = v ?? 'upi'),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                  Divider(color: c.ruleSoft),
-                  MoneyRow('Subtotal', t.subtotal),
-                  MoneyRow('Discount', -t.discount),
-                  MoneyRow('Delivery', t.deliveryCharge),
-                  MoneyRow('Total', t.total, strong: true, showZero: true),
-                  MoneyRow('Advance', t.paid),
-                  if (t.hasBalance) MoneyRow('Balance due', t.balanceDue, strong: true),
+                  const SizedBox(width: Space.md),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.md, Space.sm, Space.lg, Space.xxl),
+                      children: _items(context),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
-        ),
         ),
       ),
     );

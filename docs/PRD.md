@@ -668,6 +668,21 @@ claims anything about the other.
 **Setup is not a login.** The app works offline from first launch; Drive is offered, and can
 be connected later from Sync & backup.
 
+### On a tablet
+
+Not the same layout stretched. A cap and a centred column is the right answer
+for a form and the wrong one for a list, so each screen takes the shape its
+content wants:
+
+| | |
+|---|---|
+| **Orders** | Status board in columns, or the date list — the board by default. A phone opens on the date list |
+| **Kitchen** | Four stages side by side, each scrolling on its own |
+| **New order** | Two columns: customer and money on the left, items on the right, so a ten-line order never pushes the total out of view |
+| **Customers · Menu · Materials · Stock** | A card each, in columns. On a phone they stay one divided card — a divider separates rows in a single column and means nothing across two |
+| **Every sheet** | A centred dialog, capped at 560. A bottom sheet is a phone shape |
+| **Forms** (business settings, sync) | Still a capped column. A form stretched across 1,200 pixels is not more usable, just further for the eye to travel |
+
 ### States every screen defines
 
 | State | Behaviour |

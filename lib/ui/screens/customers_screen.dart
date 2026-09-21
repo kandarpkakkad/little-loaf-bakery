@@ -19,8 +19,10 @@ class CustomersScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: context.colors.paper,
         appBar: AppBar(title: const Text('Customers')),
+        // Wide enough for two columns of customers on a tablet; still a
+        // comfortable measure on a phone, where CardGrid is a plain list.
         body: ContentWidth(
-          max: 720,
+          max: context.window.isCompact ? 720 : 1100,
           child: StreamBuilder<List<Customer>>(
           stream: context.app.customers.watchAll(),
           builder: (context, snap) {
@@ -34,6 +36,26 @@ class CustomersScreen extends StatelessWidget {
                 message: 'No customers yet.\nThey are added by taking an order.',
               );
             }
+            // One long divided card on a phone, a card each in columns on a
+            // tablet. A divider is how you separate rows in a single column;
+            // across two columns it stops meaning anything, so the card
+            // boundary does the work instead.
+            if (!context.window.isCompact) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.lg, Space.md, Space.lg, Space.xxl),
+                children: [
+                  CardGrid(children: [
+                    for (final c in customers)
+                      LoafCard(
+                        padding: EdgeInsets.zero,
+                        child: _CustomerTile(customer: c),
+                      ),
+                  ]),
+                ],
+              );
+            }
+
             return ListView(
               padding: const EdgeInsets.fromLTRB(
                   Space.lg, Space.md, Space.lg, Space.xxl),
