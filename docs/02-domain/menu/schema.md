@@ -11,8 +11,8 @@ CREATE TABLE menu_items (
   photo_path  TEXT,
   lead_days   INTEGER NOT NULL DEFAULT 0,
   active      INTEGER NOT NULL DEFAULT 1,
-  season_from INTEGER,             -- unused: seasonality was removed
-  season_to   INTEGER,             -- unused; both go in a later release
+  season_from INTEGER,             -- dead since the seasonality removal; nothing reads or writes it
+  season_to   INTEGER,             -- likewise. Kept only because dropping a column needs a table rebuild
   -- common columns
   CHECK (lead_days >= 0),
   CHECK ((season_from IS NULL) = (season_to IS NULL))

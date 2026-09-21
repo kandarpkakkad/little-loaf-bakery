@@ -2,7 +2,7 @@
 
 ## Purpose
 The centre of the product. An order is created once and carries everything downstream: the
-production sheet, the delivery run, the invoice and all three messages come out of it.
+production sheet, the delivery run and every message come out of it.
 
 ## Responsibilities
 - The lifecycle and its transitions.
@@ -57,7 +57,7 @@ should find it.
 | Requirements edited after Confirmed | Board card flagged ⚑ until the kitchen acknowledges |
 | Delivery date inside the lead time | **Rush warning, non-blocking** |
 | Menu item deleted after being ordered | The line keeps its name snapshot and stays readable |
-| Customer deleted | Orders tombstone with them; invoices survive with the name scrubbed |
+| Customer deleted | Orders tombstone with them |
 
 ## Non-goals
 No quotes or drafts distinct from Created. No recurring orders. No partial fulfilment — an

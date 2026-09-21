@@ -88,7 +88,7 @@ Pickup orders are excluded — no address, nowhere to go.
 Future<void> setDeliveryCharge(Order o, Money c) {
   require(o.status.index < Status.completed.index, 'order already completed');
   return mutate('order', o.id, (b) => b.update(orders, deliveryCharge: c.paise));
-  // to_collect recomputes; the invoice (issued at Delivered) carries the charged figure
+  // to_collect recomputes. Nothing is frozen anywhere: invoicing is gone (D30)
 }
 ```
 
@@ -142,7 +142,6 @@ list is allowed to be a dead end.
 | Order has a pin but no address text | Maps works; Copy address is disabled with a hint |
 | Address but no pin | Maps searches the text; Uber is omitted (it needs coordinates) |
 | Neither | The chooser is not offered at all |
-| Delivery charge edited after the invoice was issued | Invoice keeps its frozen total; order detail shows the discrepancy |
 | Card dragged while offline | Queued; conflict log catches a clash on sync |
 | Same order marked Delivered on two devices | Same status; one wins; both events survive in history |
 | Sheet printed then an order is added | Sheet is a live view. Print is a screenshot of a moment |

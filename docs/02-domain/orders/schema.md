@@ -26,9 +26,13 @@ CREATE TABLE orders (
   -- at order level in either the create or the edit form.
   -- The remaining fulfilment columns are the defaults a new item copies.
   tracking_url            TEXT,
-  discount_type           TEXT,                           -- percent|amount|NULL
-  discount_value          INTEGER,                        -- basis points if percent, paise if amount
-  discount_amount         INTEGER NOT NULL DEFAULT 0,     -- resolved paise
+  -- CACHES of what the ITEMS add up to since D31, written as a flat amount by
+  -- _refreshOrderCache and never read back. A flat amount is the only shape
+  -- that can stand for a basket of mixed percentages and amounts, and a v13
+  -- peer still reads a sensible figure.
+  discount_type           TEXT,                           -- always 'amount' now, or NULL
+  discount_value          INTEGER,                        -- paise
+  discount_amount         INTEGER NOT NULL DEFAULT 0,     -- paise
   delivery_charge         INTEGER NOT NULL DEFAULT 0,     -- paise
   requirements            TEXT,
   item_message            TEXT,                           -- piped on the item, not only on cakes
@@ -88,7 +92,7 @@ CREATE TABLE order_items (
   item_name_snapshot TEXT    NOT NULL,   -- renaming the menu never rewrites history
   flavour            TEXT,               -- free text
   weight_value       REAL,               -- number and unit, so a bake sheet can total it
-  weight_unit        TEXT,               -- g|kg|pcs|dozen
+  weight_unit        TEXT,               -- g|kg|ml|l  (see the CHECK)
 
   -- ── what this item is, and where it is in its life (D28, D29) ──
   -- When and where it goes belongs to its sub-order, not here: everything in
@@ -104,11 +108,23 @@ CREATE TABLE order_items (
   item_message       TEXT,               -- piped on this one
   requirements       TEXT,
   dietary_flags      INTEGER NOT NULL DEFAULT 0,
+
+  -- What comes off this item (D31). Per item so an offer can be run on one
+  -- thing without working out what it means for a basket. A percentage
+  -- applies to base_price x qty PLUS its add-ons, and is clamped to them.
+  discount_type      TEXT,               -- percent|amount|NULL
+  discount_value     INTEGER NOT NULL DEFAULT 0,  -- bp if percent, else paise
+
   position           INTEGER NOT NULL,
   -- common columns
   CHECK (qty > 0),
   CHECK ((weight_value IS NULL) = (weight_unit IS NULL)),
-  CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','pcs','dozen')),
+  -- 'pcs' and 'dozen' are LEGACY, accepted and never offered: how many there
+  -- are is the quantity, and "1 pcs x 2" said it twice. Widened rather than
+  -- narrowed in v15 so rows written before it stay saveable.
+  CHECK (weight_unit IS NULL OR weight_unit IN ('g','kg','ml','l','pcs','dozen')),
+  CHECK (discount_type IS NULL OR discount_type IN ('percent','amount')),
+  CHECK (discount_value >= 0),
   CHECK (weight_value IS NULL OR weight_value > 0),
   -- No 'out': an item does not travel, its sub-order does (D29).
   CHECK (status IN ('created','confirmed','in_production','ready','delivered','cancelled')),

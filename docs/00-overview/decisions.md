@@ -58,7 +58,7 @@ GST time.
 **Chose:** confirming with nothing collected is normal, not an error state.
 
 ### D10 · Zero never shows
-**Chose:** one rule instead of a special case per field. A ₹0 row is absent from the invoice,
+**Chose:** one rule instead of a special case per field. A ₹0 row is absent from every message,
 the messages, order detail, totals and cards.
 
 ### D11 · Invoices are WhatsApp text, not PDFs — **reversed by D30**
@@ -205,7 +205,7 @@ together. §4.3 keeps a bulk action for exactly that.
 
 ### D27 · Money stays on the order
 **Chose:** payments and the discount stay order-level even though lines are scheduled
-separately. One sale, one balance, one invoice.
+separately. One sale, one balance — and one bill, until D30 removed bills entirely.
 
 **The delivery charge is the exception, and it proves the rule.** It is stored per item but
 **counted per journey**: items sharing a day, a time, a fulfilment and an address go out

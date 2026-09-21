@@ -38,7 +38,6 @@ One shell, five tabs, identical on every device. **No roles, so no variants** (D
 /orders                       ?status= &unpaid= &unshared= &q=
 /orders/new                   ?customer=
 /orders/:id
-/orders/:id/invoice
 /kitchen/board                ?from= &to=
 /kitchen/sheet                ?day=
 /kitchen/deliveries           ?day=
@@ -61,8 +60,18 @@ One shell, five tabs, identical on every device. **No roles, so no variants** (D
 
 ## Sheets, not routes
 
-Modal bottom sheets. They do not push a route, and they do not survive process death — a
-half-entered payment is not worth restoring.
+Modal bottom sheets on a phone, **centred dialogs capped at 560 on anything wider** — one
+helper, `loafSheet`, decides. A bottom sheet is a phone shape: it comes up from the thumb and
+spans the width because the width is small. On a tablet the same call produced a slab across
+1,200 logical pixels with a form column stranded in the middle of it.
+
+They do not push a route, and they do not survive process death — a half-entered payment is
+not worth restoring.
+
+**Drop focus before opening one.** A button tapped while a text field has focus leaves that
+focus where it was, and Flutter hands it straight back when the route pops — so choosing a
+delivery date threw the person back into whatever they had typed last, keyboard and all.
+`dismissKeyboard(context)` is the fix and lives beside the fields it is about.
 
 | Sheet | From |
 |---|---|
@@ -71,7 +80,26 @@ half-entered payment is not worth restoring.
 | Open location in… | Order detail · delivery run |
 | Item picker | New/edit order |
 | + New menu item | Inside the item picker |
-| Discount | Order totals |
+| Discount | Set on the item, in the item editor (D31) |
+
+## On a tablet
+
+Not the same layout stretched. Each screen takes the shape its content wants, and where the
+answer is "nothing", that is a decision rather than an omission.
+
+| Screen | Wide |
+|---|---|
+| **Orders** | Status board in columns **ascending**, or the date list. A phone opens on the date list — one column of anything, and what a phone is holding is *what is due next* |
+| **Kitchen** | Four stages side by side. The phone stacks them **reversed**, because a scroll is read top-down under time pressure and what is nearest the door belongs first |
+| **New order** | Customer and money left, items right — a ten-line order never pushes the total out of view |
+| **Reports** | The month left, the standing summaries right |
+| **Order detail** | Journeys left, money right — **except embedded** in the Orders two-pane, where it is already half a tablet |
+| **Customers** | A list beside `CustomerDetail`, which shows their orders |
+| **Menu · Materials · Stock** | A card each, in columns. A divider separates rows in one column and means nothing across two |
+| **Forms, More** | A capped column. A form across 1,200 pixels is not more usable, only further for the eye to travel |
+
+The board order differs between Orders and Kitchen on purpose: a **row** is read left to
+right, where the pipeline order is the natural one, and a **scroll** is read top-down.
 
 ## Screens outside the shell
 
@@ -101,9 +129,9 @@ app, because nothing external knows it exists.
 
 ## Cross-navigation rules
 
-- **The order is the hub.** Payment, invoice, location, share and customer are all reached
+- **The order is the hub.** Payment, location, share and customer are all reached
   from it; none of them is a destination in its own right.
 - **Config is never linked to from a working screen** — no "edit this menu item" shortcut from
   the order form. There is no exception: an item that is not on the menu is added in
   immediately with the item selected rather than navigating away (D16).
-- **Kitchen screens never link to money.** No path from a board card to an invoice.
+- **Kitchen screens never link to money.** No path from a board card to a total.

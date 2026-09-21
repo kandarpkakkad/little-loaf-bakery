@@ -26,6 +26,39 @@ survive `encodeComponent` intact, or the message arrives as literal punctuation.
 **Length:** the text goes into a URL. An order with more than 12 lines summarises
 (`"…and 4 more items"`) rather than risking truncation by the launching intent.
 
+## 2b. Getting there
+
+```dart
+// The route the app takes. Straight to the chat, no browser in between.
+whatsapp://send?phone=<digits>&text=<encoded>
+
+// The fallback, only if that somehow resolves to nothing.
+https://wa.me/<digits>?text=<encoded>
+```
+
+`wa.me` was the primary and is now the fallback. It works whether or not
+WhatsApp is installed, which sounds like a virtue and is not: without the app
+it opens a web page asking the person to install one, which is a worse answer
+than the app saying nothing.
+
+**No WhatsApp, no sheet.** Whether anything handles `whatsapp://` is the test
+for whether it is installed, and when it is not the message is never offered —
+composing something somebody cannot send and putting a dead button under it
+wastes the one moment they were paying attention. The status move happens
+either way.
+
+The check works only because the manifest declares that scheme. Without the
+`<queries>` entry Android answers no to everything, which is the hole that made
+every outbound link in the app fail silently before v0.6.1 — WhatsApp, Maps,
+the dialler and the update screen's download button alike.
+
+**One exception, deliberately.** The WhatsApp button in the app bar says
+"WhatsApp is not installed on this phone". An offer that arrives by itself can
+simply not arrive; a button somebody pressed cannot do nothing.
+
+**A failed launch is never silent.** It says so and copies the message to the
+clipboard, rather than throwing away the work of composing it.
+
 ## 3. Composition
 
 ```dart

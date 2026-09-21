@@ -64,9 +64,29 @@ accident.
 |---|---|
 | Two items with the same name | Allowed, and indistinguishable in the picker — there is no category to tell them apart. Merging is a human decision in Config |
 | Item deleted with open orders | Tombstoned. Lines keep `item_name_snapshot`; reports group by `menu_item_id`, so history stays intact |
-| Season crossing new year | Handled by the wrap branch in §2 |
-| `lead_days` changed after an order exists | Only affects new orders; the rush warning is computed at edit time |
+| `lead_days` changed after an order exists | Only affects new orders; the rush warning is computed at edit time, and the reminder schedule is rebuilt (the reminder service follows `watchAll`) |
 | Menu item created offline | Fine — it is a normal row with an op, and replicates like anything else |
+
+## 6b. What notice needed does
+
+`lead_days` was stored, shown in Config, and read by nothing for several
+releases. It now does three things and nothing else:
+
+```dart
+int soonestFor(int leadDays) => midnight(today + leadDays);
+bool isRush(int deliveryDate, int leadDays) =>
+    deliveryDate < soonestFor(leadDays);
+```
+
+| | |
+|---|---|
+| **Seeds the date** | Choosing an item sets an **untouched** delivery date to `soonestFor`. A date already chosen is left alone — it was chosen |
+| **Warns** | A date sooner than the notice shows "Rush: this normally needs 2 days notice". Never a refusal: an app saying no to a customer standing in front of somebody is not its place |
+| **Starts the work** | The item appears on the six o'clock digest of `delivery date − lead_days`, as "Start one thing today" |
+
+**Zero notice is left out of all three.** "Start the buns today" on the morning
+they are due says nothing, and a bakery that has a thing on the shelf can hand
+it over now. See [`../reminders/lld.md`](../reminders/lld.md).
 
 ## 7. What to test
 

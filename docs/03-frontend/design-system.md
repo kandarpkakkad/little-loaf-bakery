@@ -67,7 +67,7 @@ No webfonts. Platform faces, chosen so weight and rhythm survive the fallback.
 | Role | Stack | Use |
 |---|---|---|
 | `sans` | Roboto / system | Everything in the app |
-| `mono` | Roboto Mono / monospace | Amounts in columns, invoice preview, ids |
+| `mono` | Roboto Mono / monospace | Amounts in columns, message previews, ids |
 
 | Token | Size | Weight | Line | Use |
 |---|---|---|---|---|
@@ -136,7 +136,7 @@ and on these forms the exception is the short list.
 −₹100           discount, minus sign not brackets
 (nothing)       when zero — the row does not exist
 ```
-Inside the invoice's monospace block: **no ₹ symbol**, right-aligned to column 26.
+Inside a message's monospace preview: **no ₹ symbol**, right-aligned to column 26.
 
 ---
 

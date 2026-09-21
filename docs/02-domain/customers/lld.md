@@ -123,3 +123,18 @@ own requirements** — it belongs to the person, and editing it should update it
   survivor chosen on **both** devices.
 - Allergy note edited after orders exist → banner updates on all of them.
 - Lifetime value counts completed only; outstanding counts delivered only.
+
+## On a screen with room
+
+An expansion tile is a phone's answer to not having a second pane. With the
+room, the pane is strictly better, because it can show **what they have
+ordered** — which is the question somebody opens a customer to answer, and a
+tile had nowhere to put it.
+
+| | |
+|---|---|
+| Phone | The list, each row expanding to its addresses |
+| Tablet | A list of names beside `CustomerDetail`: who they are, their allergy note, their addresses, and their orders as cards that open |
+
+The address list is one widget used by both, so the two cannot drift into
+showing different things about the same person.

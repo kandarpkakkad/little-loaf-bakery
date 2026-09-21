@@ -35,9 +35,7 @@ Money creditDue(Order o)    => inCredit(o) ? -balanceDue(o) : Money.zero;
 **The percentage applies to the subtotal, never to delivery.** Nobody intends "10% off" to
 discount the courier.
 
-**Freezing:** when the invoice is issued (at Delivered), `discount_amount` is written with the
-resolved figure and the invoice stores `frozen_totals_json`. After that the document never
-quietly changes what it says, even if a line is corrected.
+**Nothing is frozen.** `discount_amount` is a cache written from the items on every change (D31), not a figure locked at a moment — there is no document to lock it for since invoicing was removed (D30).
 
 ## 3. Order number
 
@@ -201,8 +199,7 @@ Future<void> transitionLine(OrderItem i, LineStatus to, {String? reason}) async 
     b.update(orderItems, status: to, deliveredAt: to == delivered ? now : null);
     b.insert(orderItemStatusEvents, from: i.status, to: to, reason: reason, at: now);
     // The order's own status is derived, so there is nothing to update on it.
-    // The invoice is the exception: it is issued once, when the LAST live line
-    // is delivered, because an invoice covers the order and not the line.
+    // Nothing is issued at delivery any more: invoicing was removed (D30).
     if (to == delivered && everyLiveLineDelivered(i.order)) Invoicing.issue(i.order);
   });
   // The UI then OFFERS the next thing. Nothing here moves anything again. (D15)
@@ -386,8 +383,8 @@ something you do while looking at the run, not while taking the order.
 |---|---|
 | Confirm with no advance | Allowed. Whole amount becomes balance due |
 | Discount larger than subtotal | Clamp to subtotal. Total never goes negative |
-| Percentage discount, then a line is added | Recomputes while editable; frozen at invoice |
-| Delivery charge edited at handover | Balance recalculates; invoice carries the charged figure |
+| Percentage discount, then a line is added | Each item's discount is its own (D31), so adding an item changes only that item |
+| Delivery charge edited at handover | Balance recalculates. One charge per journey, however many boxes are on it |
 | Quantity set to 0 | Rejected — remove the line instead |
 | All lines removed from a confirmed order | Rejected. Cancel it instead |
 | Two devices confirm the same order | Same target status; LWW resolves to one; both status events survive in history |
@@ -405,4 +402,4 @@ something you do while looking at the run, not while taking the order.
 - Sort: mixed timed/untimed on one day, asserting the exact expected order.
 - Requirements flag: set on edit after confirm, cleared only by a *later* acknowledgement.
 - Two-device edit of different fields on one order → both survive.
-- Freeze: issue an invoice, change a line, assert the invoice total is unchanged.
+- A discount on one item leaves every other item's total alone, and is clamped to its own.

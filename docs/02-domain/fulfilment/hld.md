@@ -23,7 +23,7 @@ orders, payments (collecting at the door), config.
 - **⚑ marks requirements edited after confirming**, until the kitchen acknowledges. Baking
   yesterday's version of a custom cake is the expensive mistake this prevents.
 - **The delivery charge is editable at handover** — distance, a changed address, a favour on the
-  day. The balance recalculates and the invoice carries what was actually charged.
+  day. The balance recalculates; there is no document to keep in step (D30).
 - **The sheet groups by product, not by order** — the baker needs the day's bake, not twelve
   separate orders.
 - **The location chooser never depends on a third-party deep link succeeding.**

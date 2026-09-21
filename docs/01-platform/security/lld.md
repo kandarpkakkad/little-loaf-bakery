@@ -108,9 +108,11 @@ tombstone(customer)                       // deleted_at set, op replicated
   → tombstone every order for that customer
   → null out address_text, pin_*, notes on those orders   // an explicit erase op
   → delete attachment files from Drive media/
-  → keep invoices with the name replaced by "Deleted customer"   // financial record
+  → keep the ORDERS with the name replaced by "Deleted customer"   // financial record
 ```
-Invoices survive with the name scrubbed: the money has to stay auditable, the identity does not.
+The orders survive with the name scrubbed: the money has to stay auditable, the identity does
+not. There is no separate document to scrub — invoicing was removed (D30), so an order *is*
+the record.
 
 ## 6. Retention
 
@@ -144,5 +146,5 @@ Anonymise rather than delete, so historical totals stay correct.
 - Kill the app during first-run key generation; confirm no half-initialised database.
 - Revoke Drive access; confirm the app still opens, still takes orders, and warns after 24h.
 - Confirm no personal field appears in any log line, by grepping a full session's logs.
-- Deletion request: confirm the customer and orders tombstone, media is removed, and the
-  invoice remains with the name scrubbed.
+- Deletion request: confirm the customer tombstones, media is removed, and the orders remain
+  with the name scrubbed.

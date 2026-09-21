@@ -6,7 +6,7 @@ always called the same thing.
 
 ## Responsibilities
 - The menu items and their attributes.
-- Seasonal availability and the active flag.
+- The active flag, and the **notice** an item needs before it can be promised.
 - The picker used on the order form, including inline creation.
 - Flavour suggestions drawn from order history.
 

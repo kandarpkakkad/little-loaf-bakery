@@ -126,3 +126,28 @@ A split order still counts once, in the month its **last** journey lands. That
 is a deliberate simplification: an order is the unit being counted, and
 splitting its value across months would make the order count and the value
 disagree about what they are counting.
+
+## The month series
+
+`salesByMonth({int months = 6})` returns a **continuous run, oldest first,
+including months with nothing in them**.
+
+It used to return only months that had orders. For a chart that is wrong: a
+quiet March is compressed out of the axis and the year appears busier than it
+was. "No sales" is therefore every month reading zero, not an empty list.
+
+## The charts
+
+**Two charts, never two lines on one axis.** A count of orders and a pile of
+rupees are different kinds of measure. Sharing an axis flattens the orders line
+along the bottom at any realistic scale; giving them an axis each makes the
+apparent correlation a function of where the two scales were pinned, so the
+chart can be made to say almost anything. Stacked over one month axis, both are
+readable and neither claims anything about the other.
+
+Range: 3 / 6 / 12 / 24 / 36 months, **six by default** — long enough to show a
+season, short enough that each month is still a readable step.
+
+A `CustomPainter`, not a package: 2px line, a baseline and a top rule and
+nothing else, **always scaled from zero** so a quiet month is not drawn as a
+cliff, labels at the two ends only, and drag anywhere on it to read a month.

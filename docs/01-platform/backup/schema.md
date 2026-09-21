@@ -29,7 +29,7 @@ A full SQLite file, produced by `VACUUM INTO`.
 | | |
 |---|---|
 | Encryption | **None.** It must restore onto a different device with a different Keystore key. Protected by the Drive account |
-| Contents | Every replicated table. **Not** `outbox`, `applied_ops`, `peer_cursors`, or `settings.order_seq` / `invoice_seq` — all local state |
+| Contents | Every replicated table. **Not** `outbox`, `applied_ops`, `peer_cursors`, or `settings.order_seq` — all local state |
 | Retention | Last 14, older pruned |
 | Naming | Date only. Two snapshots on one day overwrite; the second is the better one |
 

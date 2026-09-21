@@ -4,7 +4,7 @@
 schema file follows.** Module schemas live beside their module; nothing is duplicated in an
 HLD or LLD.
 
-Current schema version: **9**
+Current schema version: **15**
 
 ---
 
@@ -107,7 +107,17 @@ migrate from.
 | v | Change |
 |---|---|
 | 1–6 | Pre-launch iterations. Collapsed into `onCreate` before first release |
-| **7** | Launch schema — everything in these files |
+| 7 | Launch schema |
+| 8–11 | Per-item scheduling and status; derived order status and due date (D25–D27) |
+| 12 | **The journey becomes a row** — `sub_orders` (D28, D29). The order side was rebuilt rather than carried across |
+| 13 | **Invoicing removed** (D30). `invoices` dropped, and `gstin` / `gst_enabled` / `logo_path` / `terms_line` / `invoice_seq` with it |
+| 14 | **The discount moves to the item** (D31). `order_items.discount_type` / `discount_value` added; the order's stay as caches |
+| **15** | Weight units are `g` / `kg` / `ml` / `l`. The CHECK is **widened**, not narrowed — rows carrying the old `pcs` / `dozen` stay saveable |
+
+**A dropped name has to be grepped for.** Removing `invoice_seq` in v13 left
+`UPDATE settings SET order_seq = 0, invoice_seq = 0` in `backup/snapshot.dart` — a raw SQL
+string the analyser cannot see. Every snapshot failed silently, and because compaction waits
+for a snapshot, the journals stopped compacting.
 
 **Rules:** forward-only, one step per version, additive by default. A column that must go is
 emptied in release *n* and dropped in *n+1*, so a rollback survives. Every step is tested

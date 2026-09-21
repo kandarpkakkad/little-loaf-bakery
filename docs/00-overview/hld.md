@@ -125,7 +125,7 @@ Drive journals (peers)
 | User accounts, roles, permissions | Owners only; every device holds everything anyway |
 | Real-time collaboration | Drive cannot push; polling on a 5-minute grid is enough |
 | Recipes / BOM | v2. No per-order ingredient costing until then |
-| PDF generation | Invoices are WhatsApp text |
+| PDF generation, and any document at all | The bakery does not raise bills (D30) |
 | Push notifications | Local notifications only |
 | Analytics / telemetry | Nothing leaves the bakery's Google account |
 
