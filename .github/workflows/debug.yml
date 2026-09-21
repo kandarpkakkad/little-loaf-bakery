@@ -3,13 +3,14 @@ name: Debug build
 # Every push to main, and on demand. This is the build you install to try
 # something out. It cannot affect a release: it never touches the upload key.
 #
-# It IS signed — every installable APK is. The question is with WHAT. Android
-# signs a debug build with ~/.android/debug.keystore, and a bare runner has
-# none, so the plugin makes a fresh random one per build. That installs fine
-# and runs fine; the only thing it breaks is Google Sign-In, because an OAuth
-# client is matched on package name AND signing certificate. Give the runner
-# the real debug keystore (ANDROID_DEBUG_KEYSTORE_BASE64) and Drive works here
-# too. The earlier wording — "no signing key involved" — was simply wrong.
+# It IS signed — every installable APK is. The question is with WHAT. Left to
+# itself the Android plugin hunts for a debug keystore and mints a random one
+# when it finds none, which installs and runs fine and breaks exactly one
+# thing: Google Sign-In, because an OAuth client is matched on package name
+# AND signing certificate. So the key is not left to chance. The runner
+# restores the real debug keystore from ANDROID_DEBUG_KEYSTORE_BASE64, the
+# build points at it by name, and the fingerprint is checked before the APK
+# is published. Drive works in this build.
 #
 # A push to main bumps the patch version first, so every debug APK carries a
 # version that is higher than the last one and the app agrees with its own file

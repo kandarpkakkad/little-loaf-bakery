@@ -138,13 +138,44 @@ consent screen and flight mode all produce the identical sentence.
 
 If you catch it, show it — or show something that distinguishes the cases.
 
-### The debug APK from CI is signed with a key Google has never seen
+### The debug APK's signing key is pinned, and the pipeline proves it
 
-Nothing commits a debug keystore, so the runner's Android plugin makes a fresh
-one per build. Android OAuth clients are matched on package name **and**
-signing certificate SHA-1, so **Google Sign-In cannot work in a CI debug
-build**. Test Drive on a locally built debug APK or on a release APK. This is
-not a bug to fix in Dart.
+Android OAuth clients are matched on package name **and** signing certificate
+SHA-1, so a debug APK signed by any other key cannot reach Drive — and the
+failure surfaces on a phone, as a sign-in that dies with a number.
+
+Two things make it deterministic:
+
+- `android/app/build.gradle.kts` names the debug keystore explicitly rather
+  than letting the Android plugin find one. Its default lookup follows
+  `ANDROID_SDK_HOME`, which runners set, so on CI it found nothing and minted
+  a fresh random key per build.
+- Both workflows restore that keystore from `ANDROID_DEBUG_KEYSTORE_BASE64`,
+  build, then compare the APK's fingerprint against the registered one and
+  fail loudly on a mismatch. The key is shredded afterwards, `if: always()`.
+
+If the fingerprint check ever fails, the secret or the Cloud Console client is
+wrong. It is not a bug to fix in Dart.
+
+### A `run:` value must never begin with a quote
+
+```yaml
+run: "$RUNNER_TEMP/retry.sh" flutter test     # invalid
+run: bash "$RUNNER_TEMP/retry.sh" flutter test # fine
+```
+
+YAML reads a leading `"` as the start of a quoted scalar, so the first form is
+a complete string followed by stray words. The whole **file** then fails to
+parse: no job runs, the run page has no graph, no duration and no artefacts,
+and GitHub falls back to showing the file path where the workflow name goes —
+for every run in the list, past ones included, since that name is cached in
+one place. The only evidence is a single annotation naming a line number.
+
+Parse a workflow before pushing it:
+
+```sh
+ruby -ryaml -e 'Dir[".github/workflows/*.yml"].each { |f| YAML.load_file(f) }'
+```
 
 ### Never mint a date as a small integer in a test
 
