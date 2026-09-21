@@ -473,8 +473,16 @@ pressed send, nor whether it was delivered or read. The log says *"Shared 7:12 p
 carries a **Not sent** chip on its card and is counted at the top of Orders — a customer who
 agreed to something and was never told is the one failure the app can actually see.
 
-**Implementation:** `https://wa.me/<E164>?text=…`. Numbers must be E.164 — validate on entry,
-and strip everything that is not a digit, not just the `+`. **No attachments anywhere**
+**Implementation:** `whatsapp://send?phone=<digits>&text=…`. Numbers must be E.164 —
+validate on entry, and strip everything that is not a digit, not just the `+`. `wa.me`
+remains only as a fallback if the scheme somehow finds nothing.
+
+**No WhatsApp, no message sheet.** Whether anything handles `whatsapp://` is also the test
+for whether the app is installed, and when it is not the sheet is never shown — composing a
+message somebody cannot send and putting a dead button under it wastes the one moment they
+were paying attention. The status move happens either way. The exception is the WhatsApp
+button in the app bar: an offer that arrives by itself can simply not arrive, but a button
+somebody pressed has to answer, so that one says WhatsApp is not installed. **No attachments anywhere**
 (D12): a deep link can pre-select the chat but cannot attach; an attachment intent can attach
 but cannot pre-select. Only one is available at a time.
 

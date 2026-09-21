@@ -340,19 +340,22 @@ String _paymentReceived(MessageContext c) {
 // ── the WhatsApp link ────────────────────────────────────────────────────
 
 /// `https://wa.me/919876543210?text=…` — WhatsApp's documented Click-to-Chat.
-/// It opens that exact chat with the text pre-filled, and takes no attachment.
+///
+/// The **fallback**, not the first choice. It works whether or not WhatsApp is
+/// installed, which sounds like a virtue and is not: without the app it opens
+/// a web page that asks the person to install one, which is a worse answer
+/// than the app saying nothing. [whatsappUri] goes straight to the chat.
 Uri waMeUri({required String phoneE164, required String text}) => Uri.parse(
       'https://wa.me/${waMeNumber(phoneE164)}'
       '?text=${Uri.encodeComponent(text)}',
     );
 
-/// WhatsApp's own scheme, for when the `https` link finds nothing.
+/// WhatsApp's own scheme. **The route the app takes.**
 ///
-/// `wa.me` is the documented route and is kept first, because it degrades
-/// gracefully: with WhatsApp missing it opens the web page rather than
-/// failing. This is the fallback for the case where the link resolves to
-/// nothing at all — and it goes straight to the app instead of through a
-/// browser.
+/// Straight to the chat, with no browser in between and no web page offering
+/// to install anything. Whether it resolves at all is also the test for
+/// whether WhatsApp is on the phone, which is what decides if a message is
+/// offered in the first place.
 Uri whatsappUri({required String phoneE164, required String text}) => Uri.parse(
       'whatsapp://send?phone=${waMeNumber(phoneE164)}'
       '&text=${Uri.encodeComponent(text)}',

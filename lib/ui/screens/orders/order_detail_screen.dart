@@ -1007,6 +1007,22 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
 /// that customer's chat. A `wa.me` link can pre-select the chat but cannot
 /// carry an attachment — which is exactly why the invoice is text.
 /// docs/00-overview/decisions.md D13.
+/// Whether WhatsApp is on this phone at all.
+///
+/// Answered by asking the system whether anything handles `whatsapp://`, which
+/// works because the manifest declares that scheme — without the declaration
+/// Android would say no to everything (see `<queries>`).
+///
+/// Not cached: installing WhatsApp mid-session is rare, and a remembered "no"
+/// that outlives the install is worse than one channel call per message.
+Future<bool> _hasWhatsApp() async {
+  try {
+    return await canLaunchUrl(Uri.parse('whatsapp://send'));
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<void> _offerMessage(
     BuildContext context, OrderView view, MessageKind kind,
     {Money? justPaid,
@@ -1021,6 +1037,12 @@ Future<void> _offerMessage(
       trackingUrl: trackingUrl,
       isUpdate: isUpdate);
   if (!context.mounted || !isOffered(kind, ctx)) return;
+
+  // No WhatsApp, no sheet. Composing a message somebody cannot send and then
+  // putting a dead button under it wastes the one moment they were paying
+  // attention. The status move has already happened either way.
+  if (!await _hasWhatsApp() || !context.mounted) return;
+
   final text = compose(kind, ctx);
 
   final send = await loafSheet<bool>(
@@ -1073,7 +1095,6 @@ Future<void> _offerMessage(
       ));
       return;
     }
-    final uri = waMeUri(phoneE164: view.customer.phoneE164, text: text);
     final messenger = ScaffoldMessenger.of(context);
 
     // Say so when it does not open. This returned false and told nobody, so
@@ -1082,9 +1103,10 @@ Future<void> _offerMessage(
     // generic sentence.
     var launched = false;
     for (final u in [
-      uri,
-      // If the https link resolves to nothing, try WhatsApp's own scheme.
+      // The scheme first: straight to the chat, no browser in between.
       whatsappUri(phoneE164: view.customer.phoneE164, text: text),
+      // wa.me only if that somehow finds nothing, despite the check above.
+      waMeUri(phoneE164: view.customer.phoneE164, text: text),
     ]) {
       try {
         launched = await launchUrl(u, mode: LaunchMode.externalApplication);
@@ -1113,8 +1135,20 @@ Future<void> _offerMessage(
 }
 
 Future<void> _messageSheet(BuildContext context, OrderView view) async {
+  final messenger = ScaffoldMessenger.of(context);
   final ctx = await _messageContext(context, view);
   if (!context.mounted) return;
+
+  // Asked for outright, so it gets an answer. An offer that arrives by itself
+  // can simply not arrive; a button somebody pressed cannot do nothing.
+  if (!await _hasWhatsApp()) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('WhatsApp is not installed on this phone.'),
+    ));
+    return;
+  }
+  if (!context.mounted) return;
+
   final kinds = MessageKind.values.where((k) => isOffered(k, ctx)).toList();
 
   await loafSheet<void>(
