@@ -45,6 +45,30 @@ android {
     }
 
     signingConfigs {
+        // Where the DEBUG key comes from, said out loud.
+        //
+        // By default the Android plugin looks for ~/.android/debug.keystore —
+        // except when ANDROID_SDK_HOME is set, when it looks under that
+        // instead, and generates a fresh random key if it finds nothing. On a
+        // CI runner that is exactly what happened: the workflow wrote the real
+        // keystore to $HOME/.android, Gradle looked elsewhere, made its own,
+        // and produced an APK signed bd400024… instead of 078c6665… — which
+        // Google has never been told about, so sign-in could not work.
+        //
+        // Pointing at a file in the project removes the guesswork. Absent, the
+        // default still applies, so a normal local build is unchanged.
+        val projectDebugKey = rootProject.file("debug.keystore")
+        if (projectDebugKey.exists()) {
+            getByName("debug") {
+                storeFile = projectDebugKey
+                // Not secrets: these are the values every Android debug
+                // keystore in the world uses.
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+
         if (hasReleaseKey) {
             create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")

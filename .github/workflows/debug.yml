@@ -156,9 +156,11 @@ jobs:
           fi
           echo "HAS_DEBUG_KEY=true" >> "$GITHUB_ENV"
 
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_B64" | base64 --decode > ~/.android/debug.keystore
-          keytool -list -v -keystore ~/.android/debug.keystore \
+          # android/debug.keystore, not ~/.android — the Gradle config points
+          # at the project file explicitly, because the default location moves
+          # with ANDROID_SDK_HOME and the runner sets it somewhere else.
+          echo "$DEBUG_KEYSTORE_B64" | base64 --decode > android/debug.keystore
+          keytool -list -v -keystore android/debug.keystore \
             -alias androiddebugkey -storepass android -keypass android \
             | grep 'SHA1:' || true
 
@@ -193,6 +195,12 @@ jobs:
       # Named for the version and nothing else. Every push to main moves it, so
       # the version already identifies the build — and it is the one thing you
       # can compare between two files sitting in a downloads folder.
+      # Nothing here is precious, but a key file left in a workspace is a key
+      # file left in a workspace.
+      - name: Shred the key
+        if: always()
+        run: rm -f android/debug.keystore
+
       - name: Name them
         id: stage
         env:
