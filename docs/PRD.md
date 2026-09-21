@@ -469,6 +469,10 @@ sending Friday's van off must not quote Sunday's link.
 pressed send, nor whether it was delivered or read. The log says *"Shared 7:12 pm"*, never
 "delivered ✓✓".
 
+**A confirmation that never went is flagged.** An order confirmed with no share recorded
+carries a **Not sent** chip on its card and is counted at the top of Orders — a customer who
+agreed to something and was never told is the one failure the app can actually see.
+
 **Implementation:** `https://wa.me/<E164>?text=…`. Numbers must be E.164 — validate on entry,
 and strip everything that is not a digit, not just the `+`. **No attachments anywhere**
 (D12): a deep link can pre-select the chat but cannot attach; an attachment intent can attach

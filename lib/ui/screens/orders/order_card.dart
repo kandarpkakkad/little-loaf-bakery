@@ -99,6 +99,11 @@ class OrderCard extends StatelessWidget {
                   _Chip('Balance ${money(t.balanceDue)}', (c.warn, c.warnSoft)),
                 if (view.paymentStatus == PaymentStatus.paid)
                   _Chip('Paid', (c.good, c.goodSoft)),
+                // Confirmed and never sent. Worth a chip rather than only a
+                // count at the top, because it is one order that needs doing
+                // something about, not a statistic.
+                if (!view.confirmationSent)
+                  _Chip('Not sent', (c.warn, c.warnSoft)),
                 if (view.requirementsChanged)
                   _Chip('Changed', (c.warn, c.warnSoft)),
                 for (final d in Dietary.labels(o.dietaryFlags))

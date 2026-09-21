@@ -15,6 +15,7 @@ class OrderView {
     required this.customer,
     required this.subOrders,
     required this.paid,
+    this.confirmationSent = true,
   });
 
   final Order order;
@@ -24,6 +25,14 @@ class OrderView {
   final List<SubOrder> subOrders;
 
   final Money paid;
+
+  /// Whether the confirmation was ever handed to WhatsApp.
+  ///
+  /// `share_log` recorded every message from the beginning and nothing read
+  /// it, so an order confirmed and never sent looked exactly like one the
+  /// customer had agreed to. Defaults true, because an order that has not
+  /// been confirmed has nothing to have sent.
+  final bool confirmationSent;
 
   /// Every item, across every journey, in the order they were added.
   List<OrderLine> get lines => [for (final s in subOrders) ...s.lines];
@@ -278,6 +287,24 @@ class OrderRepository {
   /// There is deliberately no direction switch. Every list in the app reads the
   /// same way, including the finished ones — the question is always "what is
   /// due next", never "what happened most recently".
+  /// Orders confirmed but never shared.
+  ///
+  /// `shared_at` is set when the message was handed to WhatsApp — not when it
+  /// was read, which the app cannot know (D13). A row with a null `shared_at`
+  /// is one somebody composed and backed out of.
+  Future<Set<String>> _unsentConfirmations() async {
+    final rows = await db.customSelect(
+      "SELECT o.id AS id FROM orders o "
+      "WHERE o.deleted_at IS NULL AND o.confirmed_at IS NOT NULL "
+      "AND o.status <> 'cancelled' AND NOT EXISTS ("
+      "  SELECT 1 FROM share_log s WHERE s.order_id = o.id "
+      "  AND s.kind = 'confirmation' AND s.shared_at IS NOT NULL "
+      "  AND s.deleted_at IS NULL)",
+      readsFrom: {db.orders, db.shareLog},
+    ).get();
+    return {for (final r in rows) r.read<String>('id')};
+  }
+
   Stream<List<OrderView>> watchOrders({
     Set<OrderStatus>? statuses,
     int? onDate,
@@ -300,6 +327,7 @@ class OrderRepository {
     // Same reason as watchOrder: the list shows totals, and totals come from
     // tables this query does not name.
     return _onOrderData().asyncMap((_) => q.get()).asyncMap((rows) async {
+      final unsent = await _unsentConfirmations();
       final result = <OrderView>[];
       for (final row in rows) {
         final o = row.readTable(db.orders);
@@ -308,6 +336,7 @@ class OrderRepository {
           customer: row.readTable(db.customers),
           subOrders: await _subOrdersOf(o.id, confirmed: o.confirmedAt != null),
           paid: await _paidOf(o.id),
+          confirmationSent: !unsent.contains(o.id),
         ));
       }
       result.sort(_byNextLine);
@@ -358,6 +387,7 @@ class OrderRepository {
           customer: row.readTable(db.customers),
           subOrders: await _subOrdersOf(o.id, confirmed: o.confirmedAt != null),
           paid: await _paidOf(o.id),
+          confirmationSent: !(await _unsentConfirmations()).contains(o.id),
         );
       });
 
@@ -377,6 +407,9 @@ class OrderRepository {
       db.subOrders,
       db.orderItems,
       db.orderItemAddons,
+      // A confirmation going out changes what the list has to say about the
+      // order, so the views have to be rebuilt when one is logged.
+      db.shareLog,
     ]));
   }
 

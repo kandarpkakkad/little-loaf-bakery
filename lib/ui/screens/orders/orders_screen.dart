@@ -197,6 +197,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
           final unconfirmed =
               live.where((o) => o.status == OrderStatus.created).length;
           final changed = live.where((o) => o.requirementsChanged).length;
+          // Confirmed, and the customer was never told. The share log has
+          // recorded this since the first release and nothing ever read it.
+          final unsent = live.where((o) => !o.confirmationSent).length;
 
           final alerts = <Widget>[
             if (context.app.sync.status.blocker == SyncBlocker.notConnected)
@@ -214,6 +217,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ? '1 order not confirmed yet'
                     : '$unconfirmed orders not confirmed yet',
                 icon: Icons.mark_chat_unread_outlined,
+              ),
+            if (unsent > 0)
+              LoafAlert(
+                unsent == 1
+                    ? '1 confirmed order never sent to the customer'
+                    : '$unsent confirmed orders never sent to the customer',
+                icon: Icons.send_outlined,
               ),
             if (changed > 0)
               LoafAlert(
