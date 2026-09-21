@@ -235,6 +235,7 @@ class _LineSheetState extends State<_LineSheet> {
   }
 
   Future<void> _pickDate() async {
+    dismissKeyboard(context);
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -262,6 +263,7 @@ class _LineSheetState extends State<_LineSheet> {
   }
 
   Future<void> _pickTime() async {
+    dismissKeyboard(context);
     final picked = await showTimePicker(
       context: context,
       initialTime: _time ?? const TimeOfDay(hour: 11, minute: 0),
@@ -277,6 +279,7 @@ class _LineSheetState extends State<_LineSheet> {
   }
 
   Future<void> _pickAddress() async {
+    dismissKeyboard(context);
     final id = widget.customerId;
     final AddressDraft? picked;
     if (id == null) {
@@ -305,6 +308,7 @@ class _LineSheetState extends State<_LineSheet> {
       _addons.fold(Money.zero, (a, x) => a + x.price);
 
   Future<void> _addAddon() async {
+    dismissKeyboard(context);
     final nameC = TextEditingController();
     final priceC = TextEditingController();
     final added = await showDialog<bool>(

@@ -71,6 +71,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Future<void> _chooseCustomer() async {
+    dismissKeyboard(context);
     final picked = await pickCustomer(context);
     if (picked == null || !mounted) return;
     setState(() {
@@ -258,6 +259,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             SectionLabel('Items',
                 trailing: TextButton.icon(
                   onPressed: () async {
+                    dismissKeyboard(context);
                     final line = await editLine(
                       context,
                       // a new line starts as a copy of the one above
@@ -286,8 +288,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       _LineTile(
                         line: _lines[i],
                         onEdit: () async {
-                          final edited =
-                              await editLine(
+                          dismissKeyboard(context);
+                          final edited = await editLine(
                                 context,
                                 existing: _lines[i],
                                 // Every *other* item, so this one can be moved

@@ -78,6 +78,17 @@ class LoafField extends StatelessWidget {
       );
 }
 
+/// Drops focus before opening a picker.
+///
+/// A button tapped while a text field has focus leaves that focus exactly
+/// where it was, and Flutter hands it straight back when the picker's route
+/// pops. So choosing a delivery date threw you back into whatever you had
+/// typed last, keyboard up and the form scrolled to it.
+///
+/// Call it before pushing any route from inside a form.
+void dismissKeyboard(BuildContext context) =>
+    FocusScope.of(context).unfocus();
+
 /// Owns [controllers] for as long as [child] is mounted, disposing them when
 /// it unmounts.
 ///
