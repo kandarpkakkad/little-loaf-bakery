@@ -130,9 +130,8 @@ Future<void> _edit(BuildContext context, MenuItem? existing) async {
       text: existing == null ? '' : '${existing.leadDays}');
   final formKey = GlobalKey<FormState>();
 
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final saved = await loafSheet<bool>(
+    context,
     builder: (sheetContext) => ControllerHost(
       controllers: [name, lead],
       child: StatefulBuilder(

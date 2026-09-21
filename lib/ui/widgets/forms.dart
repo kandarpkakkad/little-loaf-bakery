@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../common/money.dart';
 import '../../common/phone.dart';
+import '../theme/breakpoints.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 
@@ -76,6 +77,47 @@ class LoafField extends StatelessWidget {
                   : null),
         ),
       );
+}
+
+/// Names the dialog's own box, so its width can be asserted rather than eyed.
+const Key kLoafDialog = Key('loaf-dialog');
+
+/// A sheet on a phone, a centred dialog on anything wider.
+///
+/// A bottom sheet is a phone shape: it comes up from the thumb and spans the
+/// width because the width is small. On a tablet the same call produced a slab
+/// across 1,200 logical pixels with a form column stranded in the middle of
+/// it, and the content the person came for sat as far from their eyes as the
+/// layout could manage.
+///
+/// Every sheet in the app already scrolls internally, so constraining the
+/// height here cannot clip one.
+Future<T?> loafSheet<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) {
+  if (context.window.isCompact) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      builder: builder,
+    );
+  }
+  return showDialog<T>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      clipBehavior: Clip.antiAlias,
+      insetPadding: const EdgeInsets.all(Space.xl),
+      child: ConstrainedBox(
+        key: kLoafDialog,
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.9,
+        ),
+        child: builder(dialogContext),
+      ),
+    ),
+  );
 }
 
 /// Drops focus before opening a picker.

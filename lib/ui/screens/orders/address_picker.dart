@@ -48,9 +48,8 @@ class AddressDraft {
 /// Add or edit one address. Returns null if the sheet was dismissed.
 Future<AddressDraft?> editAddress(BuildContext context,
         {AddressDraft? existing}) =>
-    showModalBottomSheet<AddressDraft>(
-      context: context,
-      isScrollControlled: true,
+    loafSheet<AddressDraft>(
+      context,
       builder: (_) => _AddressSheet(existing: existing),
     );
 
@@ -238,9 +237,8 @@ Future<AddressDraft?> pickAddress(
   if (!context.mounted) return null;
   if (saved.isEmpty) return editAddress(context);
 
-  return showModalBottomSheet<AddressDraft>(
-    context: context,
-    isScrollControlled: true,
+  return loafSheet<AddressDraft>(
+    context,
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(Space.lg),

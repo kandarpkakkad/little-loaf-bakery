@@ -993,9 +993,8 @@ Future<void> _offerMessage(
   if (!context.mounted || !isOffered(kind, ctx)) return;
   final text = compose(kind, ctx);
 
-  final send = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final send = await loafSheet<bool>(
+    context,
     builder: (sheetContext) => Padding(
       padding: const EdgeInsets.all(Space.lg),
       child: Column(
@@ -1081,8 +1080,8 @@ Future<void> _messageSheet(BuildContext context, OrderView view) async {
   if (!context.mounted) return;
   final kinds = MessageKind.values.where((k) => isOffered(k, ctx)).toList();
 
-  await showModalBottomSheet<void>(
-    context: context,
+  await loafSheet<void>(
+    context,
     builder: (sheetContext) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

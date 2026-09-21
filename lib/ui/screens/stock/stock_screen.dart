@@ -142,9 +142,8 @@ Future<void> _addStock(BuildContext context, StockLevel level) async {
   var useLastPrice = false;
   final rate = level.lastRate;
 
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final saved = await loafSheet<bool>(
+    context,
     builder: (sheetContext) => ControllerHost(
       controllers: [qty, amount],
       child: StatefulBuilder(

@@ -107,8 +107,8 @@ class _SyncScreenState extends State<SyncScreen> {
       return;
     }
 
-    final picked = await showModalBottomSheet<SnapshotChoice>(
-      context: context,
+    final picked = await loafSheet<SnapshotChoice>(
+      context,
       builder: (sheet) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

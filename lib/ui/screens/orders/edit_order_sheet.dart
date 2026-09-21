@@ -20,9 +20,8 @@ import '../../widgets/forms.dart';
 /// The **items** themselves are edited from the order screen, one at a time,
 /// so the kitchen's copy cannot be rewritten wholesale under it.
 Future<bool> editOrder(BuildContext context, Order order) async {
-  final result = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final result = await loafSheet<bool>(
+    context,
     builder: (_) => _EditOrderSheet(order: order),
   );
   return result ?? false;

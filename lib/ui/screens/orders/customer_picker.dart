@@ -6,15 +6,15 @@ import '../../../platform/storage/database.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/primitives.dart';
+import '../../widgets/forms.dart';
 
 /// Search the people who have ordered before, by name or number.
 ///
 /// The order form can still type a new customer straight in — this is the
 /// shortcut for the ones already known, not a gate in front of them.
 Future<Customer?> pickCustomer(BuildContext context) =>
-    showModalBottomSheet<Customer>(
-      context: context,
-      isScrollControlled: true,
+    loafSheet<Customer>(
+      context,
       builder: (_) => const _CustomerSheet(),
     );
 

@@ -142,9 +142,8 @@ Future<void> _edit(BuildContext context, RawMaterial? existing) async {
   var category = existing?.category ?? 'raw';
   final formKey = GlobalKey<FormState>();
 
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final saved = await loafSheet<bool>(
+    context,
     builder: (sheetContext) => ControllerHost(
       controllers: [name, threshold, opening, openingCost],
       child: StatefulBuilder(

@@ -465,8 +465,8 @@ class _MonthBar extends StatelessWidget {
       months.add(m);
     }
 
-    final picked = await showModalBottomSheet<DateTime>(
-      context: context,
+    final picked = await loafSheet<DateTime>(
+      context,
       builder: (sheet) => SafeArea(
         child: ListView(
           shrinkWrap: true,

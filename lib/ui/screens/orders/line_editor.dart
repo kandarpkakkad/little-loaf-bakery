@@ -44,9 +44,8 @@ Future<DraftLine?> editLine(
     ));
     return null;
   }
-  return showModalBottomSheet<DraftLine>(
-    context: context,
-    isScrollControlled: true,
+  return loafSheet<DraftLine>(
+    context,
     builder: (_) => _LineSheet(
       menu: items,
       existing: existing,

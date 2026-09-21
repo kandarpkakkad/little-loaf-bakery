@@ -184,9 +184,8 @@ Future<void> editCustomer(BuildContext context, Customer customer) async {
   final notes = TextEditingController(text: customer.notes ?? '');
   final formKey = GlobalKey<FormState>();
 
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
+  final saved = await loafSheet<bool>(
+    context,
     builder: (sheetContext) => ControllerHost(
       controllers: [name, phone, allergy, notes],
       child: Padding(
