@@ -247,6 +247,11 @@ debug APK; documentation-only pushes build nothing.
 > runner generates one per build, and Android OAuth clients are matched on package name **and**
 > signing certificate SHA-1. Test Drive on a locally built debug APK, or on a release build.
 
+> **A debug build is a different bakery.** It installs alongside the real app as *Little Loaf
+> debug* with its own database, and syncs to its own Drive folder, `Little Loaf Bakery
+> (debug)`. Testing cannot reach the bakery's orders, and the sync screen names the folder in
+> use. Its package name is `…little_loaf.debug`, so it needs its own OAuth client.
+
 ### 4.7 What this costs
 
 | Given up | Because | Mitigation |

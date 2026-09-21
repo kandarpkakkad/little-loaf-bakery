@@ -34,8 +34,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.littleloaf.little_loaf"
+        manifestPlaceholders["appLabel"] = "Little Loaf"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
@@ -56,6 +56,24 @@ android {
     }
 
     buildTypes {
+        debug {
+            // A separate app, not the same one in a different mood.
+            //
+            // Without this, debug and release share an applicationId, which
+            // means they share the app-private database: installing one
+            // replaces the other and inherits its data, so "just try it on the
+            // debug build" quietly runs against the bakery's real orders and
+            // can migrate them. With it they install side by side and cannot
+            // touch each other's storage.
+            //
+            // The package name is part of what identifies an Android OAuth
+            // client, so this needs its own client registered against
+            // com.littleloaf.little_loaf.debug and the debug signing SHA-1.
+            // See docs/01-platform/sync/lld.md.
+            applicationIdSuffix = ".debug"
+            manifestPlaceholders["appLabel"] = "Little Loaf debug"
+        }
+
         release {
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")

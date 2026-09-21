@@ -140,3 +140,43 @@ arrival order.
 - **Field-level LWW:** two devices edit different fields of one order; both survive.
 - **Backwards status** lands in the conflict log, not silently.
 - **The 30-day rule:** a peer goes silent, compaction proceeds, the peer returns and restores.
+
+## A debug build is a different bakery
+
+Two separations, and both are needed — either alone leaks.
+
+| | Release | Debug |
+|---|---|---|
+| Drive root | `Little Loaf Bakery` | `Little Loaf Bakery (debug)` |
+| `applicationId` | `com.littleloaf.little_loaf` | `…little_loaf.debug` |
+| Launcher name | Little Loaf | Little Loaf debug |
+
+**The folder alone is not enough.** Debug and release shared an
+`applicationId`, which means they shared the app-private database: installing
+one replaced the other and inherited its data, so "just try it on the debug
+build" ran against the bakery's real orders and could migrate them. The suffix
+makes them separate apps that install side by side and cannot touch each
+other's storage.
+
+**The database alone is not enough either**, or a debug device would sync its
+test orders straight into the real journal.
+
+`kDebugMode` decides the folder, not a `--dart-define`: a flag that has to be
+passed is a flag somebody forgets on the one build that mattered.
+
+**This needs a Cloud console step.** An Android OAuth client is identified by
+package name *and* signing certificate, so the debug app needs its own client
+registered against `com.littleloaf.little_loaf.debug` and the **local** debug
+keystore's SHA-1:
+
+```
+keytool -list -v -keystore ~/.android/debug.keystore \
+        -alias androiddebugkey -storepass android -keypass android
+```
+
+A CI-built debug APK still cannot sign in at all — the runner generates a
+throwaway keystore per build, so its certificate is one Google has never seen.
+Build debug locally when testing Drive.
+
+The sync screen shows which folder the running build uses, so the question
+"where did my orders go" has an answer on the screen rather than in a commit.

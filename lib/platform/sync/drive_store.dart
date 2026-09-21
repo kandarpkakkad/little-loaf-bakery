@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
 
@@ -30,7 +31,18 @@ class DriveStore implements RemoteStore {
 
   final drive.DriveApi _api;
 
-  static const rootFolderName = 'Little Loaf Bakery';
+  /// The folder everything lives under — **a different one in a debug build**.
+  ///
+  /// A debug APK is for trying things on, and trying things on the bakery's
+  /// real journal is how a test order ends up in a real month's takings or a
+  /// half-finished migration reaches the other phone. Debug writes to its own
+  /// folder, syncs with nothing, and can be deleted wholesale.
+  ///
+  /// `kDebugMode` rather than a `--dart-define`, because a flag that has to be
+  /// passed is a flag somebody forgets on the one build that mattered. A
+  /// profile build counts as release here; nothing uses one.
+  static const rootFolderName =
+      kDebugMode ? 'Little Loaf Bakery (debug)' : 'Little Loaf Bakery';
   static const _journalFolder = 'journal';
   static const _snapshotFolder = 'snapshot';
   static const _ownerFile = 'owner.json';

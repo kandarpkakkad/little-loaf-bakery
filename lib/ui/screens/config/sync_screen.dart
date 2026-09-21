@@ -11,6 +11,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/primitives.dart';
+import '../../../platform/sync/drive_store.dart';
 
 /// Connect Drive, see what is waiting, sync by hand.
 ///
@@ -268,6 +269,10 @@ class _SyncScreenState extends State<SyncScreen> {
                 ),
                 _Fact('This device', context.app.deviceId),
                 _Fact('Version', '$kAppVersion ($kAppBuild)'),
+                // Which folder this build writes to. A debug build has its own
+                // and syncs with nothing — worth saying out loud on the screen
+                // somebody checks when they wonder where their orders went.
+                _Fact('Drive folder', DriveStore.rootFolderName),
 
                 const SizedBox(height: Space.xl),
                 Text(
