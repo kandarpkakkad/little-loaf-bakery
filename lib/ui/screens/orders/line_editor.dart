@@ -5,6 +5,7 @@ import '../../../app/scope.dart';
 import '../../../common/money.dart';
 import '../../../domain/orders/model.dart';
 import '../../../domain/orders/repository.dart';
+import '../../../domain/reminders/model.dart';
 import '../../../platform/storage/database.dart';
 import '../../theme/format.dart';
 import '../../theme/theme.dart';
@@ -113,6 +114,24 @@ class _LineSheetState extends State<_LineSheet> {
     FocusScope.of(context).unfocus();
   }
   late String? _menuItemId = widget.existing?.menuItemId;
+
+  /// Days of notice the chosen item needs. Zero when nothing is chosen yet,
+  /// or when the bakery has said it needs none.
+  int get _leadDays =>
+      widget.menu
+          .where((m) => m.id == _menuItemId)
+          .map((m) => m.leadDays)
+          .firstOrNull ??
+      0;
+
+  /// True when the date promised is sooner than that notice. A warning, never
+  /// a refusal — a bakery that wants to try can try.
+  bool get _isRush =>
+      _date != null &&
+      isRush(
+        DateTime(_date!.year, _date!.month, _date!.day).millisecondsSinceEpoch,
+        _leadDays,
+      );
 
   // ── the line's own schedule (D25) ──
   /// Where the schedule starts from: this line's own values when editing, and
@@ -265,7 +284,8 @@ class _LineSheetState extends State<_LineSheet> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date ?? now.add(const Duration(days: 1)),
+      initialDate: _date ??
+          DateTime.fromMillisecondsSinceEpoch(soonestFor(_leadDays)),
       // Today at the earliest. Nothing is scheduled into the past.
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 365)),
@@ -451,8 +471,17 @@ class _LineSheetState extends State<_LineSheet> {
                         child: Text(m.name),
                       ),
                   ],
-                  onChanged:
-                      _locked ? null : (v) => setState(() => _menuItemId = v),
+                  onChanged: _locked
+                      ? null
+                      : (v) => setState(() {
+                            _menuItemId = v;
+                            // An untouched date follows the notice the item
+                            // needs, so the common case is right without
+                            // anybody counting days on their fingers. A date
+                            // already chosen is left alone — it was chosen.
+                            _date ??= DateTime.fromMillisecondsSinceEpoch(
+                                soonestFor(_leadDays));
+                          }),
                   validator: (v) => v == null ? 'Required' : null,
                 ),
               ),
@@ -680,6 +709,24 @@ class _LineSheetState extends State<_LineSheet> {
                   ),
                 ],
               ),
+              if (_isRush)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.sm),
+                  child: Row(
+                    children: [
+                      Icon(Icons.bolt, size: 14, color: c.warn),
+                      const SizedBox(width: Space.xs),
+                      Expanded(
+                        child: Text(
+                          'Rush: this normally needs $_leadDays '
+                          '${_leadDays == 1 ? "day" : "days"} notice.',
+                          style: context.text.bodySmall!
+                              .copyWith(color: c.warn),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: Space.md),
               SegmentedButton<Fulfilment>(
                 segments: const [

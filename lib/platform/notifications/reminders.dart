@@ -5,6 +5,8 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../domain/orders/model.dart';
+import '../../domain/menu/repository.dart';
+import '../storage/database.dart';
 import '../../domain/orders/repository.dart';
 import '../../domain/stock/model.dart';
 import '../../domain/stock/repository.dart';
@@ -39,12 +41,14 @@ class ReminderService {
   bool _ready = false;
   StreamSubscription<List<OrderView>>? _watchingOrders;
   StreamSubscription<List<StockLevel>>? _watchingStock;
+  StreamSubscription<List<MenuItem>>? _watchingMenu;
   Timer? _debounce;
 
   // The last seen value of each side, so a change to either can rebuild the
   // whole schedule without re-reading the other.
   List<OrderView> _orders = const [];
   List<String> _low = const [];
+  Map<String, int> _leads = const {};
 
   /// Sets up the plugin and asks for permission. Safe to call more than once.
   ///
@@ -96,12 +100,21 @@ class ReminderService {
   /// Watching the order stream covers **every** way a journey can change:
   /// somebody edits it here, or a peer's edit arrives over sync and lands in
   /// the same database. One hook, no chance of missing a path.
-  void follow(OrderRepository orders, StockRepository stock) {
+  void follow(
+      OrderRepository orders, StockRepository stock, MenuRepository menu) {
     _watchingOrders?.cancel();
     _watchingStock?.cancel();
+    _watchingMenu?.cancel();
 
     _watchingOrders = orders.watchOrders().listen((views) {
       _orders = views;
+      _rebuildSoon();
+    });
+
+    // Notice needed decides which morning a thing has to be started on, so
+    // editing a menu item's lead time moves a reminder.
+    _watchingMenu = menu.watchAll().listen((items) {
+      _leads = {for (final m in items) m.id: m.leadDays};
       _rebuildSoon();
     });
 
@@ -128,6 +141,7 @@ class ReminderService {
     _debounce?.cancel();
     await _watchingOrders?.cancel();
     await _watchingStock?.cancel();
+    await _watchingMenu?.cancel();
   }
 
   /// Rebuilds the whole schedule: cancel everything, then lay it out again.
@@ -157,7 +171,8 @@ class ReminderService {
 
       // One per morning that has work on it, across every order — plus what
       // needs buying, on the next morning only.
-      for (final r in morningDigests(journeys, lowStock: _low)) {
+      for (final r in morningDigests(journeys,
+          leadDays: _leads, lowStock: _low)) {
         await _schedule(id++, r);
       }
     } catch (_) {

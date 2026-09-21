@@ -265,7 +265,10 @@ debug APK; documentation-only pushes build nothing.
 same thing is always called the same thing — which is what makes "sales by product" a real
 number rather than a spelling survey.
 
-- **Menu item:** name, lead time in days, active. The item *is* the category (D16).
+- **Menu item:** name, **notice needed** in days, active. The item *is* the
+  category (D16). The notice does three things: it seeds the delivery date when
+  an item is chosen, it warns — never refuses — when a date is sooner than it,
+  and it puts the item on the morning digest of the day work has to begin.
 - **No price, no flavour list.** Both are decided per item (§6.3).
 - **No seasonality.** It was removed: a bakery that makes a thing makes it.
 - Maintained under **More › Menu items**.
@@ -504,7 +507,7 @@ and survives the app being closed or the phone rebooting.
 
 | When | Covers | Why |
 |---|---|---|
-| **6 am**, on any day with work or shopping | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
+| **6 am**, on any day with work, something to start, or shopping | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
 | **30 minutes before** a journey's time | one journey | Leave now. If that mark has already gone — a rush order, or one that arrived on a sync after it — **it fires at once and says how long is really left** |
 | **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
 

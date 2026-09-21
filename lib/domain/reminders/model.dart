@@ -148,6 +148,22 @@ List<Reminder> remindersFor(
   ];
 }
 
+/// The soonest a thing needing [leadDays] notice can be promised.
+///
+/// Midnight, so it compares with a journey's own date. Zero notice means
+/// today — a bakery that has it on the shelf can hand it over now.
+int soonestFor(int leadDays, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  return DateTime(n.year, n.month, n.day + leadDays).millisecondsSinceEpoch;
+}
+
+/// Whether a date is sooner than the notice its items need.
+///
+/// A warning, never a refusal: a bakery that wants to try can try, and the app
+/// saying no to a customer standing in front of somebody is not its place.
+bool isRush(int deliveryDate, int leadDays, {DateTime? now}) =>
+    deliveryDate < soonestFor(leadDays, now: now);
+
 /// One notification per day, at six, for every day that has work on it.
 ///
 /// Scheduled rather than repeating: a daily repeat would fire on quiet days
@@ -158,10 +174,26 @@ List<Reminder> remindersFor(
 /// Tapping it opens the Kitchen, which is the screen the day is worked from.
 List<Reminder> morningDigests(
   Iterable<SubOrder> journeys, {
+  /// menu item id → days of notice it needs. Anything with none is left out:
+  /// "start the buns today" on the morning they are due says nothing.
+  Map<String, int> leadDays = const {},
   List<String> lowStock = const [],
   DateTime? now,
 }) {
   final at = now ?? DateTime.now();
+
+  // What has to go in the oven on a given morning to be ready on time.
+  final startOn = <int, Set<String>>{};
+  for (final j in journeys) {
+    if (j.status.isDone) continue;
+    for (final l in j.liveLines) {
+      final lead = leadDays[l.menuItemId] ?? 0;
+      if (lead <= 0) continue;
+      final d = DateTime.fromMillisecondsSinceEpoch(j.deliveryDate);
+      final day = DateTime(d.year, d.month, d.day - lead).millisecondsSinceEpoch;
+      (startOn[day] ??= <String>{}).add(l.itemName);
+    }
+  }
 
   final byDay = <int, List<SubOrder>>{};
   for (final j in journeys) {
@@ -170,12 +202,28 @@ List<Reminder> morningDigests(
   }
 
   final out = <Reminder>[];
-  for (final entry in byDay.entries) {
-    final d = DateTime.fromMillisecondsSinceEpoch(entry.key);
+  for (final day in {...byDay.keys, ...startOn.keys}) {
+    final d = DateTime.fromMillisecondsSinceEpoch(day);
     final fireAt = DateTime(d.year, d.month, d.day, kMorningHour);
     if (!fireAt.isAfter(at)) continue;
 
-    final all = entry.value;
+    final toStart = startOn[day] ?? const <String>{};
+    final all = byDay[day] ?? const <SubOrder>[];
+
+    // A morning with nothing going out but something to begin is still a
+    // morning worth speaking on — it is the whole point of a lead time.
+    if (all.isEmpty) {
+      out.add(Reminder(
+        subOrderId: kDigestPayload,
+        slot: ReminderSlot.morning,
+        at: fireAt,
+        title: toStart.length == 1
+            ? 'Start one thing today'
+            : 'Start ${toStart.length} things today',
+        body: toStart.join(', '),
+      ));
+      continue;
+    }
     final pickups = all.where((j) => j.isPickup).length;
     final deliveries = all.length - pickups;
 
@@ -201,6 +249,7 @@ List<Reminder> morningDigests(
           'first at ${_clock(DateTime(d.year, d.month, d.day).add(Duration(minutes: times.first)))}'
         else
           'no set times',
+        if (toStart.isNotEmpty) 'start ${toStart.join(', ')}',
       ].join(' · '),
     ));
   }

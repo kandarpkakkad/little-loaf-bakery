@@ -111,10 +111,6 @@ class OrderView {
   bool hasDueBetween(int from, int to) =>
       subOrdersDueBetween(from, to).isNotEmpty;
 
-  /// An outstanding journey whose day has already passed.
-  bool hasOverdueBefore(int day) =>
-      subOrders.any((s) => !s.status.isDone && s.deliveryDate < day);
-
   /// True when every journey is collected rather than delivered — the wording
   /// case. A mixed order is described as a delivery, because part of it is.
   bool get isPickup =>
