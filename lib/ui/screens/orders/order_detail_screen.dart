@@ -68,6 +68,278 @@ class _Detail extends StatelessWidget {
     final isPickup = o.fulfilment == 'pickup';
     final next = allowedNext(view.status);
 
+    // Two columns when there is room AND this is the whole screen. Embedded in
+    // the Orders two-pane it is already half a tablet, and splitting that
+    // again gives two columns too narrow to read either.
+    final wide = !context.window.isCompact && !embedded;
+    final detailPane = <Widget>[
+      if (view.requirementsChanged)
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: LoafAlert(
+            'Requirements changed after confirming',
+            icon: Icons.flag_outlined,
+            action: 'Seen',
+            onAction: () => context.app.orders.acknowledgeRequirements(o.id),
+          ),
+        ),
+
+      _StatusRow(view: view),
+
+      const SectionLabel('Customer'),
+      LoafCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(view.customer.name, style: context.text.titleMedium),
+            const SizedBox(height: 2),
+            InkWell(
+              onTap: () => _dial(view.customer.phoneE164),
+              child: Text(Phone.parse(view.customer.phoneE164).pretty,
+                  style: context.text.bodyMedium!.copyWith(color: c.accent2)),
+            ),
+
+          ],
+        ),
+      ),
+
+      // Grouped into the journeys they travel on (D28). An order of a
+      // cake on Friday and a box on Sunday is two trips, and reading it as
+      // one flat list left no way to see which was which — or to say the
+      // Friday van had left.
+      for (final sub in view.subOrders) ...[
+        SectionLabel(
+          view.subOrders.length == 1
+              ? 'Items'
+              : (sub.isPickup ? 'Pickup' : 'Delivery'),
+          trailing: view.subOrders.length == 1
+              ? null
+              : Micro(sub.reference(o.orderNo)),
+        ),
+        LoafCard(
+          child: Column(
+            children: [
+              // When and where this lot goes, said once for all of it
+              // rather than repeated on every item.
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.sm),
+                child: Row(
+                  children: [
+                    Icon(Icons.event, size: 14, color: c.ink3),
+                    const SizedBox(width: Space.xs),
+                    Expanded(
+                      child: Micro([
+                        dayLabel(sub.deliveryDate),
+                        timeLabel(sub.deliveryTime),
+                        if (sub.addressText != null) sub.addressText!,
+                      ].join(' · ')),
+                    ),
+                    _SubChip(status: sub.status, isPickup: sub.isPickup),
+                  ],
+                ),
+              ),
+              // Shown for as long as it stays true. An hour's notification
+              // is easy to miss and impossible to come back to; a line on
+              // the journey itself is still there when you next look.
+              if (isLate(sub)) const _LateStrip(),
+              // The courier link belongs to this trip. A pickup has none,
+              // and a two-journey order has two.
+              if (!sub.isPickup)
+                _Fact('Tracking', sub.trackingUrl ?? 'Not added',
+                    onTap: () async {
+                  final url = await promptText(context,
+                      title: 'Tracking link',
+                      initial: sub.trackingUrl,
+                      hint: 'https://…',
+                      keyboardType: TextInputType.url);
+                  if (url != null && context.mounted) {
+                    await context.app.orders.setTrackingUrl(sub.id, url);
+                  }
+                }),
+            for (final l in sub.lines) ...[
+              InkWell(
+                onTap: () => _editItem(context, view, l),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                '${l.itemName}${l.qty > 1 ? '  × ${l.qty}' : ''}',
+                                style: context.text.bodyLarge!.copyWith(
+                                  decoration:
+                                      l.status == LineStatus.cancelled
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                  color: l.status == LineStatus.cancelled
+                                      ? c.ink3
+                                      : null,
+                                )),
+                            if ([l.flavour, l.weight].any((x) => x != null))
+                              Micro([
+                                if (l.flavour != null) l.flavour!,
+                                if (l.weight != null) l.weight!.label,
+                              ].join(' · ')),
+                            for (final a in l.addons)
+                              Micro('+ ${a.name}  ${money(a.price) ?? ''}'),
+                            if (l.itemMessage != null)
+                              Micro('Piped: "${l.itemMessage!}"'),
+                            if (l.requirements != null)
+                              Micro(l.requirements!),
+                            if (l.dietaryFlags != 0)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: Space.xs),
+                                child: Wrap(
+                                  spacing: Space.sm,
+                                  children: [
+                                    for (final d
+                                        in dietaryLabels(l.dietaryFlags))
+                                      Chip(
+                                        label: Text(d),
+                                        visualDensity:
+                                            VisualDensity.compact,
+                                        backgroundColor: c.goodSoft,
+                                        side: BorderSide.none,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            if (l.note != null) Micro('Note: ${l.note!}'),
+                            // Each item says when it goes and where it is
+                            // in its own life -- the whole point of D25 is
+                            // that these differ within one order.
+                            Padding(
+                              padding: const EdgeInsets.only(top: Space.xs),
+                              child: Wrap(
+                                spacing: Space.sm,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  // No date here: the journey above says
+                                  // when and where this lot goes, and
+                                  // repeating it per item was three copies
+                                  // of one fact.
+                                  _LineChip(status: l.status),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(money(l.total, showZero: true)!,
+                              style: context.text.bodyLarge),
+                          LineNextStep(view: view, line: l),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (l != sub.lines.last) Divider(color: c.ruleSoft),
+            ],
+
+            // The journey's own move: loading the van, and saying it
+            // arrived. Offered only once everything on it is ready.
+            Align(
+              alignment: Alignment.centerRight,
+              child: SubOrderNextStep(view: view, sub: sub),
+            ),
+          ],
+        ),
+      ),
+    ],
+
+    LoafCard(
+      child: Column(
+        children: [
+            // Adding to a live order is an edit, not a new order -- the
+            // customer rang back, they did not place a second one.
+            if (view.status != OrderStatus.completed && !view.isCancelled)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _addItem(context, view),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add item'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+    // `money` is the formatter; this needed its own name.
+    final moneyPane = <Widget>[
+      const SectionLabel('Money'),
+      LoafCard(
+        child: Column(
+          children: [
+            MoneyRow('Subtotal', t.subtotal),
+            MoneyRow('Discount', -t.discount),
+            MoneyRow('Delivery', t.deliveryCharge),
+            MoneyRow('Total', t.total, strong: true, showZero: true),
+            MoneyRow('Paid', t.paid),
+            if (t.hasBalance)
+              MoneyRow('Balance due', t.balanceDue, strong: true),
+            const SizedBox(height: Space.sm),
+            // No delivery charge button here. A charge belongs to a
+            // journey, not to an order (D28) — this one wrote
+            // `orders.delivery_charge`, which `_refreshOrderCache`
+            // recomputes from the journeys and no view reads. It is set on
+            // the item, in the line editor.
+            Row(
+              children: [
+                if (t.hasBalance)
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => _recordPayment(context, view),
+                      child: const Text('Record payment'),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+
+      // What the Paid line is made of. A total with nothing behind it is
+      // no help when it is wrong, and until there was a list here a
+      // mistyped amount could not even be found, let alone corrected.
+      _Payments(orderId: o.id),
+
+      const SectionLabel('Move to'),
+      if (next.isEmpty)
+        LoafCard(
+          child: Text('${view.statusLabel} — nothing further.',
+              style: context.text.bodyMedium!.copyWith(color: c.ink3)),
+        )
+      else
+        Wrap(
+          spacing: Space.sm,
+          runSpacing: Space.sm,
+          children: [
+            for (final s in next)
+              s == OrderStatus.cancelled
+                  ? OutlinedButton.icon(
+                      onPressed: () => _cancel(context, o.id),
+                      icon: const Icon(Icons.block, size: 16),
+                      style: OutlinedButton.styleFrom(foregroundColor: c.bad),
+                      label: const Text('Cancel'),
+                    )
+                  : FilledButton(
+                      onPressed: () => _move(context, view, s),
+                      child: Text(s.actionFor(isPickup: isPickup)),
+                    ),
+          ],
+        ),
+    ];
+
     return Scaffold(
       backgroundColor: c.paper,
       appBar: AppBar(
@@ -90,275 +362,33 @@ class _Detail extends StatelessWidget {
         ],
       ),
       body: ContentWidth(
-        max: 760,
-        child: ListView(
-        padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xxl),
-        children: [
-          if (view.requirementsChanged)
-            Padding(
-              padding: const EdgeInsets.only(bottom: Space.md),
-              child: LoafAlert(
-                'Requirements changed after confirming',
-                icon: Icons.flag_outlined,
-                action: 'Seen',
-                onAction: () => context.app.orders.acknowledgeRequirements(o.id),
-              ),
-            ),
-
-          _StatusRow(view: view),
-
-          const SectionLabel('Customer'),
-          LoafCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(view.customer.name, style: context.text.titleMedium),
-                const SizedBox(height: 2),
-                InkWell(
-                  onTap: () => _dial(view.customer.phoneE164),
-                  child: Text(Phone.parse(view.customer.phoneE164).pretty,
-                      style: context.text.bodyMedium!.copyWith(color: c.accent2)),
-                ),
-
-              ],
-            ),
-          ),
-
-          // Grouped into the journeys they travel on (D28). An order of a
-          // cake on Friday and a box on Sunday is two trips, and reading it as
-          // one flat list left no way to see which was which — or to say the
-          // Friday van had left.
-          for (final sub in view.subOrders) ...[
-            SectionLabel(
-              view.subOrders.length == 1
-                  ? 'Items'
-                  : (sub.isPickup ? 'Pickup' : 'Delivery'),
-              trailing: view.subOrders.length == 1
-                  ? null
-                  : Micro(sub.reference(o.orderNo)),
-            ),
-            LoafCard(
-              child: Column(
+        max: wide ? 1200 : 760,
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // When and where this lot goes, said once for all of it
-                  // rather than repeated on every item.
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Space.sm),
-                    child: Row(
-                      children: [
-                        Icon(Icons.event, size: 14, color: c.ink3),
-                        const SizedBox(width: Space.xs),
-                        Expanded(
-                          child: Micro([
-                            dayLabel(sub.deliveryDate),
-                            timeLabel(sub.deliveryTime),
-                            if (sub.addressText != null) sub.addressText!,
-                          ].join(' · ')),
-                        ),
-                        _SubChip(status: sub.status, isPickup: sub.isPickup),
-                      ],
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.lg, Space.sm, Space.md, Space.xxl),
+                      children: detailPane,
                     ),
                   ),
-                  // Shown for as long as it stays true. An hour's notification
-                  // is easy to miss and impossible to come back to; a line on
-                  // the journey itself is still there when you next look.
-                  if (isLate(sub)) const _LateStrip(),
-                  // The courier link belongs to this trip. A pickup has none,
-                  // and a two-journey order has two.
-                  if (!sub.isPickup)
-                    _Fact('Tracking', sub.trackingUrl ?? 'Not added',
-                        onTap: () async {
-                      final url = await promptText(context,
-                          title: 'Tracking link',
-                          initial: sub.trackingUrl,
-                          hint: 'https://…',
-                          keyboardType: TextInputType.url);
-                      if (url != null && context.mounted) {
-                        await context.app.orders.setTrackingUrl(sub.id, url);
-                      }
-                    }),
-                for (final l in sub.lines) ...[
-                  InkWell(
-                    onTap: () => _editItem(context, view, l),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: Space.sm),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    '${l.itemName}${l.qty > 1 ? '  × ${l.qty}' : ''}',
-                                    style: context.text.bodyLarge!.copyWith(
-                                      decoration:
-                                          l.status == LineStatus.cancelled
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                      color: l.status == LineStatus.cancelled
-                                          ? c.ink3
-                                          : null,
-                                    )),
-                                if ([l.flavour, l.weight].any((x) => x != null))
-                                  Micro([
-                                    if (l.flavour != null) l.flavour!,
-                                    if (l.weight != null) l.weight!.label,
-                                  ].join(' · ')),
-                                for (final a in l.addons)
-                                  Micro('+ ${a.name}  ${money(a.price) ?? ''}'),
-                                if (l.itemMessage != null)
-                                  Micro('Piped: "${l.itemMessage!}"'),
-                                if (l.requirements != null)
-                                  Micro(l.requirements!),
-                                if (l.dietaryFlags != 0)
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(top: Space.xs),
-                                    child: Wrap(
-                                      spacing: Space.sm,
-                                      children: [
-                                        for (final d
-                                            in dietaryLabels(l.dietaryFlags))
-                                          Chip(
-                                            label: Text(d),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            backgroundColor: c.goodSoft,
-                                            side: BorderSide.none,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                if (l.note != null) Micro('Note: ${l.note!}'),
-                                // Each item says when it goes and where it is
-                                // in its own life -- the whole point of D25 is
-                                // that these differ within one order.
-                                Padding(
-                                  padding: const EdgeInsets.only(top: Space.xs),
-                                  child: Wrap(
-                                    spacing: Space.sm,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      // No date here: the journey above says
-                                      // when and where this lot goes, and
-                                      // repeating it per item was three copies
-                                      // of one fact.
-                                      _LineChip(status: l.status),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(money(l.total, showZero: true)!,
-                                  style: context.text.bodyLarge),
-                              LineNextStep(view: view, line: l),
-                            ],
-                          ),
-                        ],
-                      ),
+                  const SizedBox(width: Space.md),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.md, Space.sm, Space.lg, Space.xxl),
+                      children: moneyPane,
                     ),
                   ),
-                  if (l != sub.lines.last) Divider(color: c.ruleSoft),
                 ],
-
-                // The journey's own move: loading the van, and saying it
-                // arrived. Offered only once everything on it is ready.
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SubOrderNextStep(view: view, sub: sub),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        LoafCard(
-          child: Column(
-            children: [
-                // Adding to a live order is an edit, not a new order -- the
-                // customer rang back, they did not place a second one.
-                if (view.status != OrderStatus.completed && !view.isCancelled)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => _addItem(context, view),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add item'),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SectionLabel('Money'),
-          LoafCard(
-            child: Column(
-              children: [
-                MoneyRow('Subtotal', t.subtotal),
-                MoneyRow('Discount', -t.discount),
-                MoneyRow('Delivery', t.deliveryCharge),
-                MoneyRow('Total', t.total, strong: true, showZero: true),
-                MoneyRow('Paid', t.paid),
-                if (t.hasBalance)
-                  MoneyRow('Balance due', t.balanceDue, strong: true),
-                const SizedBox(height: Space.sm),
-                // No delivery charge button here. A charge belongs to a
-                // journey, not to an order (D28) — this one wrote
-                // `orders.delivery_charge`, which `_refreshOrderCache`
-                // recomputes from the journeys and no view reads. It is set on
-                // the item, in the line editor.
-                Row(
-                  children: [
-                    if (t.hasBalance)
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => _recordPayment(context, view),
-                          child: const Text('Record payment'),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // What the Paid line is made of. A total with nothing behind it is
-          // no help when it is wrong, and until there was a list here a
-          // mistyped amount could not even be found, let alone corrected.
-          _Payments(orderId: o.id),
-
-          const SectionLabel('Move to'),
-          if (next.isEmpty)
-            LoafCard(
-              child: Text('${view.statusLabel} — nothing further.',
-                  style: context.text.bodyMedium!.copyWith(color: c.ink3)),
-            )
-          else
-            Wrap(
-              spacing: Space.sm,
-              runSpacing: Space.sm,
-              children: [
-                for (final s in next)
-                  s == OrderStatus.cancelled
-                      ? OutlinedButton.icon(
-                          onPressed: () => _cancel(context, o.id),
-                          icon: const Icon(Icons.block, size: 16),
-                          style: OutlinedButton.styleFrom(foregroundColor: c.bad),
-                          label: const Text('Cancel'),
-                        )
-                      : FilledButton(
-                          onPressed: () => _move(context, view, s),
-                          child: Text(s.actionFor(isPickup: isPickup)),
-                        ),
-              ],
-            ),
-        ],
-        ),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.lg, Space.sm, Space.lg, Space.xxl),
+                children: [...detailPane, ...moneyPane],
+              ),
       ),
     );
   }

@@ -681,7 +681,10 @@ content wants:
 | **New order** | Two columns: customer and money on the left, items on the right, so a ten-line order never pushes the total out of view |
 | **Customers · Menu · Materials · Stock** | A card each, in columns. On a phone they stay one divided card — a divider separates rows in a single column and means nothing across two |
 | **Every sheet** | A centred dialog, capped at 560. A bottom sheet is a phone shape |
+| **Reports** | The month on the left, the summaries on the right, so the charts stop competing with the lists for one column |
+| **Order detail** | The journeys on the left, the money on the right — **except when embedded** in the Orders two-pane, where it is already half a tablet and splitting again gives two columns too narrow to read |
 | **Forms** (business settings, sync) | Still a capped column. A form stretched across 1,200 pixels is not more usable, just further for the eye to travel |
+| **More** | Unchanged, deliberately. It is a navigation menu; a wall of links spread over a tablet is harder to scan than a column of them, not easier |
 
 ### States every screen defines
 
