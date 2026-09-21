@@ -161,16 +161,18 @@ class _Board extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(
             Space.lg, Space.md, Space.lg, Space.xxl * 2),
         children: [
-          // Confirmed first: an order that has been agreed with the customer
-          // is the kitchen's to do, and the board is where they see it. It
-          // used to start at "in production", which meant work only appeared
-          // once somebody had already started it — so the board showed what
-          // was under way and never what was coming.
+          // Nearest the door first. A board is read top-down, and the lots
+          // that are out or boxed are the ones somebody is about to hand over
+          // — clearing those off the top leaves what still needs doing below.
+          //
+          // The board still *starts* at confirmed, which is the change that
+          // mattered: work appears when the customer agrees to it rather than
+          // when somebody has already begun. This is only the reading order.
           for (final status in [
-            SubOrderStatus.confirmed,
-            SubOrderStatus.inProduction,
-            SubOrderStatus.ready,
             SubOrderStatus.out,
+            SubOrderStatus.ready,
+            SubOrderStatus.inProduction,
+            SubOrderStatus.confirmed,
           ])
             if (byStatus[status] != null) ...[
               SectionLabel('${status.label} · ${byStatus[status]!.length}'),

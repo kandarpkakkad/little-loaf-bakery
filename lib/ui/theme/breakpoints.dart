@@ -72,8 +72,21 @@ class CardGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final columns = context.window.columns;
-    if (columns == 1 || children.isEmpty) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    // [spacing] used to apply only *between columns*, so on a phone — where
+    // there is one column — every card butted against the next and a list of
+    // them read as one long slab.
+    if (columns == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing),
+            children[i],
+          ],
+        ],
+      );
     }
     final rows = <Widget>[];
     for (var i = 0; i < children.length; i += columns) {
@@ -91,6 +104,14 @@ class CardGrid extends StatelessWidget {
         ],
       ));
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) SizedBox(height: spacing),
+          rows[i],
+        ],
+      ],
+    );
   }
 }
