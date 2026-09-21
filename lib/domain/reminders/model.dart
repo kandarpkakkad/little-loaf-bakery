@@ -108,13 +108,29 @@ List<Reminder> remindersFor(
     // away without reading.
   } else {
     final verb = j.isPickup ? 'collects' : 'delivery';
-    moments.addAll([
-      (
+    final body = '$what — $verb at ${_clock(due)} · $ref';
+
+    // The half-hour mark may already have gone — an order taken for twenty
+    // minutes' time, or one that reached this phone on a sync after the mark
+    // had passed. Firing a little late is right: the handover itself is still
+    // ahead, and the alternative is a rush order raising nothing at all until
+    // it is already overdue. It says how long is really left, because "30
+    // minutes" when there are twenty would be a lie.
+    if (due.isAfter(at)) {
+      final mark = due.subtract(const Duration(minutes: 30));
+      final fireAt = mark.isAfter(at) ? mark : at.add(const Duration(minutes: 1));
+      final left = due.difference(fireAt).inMinutes;
+      moments.add((
         ReminderSlot.halfHour,
-        due.subtract(const Duration(minutes: 30)),
-        '30 minutes: $who',
-        '$what — $verb at ${_clock(due)} · $ref',
-      ),
+        fireAt,
+        left >= 30
+            ? '30 minutes: $who'
+            : (left >= 2 ? 'Due in $left minutes: $who' : 'Due now: $who'),
+        body,
+      ));
+    }
+
+    moments.addAll([
       (
         ReminderSlot.overdue,
         due.add(const Duration(hours: 1)),

@@ -505,7 +505,7 @@ and survives the app being closed or the phone rebooting.
 | When | Covers | Why |
 |---|---|---|
 | **6 am**, on any day with work or shopping | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
-| **30 minutes before** a journey's time | one journey | Leave now |
+| **30 minutes before** a journey's time | one journey | Leave now. If that mark has already gone — a rush order, or one that arrived on a sync after it — **it fires at once and says how long is really left** |
 | **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
 
 **Two per journey, not three.** A two-hour warning was built and removed: two
