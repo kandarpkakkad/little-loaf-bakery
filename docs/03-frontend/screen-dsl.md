@@ -559,14 +559,20 @@ screen Sync                      # S25
                           else "nobody yet"
       when @owner.staleAt(now)
         Alert warn "No backup since @owner.lastSnapshotAt. @who is the backup device.
-                    If that phone is gone, delete snapshot/owner.json in the Little Loaf
-                    Bakery folder in Drive, and the next device to try will take over."
+                    If that phone is gone, take the backups over on this one."
       Button outline "Back up now" · Button outline "Restore"
+      when @owner and not mine
+        Button text "Take over backups"     # confirms, names the device it takes from
 
     Row "Other devices found" | @report.peersSeen
     Row "Read successfully"   | @report.peersRead
     Repeat @report.peerVersions as p
       Row "@p.id.short… is on" | @p.version
+    when @report.peersMissingHistory
+      Alert warn "This device started syncing after @them had already tidied away older
+                  changes, so some of what happened before it joined is only in the backup.
+                  Syncing will not bring it across — tap Restore, pick the newest backup,
+                  and reopen the app."
     when @report.isolated
       Alert warn "sees its own folder and nobody else's" + same-account, same-build advice
     Repeat @report.peerErrors as e

@@ -46,6 +46,16 @@ edited from more than one place. Append-only tables do not need it.
 ```sql
 CREATE TABLE settings (
   id                        TEXT    NOT NULL PRIMARY KEY DEFAULT 'singleton',
+  -- v16: the sync columns, so the bakery's half of this row can replicate.
+  -- Defaulted rather than taken from the Common mixin, because the row already
+  -- exists on every install and the migration has to fill them without knowing
+  -- a device id. '0:0:seed' is older than any real HLC, so the first phone to
+  -- save wins the field instead of losing to a row nobody has edited.
+  device_id                 TEXT    NOT NULL DEFAULT 'seed',
+  created_at                INTEGER NOT NULL DEFAULT 0,
+  updated_at_hlc            TEXT    NOT NULL DEFAULT '0:0:seed',
+  deleted_at                INTEGER,
+  field_hlc_json            TEXT,
   business_name             TEXT    NOT NULL,
   address                   TEXT,
   phone                     TEXT,
@@ -54,12 +64,19 @@ CREATE TABLE settings (
   payment_phone             TEXT,
   delivery_charge_local     INTEGER NOT NULL DEFAULT 0,   -- paise
   delivery_charge_outstation INTEGER NOT NULL DEFAULT 0,  -- paise
-  app_lock_enabled          INTEGER NOT NULL DEFAULT 0,
-  device_name               TEXT,
-  order_seq                 INTEGER NOT NULL DEFAULT 0,   -- local; never replicated
+  app_lock_enabled          INTEGER NOT NULL DEFAULT 0,   -- local; never replicated
+  device_name               TEXT,                          -- local; never replicated
+  order_seq                 INTEGER NOT NULL DEFAULT 0,    -- local; never replicated
   CHECK (id = 'singleton')
 );
 ```
+
+**Half of this row replicates and half does not.** `kSharedSettings` in `tables.dart` is the
+split — business name, address, phone, UPI, payment phone, the order-number prefix and both
+delivery charges. The other three describe the handset, and sending them would have one phone
+rename or unlock the other. Enforced at both ends: the repository records only those fields,
+and the applier refuses the rest on the way in, so a peer on a build that gets this wrong
+still cannot reach them.
 
 **`order_seq` is local state.** It does not survive in a snapshot, which is why a restored
 install must take a **new device id** and start a fresh series (D6).

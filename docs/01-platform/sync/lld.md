@@ -38,8 +38,8 @@ pullWorker (on the :00/:05 grid, on resume, on refresh):
      if head.min_reader_version > APP_VERSION:
         markPeerNeedsUpgrade(peer); continue          // skip THIS peer only
      newOps = lines where seq > cursor[peer]
-     applyAll(newOps)
-     cursor[peer] = max seq applied
+     applyAll(newOps)                                 // every one, gaps included
+     cursor[peer] = last seq in an UNBROKEN run of settled ops
    publishCursors()
 ```
 
@@ -122,7 +122,11 @@ arrival order.
 
 | Case | Handling |
 |---|---|
-| Op arrives for an unknown entity id | Insert it. Ops are self-contained; order of arrival is irrelevant |
+| Op arrives for an unknown entity id | Insert it. A **creating** op must therefore carry every NOT NULL column: it is the only thing a device that has never seen the row will get. `orders` once left out `fulfilment` and no order synced at all |
+| **Delete arrives before the create it applies to** | Left unapplied and retried, never recorded as applied. Peers are read in **device-id order, not causal order**, so this is routine. Answering "done" dropped the tombstone and left the row alive on one device and gone everywhere else |
+| **Op names a table this build lacks** | Skipped, **not** marked applied, so the upgrade that adds the table still gets it |
+| **An op that cannot apply yet** | Holds the cursor, but reading continues through the rest of the journal — the op that repairs the row is usually the next line. Stopping ended that peer's sync permanently |
+| **Peer's journal was compacted past our cursor** | Reported as `peersMissingHistory` from the header's `compacted_through_seq`. Syncing can never catch this device up; only a restore can, and the screen says so |
 | Op arrives for a tombstoned row | Applies to the row; stays deleted unless the op un-deletes |
 | Same op seen twice | `applied_ops` PK rejects the second |
 | Peer folder appears with no `device.json` | Treat as a live peer at cursor 0; it will publish on its next upload |

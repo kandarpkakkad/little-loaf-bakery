@@ -201,11 +201,18 @@ not a backup.
 
 **Android will sometimes miss 00:02** — the phone may be dozing or off. The snapshot is then
 taken at the first opportunity after, and `last_snapshot_at` records when it actually
-happened, not when it was due. Charger and unmetered network are preferred, never required.
+happened, not when it was due. A charger is preferred and never required; **any** connection
+will do, not only Wi-Fi, because a backup that waits for Wi-Fi is one a phone on mobile data
+never takes.
 
-**Releasing ownership is manual.** If the owning device is uninstalled or retired, delete
-`snapshot/owner.json` from Drive by hand — the next device to reach 00:02 claims it. This
-is deliberate: automatic hand-off would need timeouts and heartbeats to solve a problem that
+**Every snapshot pulls first**, so the copy holds the bakery rather than one phone's share of
+it. Best effort: an unreadable peer does not cancel the backup, and the app says which of the
+two happened.
+
+**Moving ownership is a person's decision, not an automatic one.** *Take over backups* on
+Sync & backup writes the owner file and takes a snapshot on the spot; the previous owner reads
+that file on its next run and stands down without being told. Still nothing automatic: that
+would need timeouts and heartbeats to solve a problem that
 happens once every few years and takes ten seconds to fix.
 
 **The one consequence to watch.** No snapshots means compaction never advances, so journals
@@ -229,7 +236,7 @@ Keep the last 14 snapshots; prune older.
 | Case | Behaviour |
 |---|---|
 | Op has fields this build doesn't know | Ignore them. Ops are additive |
-| Op names a table this build doesn't have | Skipped and marked applied, never retried forever |
+| Op names a table this build doesn't have | Skipped, and **left unapplied** so the upgrade that adds the table picks it up. Marking it applied lost every `sub_orders` op made while one phone was still on v11 |
 | App below `min_supported_version` | **Hard block.** Outbox flushed first, so nothing is lost |
 | App below the latest release | Dismissible banner |
 | No source answered | **Never blocks.** Cached values used |
@@ -765,7 +772,7 @@ Material ──< StockTransaction   append-only: stock-in | consumption | wastag
 Device      (id UUIDv7, name, app_version, first_seen)   one row per known device
 PeerCursor  (peer_device_id, last_seq)                   local only, one per peer
 Outbox      (op_id, hlc, entity, entity_id, payload, uploaded_at)
-Setting (singleton)
+Setting (singleton)   partly shared: the bakery's details replicate, the handset's do not
 ```
 
 - **UUID v7 primary keys throughout** — time-ordered and monotonic, so id order is creation order.
@@ -868,7 +875,8 @@ bakery's data nowhere near it.
 | Devices offline for days | Field-level LWW limits the blast radius; overwrites logged |
 | A device is lost | Nothing to transfer — the others keep working. Its replacement is a **new device with a new id**. The old journal stays readable and ages out after 30 days |
 | Journals grow without bound | Compaction needs both peer cursors and snapshot inclusion; a peer silent 30 days stops being waited for |
-| **Snapshot owner retired without releasing it** | Sync & backup warns after 3 days without a snapshot. Fix: delete `snapshot/owner.json` |
+| **Snapshot owner retired without releasing it** | Sync & backup warns after 3 days without a snapshot. Fix: **Take over backups** on the other device |
+| **A device joins after the journals were compacted** | It cannot be caught up by syncing — the missing ops are only in a snapshot. Detected from `compacted_through_seq` and reported as such, with Restore offered |
 | Google auth expires / Drive fills | Fully usable offline; stale banner at 24h; the real error is shown, not a generic one |
 | Android background limits kill the worker | Sync on resume too; pending count always visible |
 | Someone forgets to tap send | Unshared confirmations are flagged on Orders |
