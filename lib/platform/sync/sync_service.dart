@@ -258,6 +258,23 @@ class SyncService extends ChangeNotifier {
     // fresh one instead of retrying a dead one until someone notices.
     if (!report.ok && '${report.error}'.contains('401')) auth.forgetToken();
 
+    // Another isolate may have written to this file since we last looked, and
+    // drift has no way of knowing.
+    //
+    // The app opens the database in `boot.dart`; the WorkManager tasks open
+    // their OWN in `background.dart`, same file, separate connection. Stream
+    // invalidation is per-connection, so when the fifteen-minute worker pulls
+    // a peer's ops while the app is open, not one screen hears about it — and
+    // because the worker also records them in `applied_ops` and moves the
+    // cursor, the next foreground sync finds nothing left to apply and so
+    // notifies nothing either. The data sat in SQLite until the app was
+    // killed and reopened.
+    //
+    // So assume it happened. Re-querying every open stream costs one query
+    // each at bakery volumes, and the alternative is a screen that is quietly
+    // wrong for as long as it stays open.
+    db.markTablesUpdated(db.allTables);
+
     _set(_status.copyWith(
       busy: false,
       lastReport: report,

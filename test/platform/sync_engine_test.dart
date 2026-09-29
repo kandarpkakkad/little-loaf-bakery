@@ -161,6 +161,38 @@ void main() {
         reason: 'the cursor must not advance past an unapplied op');
   });
 
+  test('a sync re-queries the screens even when it applied nothing itself',
+      () async {
+    // The WorkManager worker opens its own connection to the same file, so
+    // anything it pulls is invisible to this one — and since it also records
+    // the ops as applied, the next foreground sync has nothing left to apply
+    // and nothing to notify. The data then sits there until the app is killed.
+    // So a sync assumes an outside write happened and makes the screens look
+    // again. Here nothing is applied at all, and the stream must still fire.
+    final db = bob.services.db;
+    final seen = <int>[];
+    final sub = db.select(db.customers).watch().listen((r) => seen.add(r.length));
+    await pumpEventQueue();
+    expect(seen, [0]);
+
+    final dir = await Directory.systemTemp.createTemp('loaf-requery');
+    final service = SyncService(
+      db: db,
+      mutations: bob.services.mutations,
+      deviceId: bob.id,
+      auth: _ConnectedAuth(),
+      storeFactory: (_) => store,
+      workDir: () async => dir,
+    );
+    await service.restore();
+    final report = await service.syncNow();
+    await pumpEventQueue();
+    await sub.cancel();
+
+    expect(report.applied, 0, reason: 'nothing came in through this connection');
+    expect(seen, hasLength(2), reason: 'the screens looked again anyway');
+  });
+
   test('a backup pulls first, so it holds the other device too', () async {
     // The point of ask: a snapshot is only worth what the database held when
     // it was taken. Bob backing up without pulling first writes a copy of

@@ -126,6 +126,7 @@ arrival order.
 | **Delete arrives before the create it applies to** | Left unapplied and retried, never recorded as applied. Peers are read in **device-id order, not causal order**, so this is routine. Answering "done" dropped the tombstone and left the row alive on one device and gone everywhere else |
 | **Op names a table this build lacks** | Skipped, **not** marked applied, so the upgrade that adds the table still gets it |
 | **An op that cannot apply yet** | Holds the cursor, but reading continues through the rest of the journal — the op that repairs the row is usually the next line. Stopping ended that peer's sync permanently |
+| **The background worker pulled while the app was open** | Its writes go through a *different* connection, so no stream hears them. `syncNow` ends by marking every table updated, which makes the screens re-query. Without it the rows sat in SQLite until the app was killed |
 | **Peer's journal was compacted past our cursor** | Reported as `peersMissingHistory` from the header's `compacted_through_seq`. Syncing can never catch this device up; only a restore can, and the screen says so |
 | Op arrives for a tombstoned row | Applies to the row; stays deleted unless the op un-deletes |
 | Same op seen twice | `applied_ops` PK rejects the second |

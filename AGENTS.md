@@ -256,6 +256,26 @@ Catch by behaviour, not by type, for anything that must hold on a device — and
 when a guard exists to contain a failure, write at least one test that opens
 the database the way the app does.
 
+### Another isolate writing the same file notifies nobody
+
+The app opens the database in `boot.dart`. Each WorkManager task opens its
+**own** in `background.dart` — same file, separate connection, separate
+isolate. Drift's stream invalidation is per-connection, so a write made by the
+background worker can never reach a screen in the running app.
+
+It is worse than it sounds, because the worker also records those ops in
+`applied_ops` and moves the cursor: the next foreground sync finds nothing
+left to apply, so it notifies nothing either. The rows sit in SQLite until the
+app is killed and reopened, and every sync in between looks successful.
+
+`syncNow` therefore ends with `db.markTablesUpdated(db.allTables)` — assume an
+outside write happened, and make the screens look again. One re-query per open
+stream, against a screen that is otherwise quietly wrong for as long as it
+stays open.
+
+The same trap waits for anything else given its own connection: a second
+`openAppDatabase()` is a second world.
+
 ### Skipped is not done
 
 `applied_ops` means "this op has been carried out". Writing an op there because
