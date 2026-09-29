@@ -22,6 +22,7 @@ class SyncReport {
     this.peersRead = 0,
     this.peersSeen = 0,
     this.peersNeedingUpgrade = const [],
+    this.peersMissingHistory = const [],
     this.peerErrors = const {},
     this.peerVersions = const {},
     this.error,
@@ -51,6 +52,14 @@ class SyncReport {
   /// Peers writing a journal this build is too old to read. Listed rather than
   /// thrown: one peer ahead of us must not stop the others syncing.
   final List<String> peersNeedingUpgrade;
+
+  /// Peers that have dropped ops this device never read.
+  ///
+  /// Their journal says it was compacted past our cursor, so the missing ops
+  /// exist only inside a snapshot now. Sync alone can never catch this device
+  /// up — it has to restore. Silence here is the worst option: the sync looks
+  /// perfect and the data simply is not there.
+  final List<String> peersMissingHistory;
 
   /// What each peer is running, by device id. A tablet three versions behind
   /// looks exactly like a tablet that is not syncing, until you can see this.
@@ -130,6 +139,7 @@ class SyncEngine {
         peersRead: pull.peers,
         peersSeen: pull.seen,
         peersNeedingUpgrade: pull.needUpgrade,
+        peersMissingHistory: pull.missingHistory,
         peerErrors: pull.errors,
         peerVersions: Map.of(_peerVersions),
       );
@@ -294,6 +304,7 @@ class SyncEngine {
         int peers,
         int seen,
         List<String> needUpgrade,
+        List<String> missingHistory,
         Map<String, Object> errors,
       })> _pullAll() async {
     final devices = await store.listDevices();
@@ -302,12 +313,14 @@ class SyncEngine {
     var applied = 0;
     var read = 0;
     final needUpgrade = <String>[];
+    final missingHistory = <String>[];
     final errors = <String, Object>{};
 
     for (final peer in peers) {
       try {
         final result = await _pullOne(peer);
         applied += result.applied;
+        if (result.missedHistory) missingHistory.add(peer);
         if (result.tooNew) {
           needUpgrade.add(peer);
         } else {
@@ -326,24 +339,40 @@ class SyncEngine {
       peers: read,
       seen: peers.length,
       needUpgrade: needUpgrade,
+      missingHistory: missingHistory,
       errors: errors,
     );
   }
 
-  Future<({int applied, bool tooNew})> _pullOne(String peer) async {
+  Future<({int applied, bool tooNew, bool missedHistory})> _pullOne(
+      String peer) async {
     final text = await store.readJournal(peer);
-    if (text == null) return (applied: 0, tooNew: false);
+    if (text == null) {
+      return (applied: 0, tooNew: false, missedHistory: false);
+    }
 
     final journal = decodeJournal(text);
     final header = journal.header;
-    if (header == null) return (applied: 0, tooNew: false);
+    if (header == null) {
+      return (applied: 0, tooNew: false, missedHistory: false);
+    }
 
     if (header.minReaderVersion > kMinReaderVersion) {
       await _markNeedsUpgrade(peer);
-      return (applied: 0, tooNew: true);
+      return (applied: 0, tooNew: true, missedHistory: false);
     }
 
     final cursor = await _cursorFor(peer);
+
+    // This peer has dropped ops we never read. It is allowed to: compaction
+    // only drops what a snapshot holds and what every *live* peer has read,
+    // and a device that did not exist yet was not one. So a phone joining an
+    // established bakery finds a journal that starts mid-story, and no amount
+    // of syncing will fill the beginning in — only a restore will.
+    //
+    // Reported rather than fixed here, because the fix is a restore and that
+    // is the owner's call: it replaces this device's database.
+    final missedHistory = header.compactedThroughSeq > cursor;
     final fresh = journal.ops.where((o) => o.seq > cursor).toList()
       ..sort((a, b) => a.seq.compareTo(b.seq));
 
@@ -377,7 +406,7 @@ class SyncEngine {
     }
 
     if (advanceTo != cursor) await _writeCursor(peer, advanceTo);
-    return (applied: applied, tooNew: false);
+    return (applied: applied, tooNew: false, missedHistory: missedHistory);
   }
 
   Future<bool> _isApplied(String opId) async =>

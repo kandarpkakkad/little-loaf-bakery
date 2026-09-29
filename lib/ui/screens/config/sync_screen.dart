@@ -564,6 +564,22 @@ class _PeerFacts extends StatelessWidget {
               style: context.text.bodySmall!.copyWith(color: c.warn),
             ),
           ),
+        // Syncing cannot fix this one, so saying nothing would be the worst
+        // possible answer: every run would look perfect while the older half
+        // of the bakery was simply absent from this device.
+        if (report.peersMissingHistory.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: Text(
+              'This device started syncing after '
+              '${report.peersMissingHistory.map((d) => '${d.substring(0, 8)}…').join(', ')} '
+              'had already tidied away older changes, so some of what happened '
+              'before it joined is only in the backup. Syncing will not bring '
+              'it across — tap Restore, pick the newest backup, and reopen the '
+              'app.',
+              style: context.text.bodySmall!.copyWith(color: c.warn),
+            ),
+          ),
       ],
     );
   }

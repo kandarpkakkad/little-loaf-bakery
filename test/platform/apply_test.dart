@@ -126,6 +126,50 @@ void main() {
     expect(row['order_seq'], 42, reason: 'local: untouched');
   });
 
+  test('a delete for a row we have not seen yet waits for it', () async {
+    // Peers are read in device-id order, not causal order, so the device that
+    // deleted a row is routinely read before the one that created it. Calling
+    // that delete "done" drops the tombstone for good and leaves the row
+    // alive here and gone everywhere else.
+    final del = Op(
+      opId: 'peer-1-del',
+      seq: 1,
+      hlc: const Hlc(2000, 0, 'peer'),
+      entity: 'customers',
+      entityId: 'c1',
+      kind: OpKind.delete,
+      fields: const {},
+      schemaV: kSchemaVersion,
+    );
+
+    expect(await f.applier.apply(del), isFalse, reason: 'not done yet');
+
+    // The create turns up later, from whichever peer sorted after.
+    await f.applier.apply(upsert('customers', 'c1', {
+      'name': 'Asha Rao',
+      'phone_e164': '+919876543210',
+    }, wallMs: 1000));
+
+    // Retried on the next pull, and now it lands.
+    expect(await f.applier.apply(del), isTrue);
+    final row = await f.row('customers', 'c1');
+    expect(row!['deleted_at'], isNotNull,
+        reason: 'the delete is newer than the create, so she is gone');
+  });
+
+  test('an op for a table this build lacks is kept for the upgrade', () async {
+    // v12 added sub_orders. A phone that synced on v11 and recorded those ops
+    // as applied never saw a single sub-order from that window, before or
+    // after upgrading.
+    final op = upsert('things_from_the_future', 'x1', {'name': 'x'},
+        wallMs: 1000);
+    expect(await f.applier.apply(op), isFalse);
+
+    final seen = await f.rows('applied_ops');
+    expect(seen, isEmpty,
+        reason: 'skipped is not done — the upgrade must still pick it up');
+  });
+
   test('an unseen row arrives as an insert', () async {
     await f.applier.apply(upsert('customers', 'c1', {
       'name': 'Asha Rao',

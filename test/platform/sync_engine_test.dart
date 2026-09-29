@@ -81,6 +81,38 @@ void main() {
     expect(await bob.fixture.rows('order_items'), hasLength(1));
   });
 
+  test('a journal compacted past our cursor is reported, not passed over',
+      () async {
+    // A device joining an established bakery finds a journal that starts
+    // mid-story: compaction may drop what a snapshot holds and every *live*
+    // peer has read, and a device that did not exist yet was not one. Syncing
+    // can never fill in the beginning — only a restore can — so the one thing
+    // this must not do is look like a clean run.
+    store.journals['carol'] = encodeJournal(
+      const JournalHeader(
+          deviceId: 'carol', minReaderVersion: 1, compactedThroughSeq: 40),
+      [
+        Op(
+          opId: 'carol-41',
+          seq: 41,
+          hlc: const Hlc(1000, 0, 'carol'),
+          entity: 'customers',
+          entityId: 'c1',
+          kind: OpKind.upsert,
+          fields: const {'name': 'Asha', 'phone_e164': '+911'},
+          schemaV: 16,
+        )
+      ],
+    );
+
+    final report = await bob.engine.sync();
+
+    expect(report.peersMissingHistory, ['carol']);
+    expect(report.peerErrors, isEmpty, reason: 'not an error, just a gap');
+    expect(await bob.fixture.rows('customers'), hasLength(1),
+        reason: 'what is still in the journal arrives as normal');
+  });
+
   test('one op that cannot apply does not stop the rest of the journal',
       () async {
     // Reading used to stop dead at the first op that would not apply, which

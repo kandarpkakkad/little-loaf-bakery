@@ -103,14 +103,16 @@ class OpApplier {
         .getSingleOrNull();
     if (known != null) return false;
 
-    // An unknown entity means the peer is running a newer schema. Skipping is
-    // right: the op is recorded as applied so it is not retried forever, and
-    // the row it describes simply does not exist here yet.
+    // An unknown entity means the peer is running a newer schema, so there is
+    // no table to write to and nothing to do about it today.
+    //
+    // Deliberately NOT recorded as applied. It was skipped, not done, and
+    // this build will very likely gain the table in an update — v12 added
+    // `sub_orders`, and a phone that synced on v11 and marked those ops
+    // applied never saw a single sub-order made in that window, before or
+    // after upgrading. The op stays unapplied so the upgrade picks it up.
     final columns = await _columnsOf(op.entity);
-    if (columns.isEmpty) {
-      await _markApplied(op);
-      return false;
-    }
+    if (columns.isEmpty) return false;
 
     var applied = false;
     await db.transaction(() async {
@@ -266,8 +268,16 @@ class OpApplier {
   Future<bool> _tombstone(Op op, Set<String> columns) async {
     // Nothing to tombstone, and nothing to wait for either.
     if (!columns.contains('deleted_at')) return true;
+    // Nothing here to delete *yet*. Peers are read in device-id order, not in
+    // causal order, so the device that deleted a row is routinely read before
+    // the one that created it — and answering "done" drops the tombstone for
+    // good, leaving the row alive here and deleted everywhere else.
+    //
+    // Left unapplied instead, so it lands once the creating op arrives. If
+    // that op never does the delete is retried for nothing, which costs a
+    // lagging cursor on one peer and no correctness at all.
     final existing = await _load(op.entity, op.entityId);
-    if (existing == null) return true;
+    if (existing == null) return false;
 
     // A delete that lost the race to a later edit must not win. Without this a
     // stale tombstone could erase a row somebody has since revived.

@@ -256,6 +256,38 @@ Catch by behaviour, not by type, for anything that must hold on a device — and
 when a guard exists to contain a failure, write at least one test that opens
 the database the way the app does.
 
+### Skipped is not done
+
+`applied_ops` means "this op has been carried out". Writing an op there because
+it could not be carried out is how sync loses data in a way no later sync can
+repair: the cursor moves past it and it is never looked at again.
+
+Two shipped that way.
+
+- **A delete for a row that is not here yet** answered "done". Peers are read
+  in device-id order, not causal order, so the device that deleted a row is
+  routinely read before the one that created it. The tombstone was dropped and
+  the row stayed alive on that device and nowhere else.
+- **An op for a table this build does not have** was marked applied. v12 added
+  `sub_orders`; a phone that synced on v11 never saw a sub-order from that
+  window, before or after upgrading.
+
+Both are now left unapplied and retried. An op that can never apply retries for
+nothing, which costs one lagging cursor and no correctness — the trade the
+other way round is silent, permanent divergence.
+
+### A journal that starts mid-story has to say so
+
+Compaction may drop what a snapshot holds and every **live** peer has read — and
+a device that did not exist yet was not one. So a phone joining an established
+bakery finds a journal missing its beginning, and no amount of syncing will
+fill it in. Only a restore will.
+
+`JournalHeader.compactedThroughSeq` carries this, and was written for a year
+before anything read it. Compare it against the peer's cursor and say so:
+`SyncReport.peersMissingHistory`. A run that cannot catch this device up must
+never look like a clean one.
+
 ### Never stop reading a journal at the first op that will not apply
 
 Holding the cursor is right; stopping is not. An op that can never apply ends
