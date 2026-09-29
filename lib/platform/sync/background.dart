@@ -94,9 +94,28 @@ Future<bool> runNightlySnapshot() async {
     final deviceId = await const DeviceIdStore().readOrCreate();
     final db = await openAppDatabase();
     try {
+      final store = DriveStore.withToken(token);
+
+      // Pull before copying. A snapshot is only worth what the database held
+      // when it was taken, and without this it holds this phone's share of
+      // the bakery and whatever it happened to have pulled earlier.
+      //
+      // Best effort: a peer that cannot be read does not cancel the backup,
+      // because a snapshot missing an hour of one device beats no snapshot.
+      try {
+        await SyncEngine(
+          db: db,
+          mutations: await Mutations.restore(db, deviceId: deviceId),
+          store: store,
+          deviceId: deviceId,
+        ).sync();
+      } catch (e) {
+        debugPrint('pull before snapshot failed, taking it anyway: $e');
+      }
+
       final result = await SnapshotService(
         db: db,
-        store: DriveStore.withToken(token),
+        store: store,
         deviceId: deviceId,
         workDir: await getTemporaryDirectory(),
       ).run();
@@ -139,7 +158,15 @@ Future<void> registerBackgroundSync() async {
     initialDelay: untilNextSnapshot(DateTime.now()),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     constraints: Constraints(
-      networkType: NetworkType.unmetered,
+      // Any connection, not just Wi-Fi. A backup that waits for Wi-Fi is a
+      // backup a phone on mobile data never takes, and the whole point is
+      // that it happens without anyone thinking about it.
+      //
+      // The cost is real and worth knowing: a snapshot is the WHOLE database,
+      // uploaded in full every night, and it grows with every order. If that
+      // ever starts to show, the answer is a size threshold or requiring the
+      // device to be idle — not going back to Wi-Fi only.
+      networkType: NetworkType.connected,
       requiresBatteryNotLow: true,
     ),
     backoffPolicy: BackoffPolicy.exponential,

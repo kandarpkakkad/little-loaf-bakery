@@ -1,5 +1,10 @@
 import 'dart:convert';
 
+import 'dart:io';
+import 'package:little_loaf/platform/backup/snapshot.dart';
+import 'package:little_loaf/platform/sync/drive_auth.dart';
+import 'package:little_loaf/platform/sync/sync_service.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/hlc.dart';
 import 'package:little_loaf/common/money.dart';
@@ -124,6 +129,45 @@ void main() {
         reason: 'the cursor must not advance past an unapplied op');
   });
 
+  test('a backup pulls first, so it holds the other device too', () async {
+    // The point of ask: a snapshot is only worth what the database held when
+    // it was taken. Bob backing up without pulling first writes a copy of
+    // Bob's share of the bakery and calls it the bakery.
+    await alice.services.customers
+        .findOrCreate(name: 'Asha Rao', phoneE164: '+919876543210');
+    await alice.engine.sync();
+
+    // Bob has never pulled: Alice's customer is on Drive, not in his database.
+    expect(await bob.fixture.rows('customers'), isEmpty);
+
+    final dir = await Directory.systemTemp.createTemp('loaf-backup-check');
+    final service = SyncService(
+      db: bob.services.db,
+      mutations: bob.services.mutations,
+      deviceId: bob.id,
+      auth: _ConnectedAuth(),
+      storeFactory: (_) => store,
+      workDir: () async => dir,
+    );
+    await service.restore();
+    final run = await service.backUpNow();
+
+    expect(run.snapshot.outcome, SnapshotOutcome.uploaded);
+    expect(run.freshData, isTrue, reason: 'it pulled before it copied');
+    expect(await bob.fixture.rows('customers'), hasLength(1),
+        reason: "Alice's customer arrived on the way to the backup");
+
+    // And the copy that went to Drive has her in it.
+    final copy = File('${dir.path}/check.db')
+      ..writeAsBytesSync(store.snapshots.values.last);
+    final reopened = sqlite3.open(copy.path);
+    try {
+      expect(reopened.select('SELECT * FROM customers'), hasLength(1));
+    } finally {
+      reopened.close();
+    }
+  });
+
   test('uploading twice with no new writes does not rewrite the journal',
       () async {
     await alice.services.customers
@@ -245,4 +289,14 @@ void main() {
     expect(meta['device_id'], 'bob');
     expect((meta['cursors'] as Map)['alice'], greaterThan(0));
   });
+}
+
+/// A connected account, without Google. Only the two calls SyncService makes
+/// on the way to a backup are answered.
+class _ConnectedAuth extends DriveAuth {
+  @override
+  Future<String?> rememberedEmail() async => 'baker@example.com';
+
+  @override
+  Future<String?> silentToken() async => 'token';
 }

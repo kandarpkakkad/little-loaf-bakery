@@ -87,9 +87,10 @@ class SnapshotResult {
 /// One device writes snapshots; the rest skip. There is no lock and no
 /// heartbeat — the ownership check runs on every attempt, so two devices that
 /// claim at the same moment resolve themselves: last write wins the file, and
-/// the loser skips from the next night onward. Release is manual, by deleting
-/// `snapshot/owner.json`, because an automatic hand-off needs timeouts to
-/// solve something that happens once every few years.
+/// the loser skips from the next night onward. [takeOver] moves the job on
+/// purpose and settles the same way; there is still no automatic hand-off,
+/// because that needs timeouts to solve something a person can decide in a
+/// second.
 /// docs/01-platform/backup/hld.md
 class SnapshotService {
   SnapshotService({
@@ -113,6 +114,41 @@ class SnapshotService {
 
   Future<SnapshotOwner?> owner() async =>
       SnapshotOwner.parse(await store.readSnapshotMeta());
+
+  /// Moves the backup job to this device, then proves it by taking one.
+  ///
+  /// The device that held the job needs no telling and gets none: its next
+  /// [run] reads this file, finds another name, and returns
+  /// [SnapshotOutcome.notOwner]. That is the whole hand-off — no message, no
+  /// timeout, no state that can be left half-set.
+  ///
+  /// `through_seq` is carried across rather than reset. Compaction reads it
+  /// to decide what a journal may drop, so resetting it would stall every
+  /// journal until this device's first snapshot lands. That is seconds away,
+  /// but there is no reason to open the gap at all.
+  ///
+  /// Two devices taking over at the same moment settle the way an ordinary
+  /// claim does: last write wins the file, and the loser stands down on its
+  /// next run.
+  Future<SnapshotResult> takeOver() async {
+    try {
+      final previous = await owner();
+      if (previous?.deviceId == deviceId) return run();
+
+      await store.writeSnapshotMeta(jsonEncode(SnapshotOwner(
+        deviceId: deviceId,
+        claimedAt: _nowMs,
+        // Still the truth until our own snapshot replaces it a moment from
+        // now: the last backup really did happen when it happened.
+        lastSnapshotAt: previous?.lastSnapshotAt,
+        throughSeq: previous?.throughSeq ?? const {},
+      ).toJson()));
+
+      return run();
+    } catch (e) {
+      return SnapshotResult(SnapshotOutcome.failed, error: e);
+    }
+  }
 
   /// Takes a snapshot if this device is the one that should.
   Future<SnapshotResult> run() async {

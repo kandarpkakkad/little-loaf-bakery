@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +12,26 @@ import 'drive_auth.dart';
 import 'drive_store.dart';
 import 'mutations.dart';
 import 'sync_engine.dart';
+
+/// What a backup run did, both halves of it.
+///
+/// A snapshot is only worth what the database held when it was taken, so every
+/// backup pulls first. [sync] is null when there was nothing to pull through
+/// (no account, no network), and carries the report otherwise — including a
+/// failed one, because the snapshot is taken anyway and the difference is
+/// worth saying out loud.
+class BackupRun {
+  const BackupRun({required this.snapshot, this.sync});
+
+  final SnapshotResult snapshot;
+  final SyncReport? sync;
+
+  /// True when the database really was up to date first.
+  bool get freshData => sync?.ok ?? false;
+
+  /// Reached Drive to back up, but could not read a peer on the way.
+  bool get mayBeBehind => !freshData && snapshot.outcome == SnapshotOutcome.uploaded;
+}
 
 /// Why sync is not running, when it is not.
 enum SyncBlocker {
@@ -89,12 +110,59 @@ class SyncService extends ChangeNotifier {
     required this.mutations,
     required this.deviceId,
     DriveAuth? auth,
-  }) : auth = auth ?? DriveAuth();
+    RemoteStore Function(String token)? storeFactory,
+    Future<Directory> Function()? workDir,
+  })  : auth = auth ?? DriveAuth(),
+        _workDir = workDir ?? getTemporaryDirectory,
+        // A seam, and the only reason it exists: without it nothing above
+        // SyncEngine can be tested at all, and the ordering this class is
+        // responsible for — pull, then snapshot — is exactly the kind of
+        // wiring that looks obviously right and silently stops happening.
+        _storeFactory = storeFactory ?? DriveStore.withToken;
 
   final AppDatabase db;
   final Mutations mutations;
   final String deviceId;
   final DriveAuth auth;
+  final RemoteStore Function(String token) _storeFactory;
+
+  /// Where a snapshot is built before it is uploaded. Injectable for the same
+  /// reason as [_storeFactory]: the real one is a platform channel, and a
+  /// test that cannot reach it cannot check this class at all.
+  final Future<Directory> Function() _workDir;
+
+  /// Snapshots run one at a time, and a claim skips while one is under way.
+  ///
+  /// They all build the copy at the same path — `snapshot-<date>.db` in the
+  /// work directory — so two at once delete and attach the same file and fail
+  /// with a disk I/O error that reads like a corrupt database. It is easy to
+  /// arrange without meaning to: every backup now pulls first, and a
+  /// successful pull triggers `refreshBackup`, which claims an unowned
+  /// snapshot by taking one.
+  Future<void> _snapshotLock = Future<void>.value();
+  bool _snapshotBusy = false;
+
+  Future<SnapshotResult> _runSnapshot(
+    RemoteStore store, {
+    bool takeOver = false,
+  }) {
+    final result = _snapshotLock.then((_) async {
+      _snapshotBusy = true;
+      try {
+        final service = SnapshotService(
+          db: db,
+          store: store,
+          deviceId: deviceId,
+          workDir: await _workDir(),
+        );
+        return takeOver ? await service.takeOver() : await service.run();
+      } finally {
+        _snapshotBusy = false;
+      }
+    });
+    _snapshotLock = result.then((_) {}, onError: (_) {});
+    return result;
+  }
 
   SyncStatus _status = const SyncStatus();
   SyncStatus get status => _status;
@@ -181,7 +249,7 @@ class SyncService extends ChangeNotifier {
     final engine = SyncEngine(
       db: db,
       mutations: mutations,
-      store: DriveStore.withToken(token),
+      store: _storeFactory(token),
       deviceId: deviceId,
     );
     final report = await engine.sync();
@@ -244,15 +312,27 @@ class SyncService extends ChangeNotifier {
   /// and a bakery that cannot take a snapshot this minute still has an app
   /// that works. The nightly run tries again.
   Future<void> _claimSnapshot(RemoteStore store) async {
+    // Somebody is already taking one, which is all this wanted.
+    if (_snapshotBusy) return;
     try {
-      await SnapshotService(
-        db: db,
-        store: store,
-        deviceId: deviceId,
-        workDir: await getTemporaryDirectory(),
-      ).run();
+      await _runSnapshot(store);
     } catch (_) {
       // next time
+    }
+  }
+
+  /// Pulls before a snapshot is taken, so the copy is of the whole bakery
+  /// rather than of this phone's share of it.
+  ///
+  /// Best effort on purpose. If Drive is unreachable the upload would fail
+  /// too, so the case this covers is a reachable Drive and one unreadable
+  /// peer — and a snapshot missing an hour of one device beats no snapshot.
+  /// The report comes back either way so the caller can say which it was.
+  Future<SyncReport?> _pullBeforeSnapshot() async {
+    try {
+      return await syncNow();
+    } catch (e) {
+      return SyncReport(error: e);
     }
   }
 
@@ -261,20 +341,40 @@ class SyncService extends ChangeNotifier {
   /// The same job the nightly task runs, which means the same ownership rule:
   /// on a device that is not the snapshot owner this returns [
   /// SnapshotOutcome.notOwner] and changes nothing.
-  Future<SnapshotResult> backUpNow() async {
+  Future<BackupRun> backUpNow() async {
+    final sync = await _pullBeforeSnapshot();
+
     final store = await _store();
     if (store == null) {
-      return const SnapshotResult(SnapshotOutcome.failed,
-          error: 'not authorised');
+      return BackupRun(
+        sync: sync,
+        snapshot: const SnapshotResult(SnapshotOutcome.failed,
+            error: 'not authorised'),
+      );
     }
-    final result = await SnapshotService(
-      db: db,
-      store: store,
-      deviceId: deviceId,
-      workDir: await getTemporaryDirectory(),
-    ).run();
+    final result = await _runSnapshot(store);
     await refreshBackup();
-    return result;
+    return BackupRun(sync: sync, snapshot: result);
+  }
+
+  /// Moves the backup job to this device.
+  ///
+  /// Pulls first for the same reason [backUpNow] does — the snapshot that
+  /// proves the hand-off should hold everything, not just this phone's share.
+  Future<BackupRun> takeOverBackups() async {
+    final sync = await _pullBeforeSnapshot();
+
+    final store = await _store();
+    if (store == null) {
+      return BackupRun(
+        sync: sync,
+        snapshot: const SnapshotResult(SnapshotOutcome.failed,
+            error: 'not authorised'),
+      );
+    }
+    final result = await _runSnapshot(store, takeOver: true);
+    await refreshBackup();
+    return BackupRun(sync: sync, snapshot: result);
   }
 
   Future<List<SnapshotChoice>> restoreChoices() async {
@@ -295,9 +395,9 @@ class SyncService extends ChangeNotifier {
   /// which reads what each peer is running from its `device.json`.
   Future<RemoteStore?> remoteStore() => _store();
 
-  Future<DriveStore?> _store() async {
+  Future<RemoteStore?> _store() async {
     if (!_status.connected) return null;
     final token = await auth.silentToken();
-    return token == null ? null : DriveStore.withToken(token);
+    return token == null ? null : _storeFactory(token);
   }
 }

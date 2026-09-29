@@ -30,6 +30,11 @@ database — with a restore path that has actually been run.
 | **Journals** | The recent tail — everything since the last snapshot | Every device, continuously |
 | **Snapshot** | Everything before that | One device, at 00:02 IST |
 
+**Every snapshot pulls first.** A copy is only worth what the database held when it was taken,
+and a device that has not synced holds its own share of the bakery rather than the bakery. The
+pull is best effort: if a peer cannot be read the snapshot is still taken — one missing hour
+beats no backup — and the app says which of the two it was.
+
 **Restore is snapshot + replay of every journal.** Together they are always complete; that is
 why compaction requires an op to be in the snapshot before dropping it (D4).
 
@@ -46,8 +51,17 @@ why compaction requires an op to be in the snapshot before dropping it (D4).
 simultaneous double-claim resolves itself: last write wins, and the loser skips from the next
 night onward.
 
-**Release is manual** (D5): delete the file. Automatic hand-off would need timeouts to solve a
-problem that happens once every few years and takes ten seconds to fix.
+**Hand-over is a button, not a file edit** (D5 amended). **Take over backups** on Sync &
+backup writes `owner.json` naming this device and takes a snapshot straight away, so the
+move is proved rather than promised. The device that held the job is told nothing and needs
+nothing: its next run reads the file, finds another name and stands down. Two devices taking
+over at once settle like any other claim — last write wins.
+
+`through_seq` is carried across the write, so a hand-over whose first snapshot fails does not
+also stall compaction on every journal.
+
+Still **no automatic hand-off**: that needs timeouts and heartbeats to decide a question a
+person answers in a second.
 
 ## Key decisions
 - **The whole database, not a delta.** A delta chain is another thing that can break.

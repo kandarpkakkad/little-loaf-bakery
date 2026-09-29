@@ -91,6 +91,61 @@ void main() {
       expect(store.snapshotMeta, before, reason: 'the owner file is untouched');
     });
 
+    test('a hand-over moves the job and keeps the compaction watermark',
+        () async {
+      // A watermark worth losing: without ops on the phone's journal the
+      // assertion below compares two empty maps and cannot fail.
+      for (final seq in [1, 2]) {
+        await db.into(db.outbox).insert(OutboxCompanion.insert(
+              opId: 'op$seq',
+              seq: seq,
+              hlc: '$seq:0:phone',
+              entity: 'customers',
+              entityId: 'c',
+              kind: 'upsert',
+              payload: '{}',
+              schemaV: kSchemaVersion,
+              uploadedAt: const Value(100),
+            ));
+      }
+
+      await service(deviceId: 'phone').run();
+      final before = SnapshotOwner.parse(store.snapshotMeta)!;
+      expect(before.deviceId, 'phone');
+      expect(before.throughSeq, isNotEmpty, reason: 'there is one to keep');
+
+      final result = await service(deviceId: 'tablet').takeOver();
+      expect(result.outcome, SnapshotOutcome.uploaded);
+
+      final after = SnapshotOwner.parse(store.snapshotMeta)!;
+      expect(after.deviceId, 'tablet');
+      // A snapshot was taken on the spot, so the hand-over is proved rather
+      // than promised — and compaction is left a watermark to work from
+      // instead of nothing. (takeOver also carries the old one across while
+      // it writes, which only shows if that snapshot then fails; the store
+      // here cannot fail one write and not the other, so that window is
+      // covered by reading the code, not by this test.)
+      expect(after.lastSnapshotAt, isNotNull);
+      expect(after.throughSeq, isNotEmpty);
+    });
+
+    test('the device that held the job stands down by itself', () async {
+      await service(deviceId: 'phone').run();
+      await service(deviceId: 'tablet').takeOver();
+
+      // No message was sent to the phone and none is needed: it reads the
+      // owner file like any other night and finds someone else's name.
+      final result = await service(deviceId: 'phone').run();
+      expect(result.outcome, SnapshotOutcome.notOwner);
+      expect(SnapshotOwner.parse(store.snapshotMeta)!.deviceId, 'tablet');
+    });
+
+    test('taking over when nobody holds it is just a claim', () async {
+      final result = await service(deviceId: 'tablet').takeOver();
+      expect(result.outcome, SnapshotOutcome.uploaded);
+      expect(SnapshotOwner.parse(store.snapshotMeta)!.deviceId, 'tablet');
+    });
+
     test('the snapshot holds the records and not the local state', () async {
       await addCustomer('asha');
       await db.into(db.outbox).insert(OutboxCompanion.insert(

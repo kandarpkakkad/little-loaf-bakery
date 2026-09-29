@@ -39,7 +39,7 @@ stopping writes, and drops free pages so the upload is smaller.
 ```dart
 final stale = now.difference(owner.lastSnapshotAt) > Duration(days: 3);
 // Sync & backup shows: "No snapshot since 24 Aug. <name> is the snapshot device.
-//                       If that phone is gone, delete snapshot/owner.json in Drive."
+//                       If that phone is gone, take the backups over on this one."
 ```
 
 This is the only signal that snapshots have stalled, and it matters because compaction is
@@ -102,6 +102,11 @@ would write the conflict log with spurious entries, so the merge sorts first.
 - Restore with **no snapshot present** (journals only).
 - Restore **across a schema change** — snapshot at v6 into an app at v8.
 - **Ownership:** delete `owner.json`, confirm exactly one device claims it and the others skip.
+- **Hand-over:** tap **Take over backups** on the device that does not own them; confirm the
+  owner file names it, a snapshot lands immediately, and the previous owner reports
+  `notOwner` on its next run without being told anything.
+- **Backup freshness:** write on device A and sync it; back up from device B; confirm A's row
+  is inside the uploaded snapshot.
 - **Missed 00:02:** force Doze, confirm catch-up and that `last_snapshot_at` is the real time.
 - **Compaction interlock:** with no snapshot, assert nothing compacts.
 

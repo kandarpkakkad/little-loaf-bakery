@@ -84,15 +84,39 @@ class _SyncScreenState extends State<SyncScreen> {
     ));
   }
 
-  Future<void> _backUpNow() async {
-    final result = await _sync.backUpNow();
+  Future<void> _backUpNow() async => _report(await _sync.backUpNow());
+
+  Future<void> _takeOver() async {
+    final owner = _sync.status.owner;
+    final ok = await confirmAction(
+      context,
+      title: 'Take over backups?',
+      message: owner == null
+          ? 'This device will take the nightly backups from now on.'
+          : '${owner.deviceId.substring(0, 8)}… stops taking backups and this '
+              'device starts, tonight and every night. Nothing already backed '
+              'up is lost, and the other device needs no attention — it works '
+              'this out for itself the next time it syncs.',
+      confirm: 'Take over',
+    );
+    if (!ok || !mounted) return;
+    _report(await _sync.takeOverBackups());
+  }
+
+  void _report(BackupRun run) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(switch (result.outcome) {
+      content: Text(switch (run.snapshot.outcome) {
+        // Worth saying: the copy is good, but it was taken without hearing
+        // from the other device, so it may be an hour behind what that one
+        // knows. Silence here would be a promise the backup cannot keep.
+        SnapshotOutcome.uploaded when run.mayBeBehind =>
+          'Backed up — but the other device could not be reached first, so '
+              'this copy may not have its newest changes.',
         SnapshotOutcome.uploaded => 'Backed up to Drive.',
         SnapshotOutcome.notOwner =>
           'Another device takes the backups, so this one did not.',
-        SnapshotOutcome.failed => 'Backup failed: ${result.error}',
+        SnapshotOutcome.failed => 'Backup failed: ${run.snapshot.error}',
       }),
     ));
   }
@@ -255,6 +279,7 @@ class _SyncScreenState extends State<SyncScreen> {
                     deviceId: context.app.deviceId,
                     onBackUp: _backUpNow,
                     onRestore: _restore,
+                    onTakeOver: _takeOver,
                   ),
                 ],
 
@@ -304,12 +329,14 @@ class _BackupSection extends StatelessWidget {
     required this.deviceId,
     required this.onBackUp,
     required this.onRestore,
+    required this.onTakeOver,
   });
 
   final SyncStatus status;
   final String deviceId;
   final VoidCallback onBackUp;
   final VoidCallback onRestore;
+  final VoidCallback onTakeOver;
 
   @override
   Widget build(BuildContext context) {
@@ -349,10 +376,9 @@ class _BackupSection extends StatelessWidget {
                         : 'No backup since '
                             '${_when(owner.lastSnapshotAt ?? owner.claimedAt)}. '
                             '${ours ? 'This device' : '${owner.deviceId.substring(0, 8)}…'} '
-                            'is the backup device. If that phone is gone, '
-                            'delete snapshot/owner.json in the Little Loaf '
-                            'Bakery folder in Drive, and the next device to '
-                            'try will take over.',
+                            'is the backup device.'
+                            '${ours ? '' : ' If that phone is gone, take the '
+                                'backups over on this one.'}',
                     style: context.text.bodySmall!.copyWith(color: c.warn),
                   ),
                 ),
@@ -379,6 +405,20 @@ class _BackupSection extends StatelessWidget {
             ),
           ],
         ),
+        // Only when somebody else has the job. On the device that already
+        // holds it the button would do nothing, and offering it would suggest
+        // otherwise.
+        if (owner != null && !ours) ...[
+          const SizedBox(height: Space.sm),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: status.busy ? null : onTakeOver,
+              icon: const Icon(Icons.swap_horiz, size: 18),
+              label: const Text('Take over backups'),
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -30,8 +30,10 @@ snapshot**. Either condition alone loses data.
 **Chose:** `snapshot/owner.json`; missing → claim it; names someone else → skip.
 **Bought:** no locking, no heartbeats. The check runs on every write, so a double-claim
 self-corrects at the next attempt.
-**Cost:** release is manual — delete the file. Mitigated by a warning after 3 days without a
-snapshot.
+**Cost:** release is manual. **Amended 30 Sep 2026:** manual no longer means editing Drive by
+hand — **Take over backups** on Sync & backup writes the file and takes a snapshot on the spot,
+and the previous owner stands down by itself the next time it looks. Still nothing automatic:
+a timeout cannot tell a flat battery from a sold phone, and a person can.
 
 ### D6 · Devices are discovered, not configured
 **Chose:** UUID v7 per install; sync reads every journal folder that is not its own.
