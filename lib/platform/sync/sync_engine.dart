@@ -349,18 +349,31 @@ class SyncEngine {
 
     var applied = 0;
     var advanceTo = cursor;
+    // The cursor may only move over an unbroken run of settled ops. Past the
+    // first gap it stops, while the reading carries on.
+    var contiguous = true;
 
     for (final op in fresh) {
       final ok = await applier.apply(op);
       if (ok) applied++;
 
-      // An op that could not be applied yet — usually an edit whose creating
-      // op has not arrived — stops the cursor here. Advancing past it would
-      // mean never looking at it again, which loses the change silently.
-      final alreadySeen = !ok && await _isApplied(op.opId);
-      if (!ok && !alreadySeen) break;
+      final settled = ok || await _isApplied(op.opId);
+      if (!settled) {
+        // Could not be applied yet — usually an edit whose creating op has
+        // not arrived. Hold the cursor so it is read again next time, but
+        // keep going through the journal rather than stopping dead.
+        //
+        // Stopping was worse than it looked. One op that can never apply —
+        // a creating op from a build that left a NOT NULL column out, say —
+        // silently ended that peer's sync for good, and the op that would
+        // have repaired the row was usually the very next line in the same
+        // journal. Reading on costs a re-read of what is already applied,
+        // which `applied_ops` makes almost free.
+        contiguous = false;
+        continue;
+      }
 
-      advanceTo = op.seq;
+      if (contiguous) advanceTo = op.seq;
     }
 
     if (advanceTo != cursor) await _writeCursor(peer, advanceTo);

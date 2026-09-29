@@ -563,6 +563,20 @@ class OrderRepository {
     await db.transaction(() async {
       final orderNo = await _nextOrderNo(id);
 
+      // Worked out once and used twice, deliberately. The op has to be able
+      // to CREATE this row on a device that has never seen the order, so it
+      // must carry every NOT NULL column, holding the value actually written
+      // here. When the two drifted apart, the insert succeeded locally and
+      // every peer failed with `NOT NULL constraint failed: orders.fulfilment`
+      // — and because an op that cannot apply holds the cursor, that peer
+      // stopped reading the journal at all.
+      const seedFulfilment = Fulfilment.pickup;
+      final seedDate = deliveryDate ??
+          lines
+              .map((l) => l.deliveryDate)
+              .whereType<int>()
+              .fold<int>(0, (a, b) => b > a ? b : a);
+
       await db.into(db.orders).insert(OrdersCompanion.insert(
             id: id,
             deviceId: mutations.deviceId,
@@ -571,15 +585,11 @@ class OrderRepository {
             orderNo: orderNo,
             customerId: customerId,
             status: OrderStatus.created.wire,
-            // Placeholders for two NOT NULL columns that are really caches of
-            // the items. _refreshOrderCache rewrites both once the lines are
-            // in, a few statements below.
-            fulfilment: Fulfilment.pickup.name,
-            deliveryDate: deliveryDate ??
-                lines
-                    .map((l) => l.deliveryDate)
-                    .whereType<int>()
-                    .fold<int>(0, (a, b) => b > a ? b : a),
+            // Seeds for two NOT NULL columns that are really caches of the
+            // items. _refreshOrderCache rewrites both once the lines are in,
+            // a few statements below.
+            fulfilment: seedFulfilment.name,
+            deliveryDate: seedDate,
             deliveryTime: Value(deliveryTime),
             discountType: Value(discountType?.name),
             discountValue: Value(discountType == null ? null : discountValue),
@@ -589,7 +599,8 @@ class OrderRepository {
         'order_no': orderNo,
         'customer_id': customerId,
         'status': OrderStatus.created.wire,
-        'delivery_date': deliveryDate,
+        'fulfilment': seedFulfilment.name,
+        'delivery_date': seedDate,
         'delivery_time': deliveryTime,
       });
 
@@ -1041,13 +1052,23 @@ class OrderRepository {
       ),
     );
     await mutations.record('orders', orderId, OpKind.upsert, {
+      // Neither of these ever changes, and both are NOT NULL. They travel
+      // anyway, because this op has to be able to create the row on a device
+      // that never managed to apply the order's own creating op — otherwise
+      // that device is stuck for good: the create fails, and so does every
+      // correction behind it.
+      'order_no': o.orderNo,
+      'customer_id': o.customerId,
       'status': status.wire,
       'discount_type': discount.isZero ? null : DiscountType.amount.name,
       'discount_value': discount.isZero ? null : discount.paise,
       'discount_amount': discount.paise,
       'delivery_charge': delivery.paise,
       'fulfilment': how.name,
-      if (date != null) 'delivery_date': date,
+      // Never omitted: NOT NULL, so an op without it cannot create the row.
+      // The order's current value is the right fallback — it is what the
+      // local write below leaves in place when there is nothing to derive.
+      'delivery_date': date ?? o.deliveryDate,
       'delivery_time': deriveDueTime(subs),
       'delivery_type': isPickup ? null : finishing?.deliveryType?.wire,
       'address_text': isPickup ? null : finishing?.addressText,

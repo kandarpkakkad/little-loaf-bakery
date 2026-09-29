@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/hlc.dart';
+import 'package:little_loaf/common/money.dart';
+import 'package:little_loaf/domain/orders/repository.dart';
 import 'package:little_loaf/platform/sync/op.dart';
 import 'package:little_loaf/platform/sync/remote_store.dart';
 
@@ -38,6 +40,88 @@ void main() {
     final onBob = await bob.fixture.rows('customers');
     expect(onBob, hasLength(1));
     expect(onBob.first['name'], 'Asha Rao');
+  });
+
+  test('an order created on one device appears on the other', () async {
+    // The customer test below passed for months while this one would have
+    // failed: the orders op left out `fulfilment`, which is NOT NULL, so the
+    // insert died on every peer and took the rest of that journal with it.
+    // A creating op has to be able to create the row somewhere it has never
+    // been seen, and only a two-device test says whether it can.
+    final menuId = await alice.services.menu.create(name: 'Cake');
+    final customerId = await alice.services.customers
+        .findOrCreate(name: 'Asha Rao', phoneE164: '+919876543210');
+    await alice.services.orders.create(
+      customerId: customerId,
+      lines: [
+        DraftLine(
+          menuItemId: menuId,
+          itemName: 'Cake',
+          basePrice: Money.rupees(800),
+        )
+      ],
+      deliveryDate: dayAfter(2),
+      deliveryTime: 600,
+    );
+
+    await alice.engine.sync();
+    final down = await bob.engine.sync();
+
+    expect(down.peerErrors, isEmpty, reason: 'the journal must stay readable');
+
+    final onBob = await bob.fixture.rows('orders');
+    expect(onBob, hasLength(1), reason: 'the order reached the other device');
+    expect(onBob.first['fulfilment'], isNotNull);
+    expect(onBob.first['delivery_date'], isNotNull);
+    expect(await bob.fixture.rows('order_items'), hasLength(1));
+  });
+
+  test('one op that cannot apply does not stop the rest of the journal',
+      () async {
+    // Reading used to stop dead at the first op that would not apply, which
+    // is right for an edit whose creating op is still in flight and wrong
+    // for one that can never apply: that peer's sync ended permanently, and
+    // the op that would have repaired the row was the next line along.
+    Op op(int seq, String entity, String id, Map<String, Object?> fields) => Op(
+          opId: 'carol-$seq',
+          seq: seq,
+          hlc: Hlc(1000 + seq, 0, 'carol'),
+          entity: entity,
+          entityId: id,
+          kind: OpKind.upsert,
+          fields: fields,
+          schemaV: 16,
+        );
+
+    store.journals['carol'] = encodeJournal(
+      const JournalHeader(
+          deviceId: 'carol', minReaderVersion: 1, compactedThroughSeq: -1),
+      [
+        // NOT NULL fulfilment missing: refused, now and for ever.
+        op(1, 'orders', 'o1', {
+          'order_no': 'LLB-0001',
+          'customer_id': 'c1',
+          'status': 'created',
+        }),
+        // Behind it, something perfectly applicable.
+        op(2, 'customers', 'c1',
+            {'name': 'Asha Rao', 'phone_e164': '+919876543210'}),
+      ],
+    );
+
+    final report = await bob.engine.sync();
+    expect(report.peerErrors, isEmpty);
+
+    expect(await bob.fixture.rows('customers'), hasLength(1),
+        reason: 'the reachable op behind the stuck one still applied');
+    expect(await bob.fixture.rows('orders'), isEmpty);
+
+    // And the stuck op is not abandoned: the cursor stays behind it, so a
+    // later sync reads it again.
+    final cursors = await bob.fixture.rows('peer_cursors');
+    final carol = cursors.where((c) => c['peer_device_id'] == 'carol');
+    expect(carol.isEmpty ? 0 : carol.first['last_seq'], 0,
+        reason: 'the cursor must not advance past an unapplied op');
   });
 
   test('uploading twice with no new writes does not rewrite the journal',

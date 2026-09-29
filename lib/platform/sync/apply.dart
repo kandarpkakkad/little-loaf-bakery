@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:drift/remote.dart' show DriftRemoteException;
 import 'package:sqlite3/common.dart' show SqliteException;
 
 import '../../common/hlc.dart';
@@ -62,6 +63,19 @@ class OpApplier {
         // either, so there is nothing to announce.
         return const {};
       });
+
+  /// Whether a thrown object is SQLite refusing the statement.
+  ///
+  /// It is not enough to catch [SqliteException]. On a device the database
+  /// runs in a background isolate, and drift wraps anything crossing that
+  /// boundary in a [DriftRemoteException] carrying only the original's text.
+  /// Tests open the database in-process and see the real type, so
+  /// `on SqliteException` looked correct and passed every test while never
+  /// once matching on a phone: the exception escaped, and a single
+  /// unapplicable op became "Could not read `<peer>`" for the whole journal.
+  static bool _isSqliteFailure(Object e) =>
+      e is SqliteException ||
+      (e is DriftRemoteException && '$e'.contains('SqliteException'));
 
   /// The one table that is only partly shared. `settings` holds the bakery's
   /// details, which replicate, alongside this handset's own — its name, its
@@ -197,7 +211,8 @@ class OpApplier {
         updates: _updates(op.entity),
       );
       return true;
-    } on SqliteException {
+    } on Object catch (e) {
+      if (!_isSqliteFailure(e)) rethrow;
       // Almost always a NOT NULL or FOREIGN KEY column this op does not carry,
       // which means it is an *edit* to a row whose creating op has not arrived
       // yet. Deliberately not INSERT OR IGNORE: that swallows the same failure

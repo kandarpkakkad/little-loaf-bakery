@@ -1,4 +1,8 @@
 import 'package:drift/drift.dart' show Value;
+import 'dart:io';
+import 'package:drift/native.dart';
+import 'package:little_loaf/platform/sync/apply.dart';
+import 'package:little_loaf/platform/sync/mutations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/hlc.dart';
 import 'package:little_loaf/platform/storage/database.dart';
@@ -53,6 +57,44 @@ void main() {
     await sub.cancel();
 
     expect(counts, [0, 1], reason: 'the stream must re-emit with the new row');
+  });
+
+  test('a refused statement is contained, even from a background isolate',
+      () async {
+    // The device runs the database in a background isolate, and drift wraps
+    // anything crossing that boundary in a DriftRemoteException. `on
+    // SqliteException` therefore matched in every test — which open the
+    // database in-process — and never once on a phone, where the exception
+    // escaped and turned one unapplicable op into "Could not read <peer>"
+    // for that peer's entire journal. So this one uses the device's shape.
+    final dir = await Directory.systemTemp.createTemp('loaf_isolate');
+    final db = AppDatabase(
+      NativeDatabase.createInBackground(File('${dir.path}/d.db')),
+    );
+    final applier = OpApplier(
+      db,
+      await Mutations.restore(db, deviceId: 'this-device'),
+    );
+
+    // An order op with no `fulfilment` — NOT NULL, so the insert is refused.
+    final ok = await applier.apply(Op(
+      opId: 'peer-1-o1',
+      seq: 1,
+      hlc: const Hlc(1000, 0, 'peer'),
+      entity: 'orders',
+      entityId: 'o1',
+      kind: OpKind.upsert,
+      fields: const {
+        'order_no': 'LLB-0001',
+        'customer_id': 'c1',
+        'status': 'created',
+      },
+      schemaV: kSchemaVersion,
+    ));
+
+    expect(ok, isFalse, reason: 'refused, and reported as not applied');
+    expect(await db.customSelect('SELECT * FROM orders').get(), isEmpty);
+    await db.close();
   });
 
   test('a peer sets the bakery details but cannot touch this handset', () async {

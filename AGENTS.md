@@ -221,6 +221,48 @@ Parse a workflow before pushing it:
 ruby -ryaml -e 'Dir[".github/workflows/*.yml"].each { |f| YAML.load_file(f) }'
 ```
 
+### A creating op must be able to create the row
+
+An op is not a diff against your database, it is the only thing a device that
+has never seen the row will ever get. So the op that accompanies an INSERT has
+to carry **every NOT NULL column**, holding the value actually written — not a
+parameter that may still be null, and not a column left out because a later
+write will fix it locally.
+
+`orders` created here wrote `fulfilment` as a seed and recorded an op without
+it. Locally perfect; on every peer, `NOT NULL constraint failed:
+orders.fulfilment`. No order ever synced.
+
+Work the value out **once** and use it in both the insert and the op. Two lists
+of fields side by side will drift, and the drift is invisible until another
+phone reads it.
+
+An *update* op is rightly partial — the row already exists. Only the creating
+one has to stand alone. `_refreshOrderCache` is the exception that proves it:
+it is an update, but it also has to be able to create the row, because it is
+what rescues a peer that could not apply the create.
+
+### On a device, a SQLite failure is not a `SqliteException`
+
+The database runs in a background isolate, so drift wraps anything crossing
+that boundary in a `DriftRemoteException` carrying only the original's text.
+Tests open the database in-process and see the real type.
+
+`on SqliteException` in `apply.dart` therefore passed every test and never once
+matched on a phone. Instead of "leave the op for the next pull", the exception
+escaped and killed the whole peer read: **Could not read `<device>`**.
+
+Catch by behaviour, not by type, for anything that must hold on a device — and
+when a guard exists to contain a failure, write at least one test that opens
+the database the way the app does.
+
+### Never stop reading a journal at the first op that will not apply
+
+Holding the cursor is right; stopping is not. An op that can never apply ends
+that peer's sync permanently, and the op that would repair the row is usually
+the next line in the same journal. Read on, and let the cursor lag at the first
+gap — `applied_ops` makes the re-read almost free.
+
 ### A raw write must name the tables it touched
 
 `customInsert` / `customUpdate` / `customStatement` are invisible to drift's
