@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:little_loaf/common/hlc.dart';
 import 'package:little_loaf/common/money.dart';
 import 'package:little_loaf/domain/orders/repository.dart';
+import 'package:little_loaf/platform/sync/merge.dart';
 import 'package:little_loaf/platform/sync/op.dart';
 import 'package:little_loaf/platform/sync/remote_store.dart';
 
@@ -442,6 +443,104 @@ void main() {
     final meta = jsonDecode(store.meta['bob']!) as Map<String, Object?>;
     expect(meta['device_id'], 'bob');
     expect((meta['cursors'] as Map)['alice'], greaterThan(0));
+  });
+
+  group('removing a device', () {
+    // A device's journal is the only copy of what it wrote that other phones
+    // have not read. Every refusal here is a way that could be lost.
+    late SyncService service;
+    late Directory work;
+
+    Future<void> asOwner() async {
+      store.snapshotMeta = jsonEncode({
+        'device_id': 'bob',
+        'claimed_at': 1,
+        'through_seq': <String, int>{},
+      });
+      await service.refreshBackup();
+    }
+
+    setUp(() async {
+      work = await Directory.systemTemp.createTemp('loaf-removal');
+      service = SyncService(
+        db: bob.services.db,
+        mutations: bob.services.mutations,
+        deviceId: bob.id,
+        auth: _ConnectedAuth(),
+        storeFactory: (_) => store,
+        workDir: () async => work,
+      );
+      await service.restore();
+
+      // Alice has written something and uploaded it.
+      await alice.services.customers
+          .findOrCreate(name: 'Asha Rao', phoneE164: '+919876543210');
+      await alice.engine.sync();
+    });
+
+    test('only the device that takes the backups may remove another', () async {
+      store.snapshotMeta = jsonEncode(
+          {'device_id': 'alice', 'claimed_at': 1, 'through_seq': {}});
+      await service.refreshBackup();
+
+      final r = await service.removeDevice('alice');
+      expect(r.ok, isFalse);
+      expect(r.refusedBecause, contains('takes the backups'));
+      expect(store.journals.containsKey('alice'), isTrue);
+    });
+
+    test('a device cannot remove itself', () async {
+      await asOwner();
+      final r = await service.removeDevice(bob.id);
+      expect(r.ok, isFalse);
+      expect(r.refusedBecause, contains('device you are using'));
+    });
+
+    test('refused while another phone is still reading that journal', () async {
+      await asOwner();
+      // Carol is live and has read none of Alice's journal.
+      store.meta['carol'] = jsonEncode({
+        'device_id': 'carol',
+        'last_seen_at': DateTime.now().millisecondsSinceEpoch,
+        'cursors': <String, int>{},
+      });
+
+      final r = await service.removeDevice('alice');
+      expect(r.ok, isFalse);
+      expect(r.refusedBecause, contains('carol'.substring(0, 5)),
+          reason: 'the refusal names the phone that is behind');
+      expect(store.journals.containsKey('alice'), isTrue,
+          reason: 'and nothing was deleted');
+    });
+
+    test('a phone silent for a month does not hold up a removal', () async {
+      await asOwner();
+      store.meta['carol'] = jsonEncode({
+        'device_id': 'carol',
+        'last_seen_at': DateTime.now()
+            .subtract(kPeerLiveness + const Duration(days: 1))
+            .millisecondsSinceEpoch,
+        'cursors': <String, int>{},
+      });
+
+      expect((await service.removeDevice('alice')).ok, isTrue);
+    });
+
+    test('what it wrote is kept, and the folder is gone', () async {
+      await asOwner();
+      final r = await service.removeDevice('alice');
+
+      expect(r.refusedBecause, isNull);
+      expect(store.journals.containsKey('alice'), isFalse);
+      expect(store.meta.containsKey('alice'), isFalse);
+      expect(store.snapshots, isNotEmpty,
+          reason: 'a backup was taken before anything was deleted');
+      expect(await bob.fixture.rows('customers'), hasLength(1),
+          reason: "Asha came across before her phone's folder went");
+      final cursors = await bob.fixture.rows('peer_cursors');
+      expect(cursors.where((c) => c['peer_device_id'] == 'alice'), isEmpty,
+          reason: 'and it stops holding back compaction');
+    });
   });
 }
 

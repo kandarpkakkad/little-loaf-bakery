@@ -129,6 +129,7 @@ arrival order.
 | **A child read before its parent exists** | Held, and retried in a sweep at the end of the journal — the parent is routinely later in the same one. Without the sweep the order arrived on one sync and its items on the next, which reads as "sync brought the orders but not the details" |
 | **An op that cannot apply yet** | Holds the cursor, but reading continues through the rest of the journal — the op that repairs the row is usually the next line. Stopping ended that peer's sync permanently |
 | **The background worker pulled while the app was open** | Its writes go through a *different* connection, so no stream hears them. `syncNow` ends by marking every table updated, which makes the screens re-query. Without it the rows sat in SQLite until the app was killed |
+| **A device is removed** | Only by the backup owner, and only after a sync, a snapshot, and proof that every live peer has read its journal to the end. Its folder goes, its `peer_cursors` row goes, and it stops holding back compaction. Refusals name the reason — the phone that is behind, or the backup that did not run |
 | **Peer's journal was compacted past our cursor** | Reported as `peersMissingHistory` from the header's `compacted_through_seq`. Syncing can never catch this device up; only a restore can, and the screen says so |
 | Op arrives for a tombstoned row | Applies to the row; stays deleted unless the op un-deletes |
 | Same op seen twice | `applied_ops` PK rejects the second |

@@ -28,6 +28,13 @@ abstract class RemoteStore {
 
   Future<void> writeDeviceMeta(String deviceId, String json);
 
+  /// Removes a device's folder entirely — its journal and its `device.json`.
+  ///
+  /// Only ever called after the caller has established that every live peer
+  /// has already read that journal to its end. The folder is the only copy of
+  /// what that device wrote, so this is not a tidy-up.
+  Future<void> deleteDevice(String deviceId);
+
   // ── snapshots ──────────────────────────────────────────────────────────
   //
   // The other half of the backup: journals hold the recent tail, a snapshot
@@ -85,6 +92,13 @@ class InMemoryRemoteStore implements RemoteStore {
   Future<void> writeDeviceMeta(String deviceId, String json) async {
     _maybeFail();
     meta[deviceId] = json;
+  }
+
+  @override
+  Future<void> deleteDevice(String deviceId) async {
+    _maybeFail();
+    journals.remove(deviceId);
+    meta.remove(deviceId);
   }
 
   @override

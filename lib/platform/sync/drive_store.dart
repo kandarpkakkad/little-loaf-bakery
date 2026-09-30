@@ -234,6 +234,16 @@ class DriveStore implements RemoteStore {
   }
 
   @override
+  @override
+  Future<void> deleteDevice(String deviceId) async {
+    // One call takes the whole folder: ops.jsonl and device.json live in it,
+    // and Drive deletes children with their parent.
+    final id = await _deviceFolderId(deviceId);
+    await _api.files.delete(id);
+    _folderIds.remove('${await _journalId()}/$deviceId');
+  }
+
+  @override
   Future<void> deleteSnapshot(String name) async {
     final id = await _inSnapshots(name);
     if (id != null) await _api.files.delete(id);

@@ -86,6 +86,31 @@ class _SyncScreenState extends State<SyncScreen> {
 
   Future<void> _backUpNow() async => _report(await _sync.backUpNow());
 
+  Future<void> _removeDevice(String peerId) async {
+    final short = peerId.length <= 8 ? peerId : '${peerId.substring(0, 8)}…';
+    final ok = await confirmAction(
+      context,
+      title: 'Remove $short?',
+      message: 'Everything that phone recorded is copied here and into the '
+          'backup first. Then its folder in Drive goes, and this app stops '
+          'waiting for it.\n\nIf that phone is still in use it will start a '
+          'fresh folder the next time it syncs.',
+      confirm: 'Remove',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+
+    final result = await _sync.removeDevice(peerId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      // The reason, never a silent no-op: every refusal is something the
+      // owner can act on.
+      content: Text(result.ok
+          ? '$short removed.'
+          : result.refusedBecause!),
+    ));
+  }
+
   Future<void> _takeOver() async {
     final owner = _sync.status.owner;
     final ok = await confirmAction(
@@ -292,7 +317,15 @@ class _SyncScreenState extends State<SyncScreen> {
                 ],
 
                 const SizedBox(height: Space.xl),
-                if (s.lastReport != null) _PeerFacts(report: s.lastReport!),
+                if (s.lastReport != null)
+                  _PeerFacts(
+                    report: s.lastReport!,
+                    // Only from the phone that takes the backups — one device
+                    // decides, so two cannot race each other into deleting
+                    // the same folder.
+                    canRemove: s.owner?.deviceId == context.app.deviceId,
+                    onRemove: _removeDevice,
+                  ),
                 StreamBuilder<int>(
                   stream: context.app.mutations.watchPending(),
                   builder: (context, snap) => _Fact(
@@ -535,9 +568,15 @@ class _Fact extends StatelessWidget {
 /// What the last run actually saw. Exists because "0 received" answers none of
 /// the questions you have when another device's orders are not arriving.
 class _PeerFacts extends StatelessWidget {
-  const _PeerFacts({required this.report});
+  const _PeerFacts({
+    required this.report,
+    required this.canRemove,
+    required this.onRemove,
+  });
 
   final SyncReport report;
+  final bool canRemove;
+  final void Function(String peerId) onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -551,7 +590,20 @@ class _PeerFacts extends StatelessWidget {
         // A tablet three versions behind looks exactly like a tablet that is
         // not syncing, until you can see this.
         for (final e in report.peerVersions.entries)
-          _Fact('${e.key.substring(0, 8)}… is on', e.value),
+          if (!canRemove)
+            _Fact('${e.key.substring(0, 8)}… is on', e.value)
+          else
+            Row(
+              children: [
+                Expanded(
+                    child: _Fact('${e.key.substring(0, 8)}… is on', e.value)),
+                IconButton(
+                  icon: const Icon(Icons.phonelink_erase_outlined, size: 18),
+                  tooltip: 'Remove this device',
+                  onPressed: () => onRemove(e.key),
+                ),
+              ],
+            ),
         if (report.isolated)
           Padding(
             padding: const EdgeInsets.only(top: Space.sm),

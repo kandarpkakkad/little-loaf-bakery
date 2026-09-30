@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:drift/drift.dart' as drift;
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +12,8 @@ import '../backup/snapshot.dart';
 import '../storage/database.dart';
 import 'drive_auth.dart';
 import 'drive_store.dart';
+import 'merge.dart';
+import 'op.dart';
 import 'mutations.dart';
 import 'sync_engine.dart';
 
@@ -31,6 +35,20 @@ class BackupRun {
 
   /// Reached Drive to back up, but could not read a peer on the way.
   bool get mayBeBehind => !freshData && snapshot.outcome == SnapshotOutcome.uploaded;
+}
+
+/// What happened when a device was asked to be removed.
+///
+/// A refusal carries its reason as a sentence, because every one of them is
+/// something a person can act on: sync the other phone, do it from the device
+/// that takes the backups, wait for the backup to succeed.
+class DeviceRemoval {
+  const DeviceRemoval.done() : refusedBecause = null;
+  const DeviceRemoval.refused(String this.refusedBecause);
+
+  final String? refusedBecause;
+
+  bool get ok => refusedBecause == null;
 }
 
 /// Why sync is not running, when it is not.
@@ -372,6 +390,107 @@ class SyncService extends ChangeNotifier {
     final result = await _runSnapshot(store);
     await refreshBackup();
     return BackupRun(sync: sync, snapshot: result);
+  }
+
+  /// Forgets a device for good: its folder in Drive, and every trace of it
+  /// here.
+  ///
+  /// The order matters and is the whole of the safety. Sync first, so
+  /// everything that phone wrote is on this one. Snapshot second, so it is in
+  /// the backup and not only in this phone's memory. Only then check that no
+  /// other phone still needs to read that journal — and only then delete it.
+  ///
+  /// A device's journal is the **only** copy of the ops it wrote that other
+  /// phones have not read. There is no undo, which is why every step before
+  /// the delete has to have succeeded.
+  Future<DeviceRemoval> removeDevice(String peerId) async {
+    if (peerId == deviceId) {
+      return const DeviceRemoval.refused(
+          'This is the device you are using. Remove it from the other one.');
+    }
+    if (_status.owner?.deviceId != deviceId) {
+      return const DeviceRemoval.refused(
+          'Only the device that takes the backups can remove another. '
+          'Take over backups here first, or do this from that device.');
+    }
+
+    // Everything that phone wrote, onto this one.
+    final sync = await _pullBeforeSnapshot();
+    if (sync == null || !sync.ok) {
+      return const DeviceRemoval.refused(
+          'Could not sync first, so there may be changes on that phone this '
+          'one has never seen. Try again when Drive is reachable.');
+    }
+
+    final store = await _store();
+    if (store == null) {
+      return const DeviceRemoval.refused('Not connected to Drive.');
+    }
+
+    // Into the backup, which is the copy that outlives any one journal.
+    final snapshot = await _runSnapshot(store);
+    if (snapshot.outcome != SnapshotOutcome.uploaded) {
+      return DeviceRemoval.refused(
+          'The backup did not run, so there is nowhere safe for that phone\'s '
+          'records yet. ${snapshot.error ?? ''}'.trim());
+    }
+
+    final behind = await _peersStillReading(store, peerId);
+    if (behind.isNotEmpty) {
+      return DeviceRemoval.refused(
+          '${behind.join(', ')} has not finished reading that phone\'s '
+          'changes yet. Sync that device, then try again.');
+    }
+
+    await store.deleteDevice(peerId);
+
+    // Locally too, or it keeps appearing and keeps holding back compaction
+    // for the thirty days it counts as live.
+    await (db.delete(db.peerCursors)
+          ..where((t) => t.peerDeviceId.equals(peerId)))
+        .go();
+    await (db.update(db.devices)..where((t) => t.id.equals(peerId)))
+        .write(DevicesCompanion(
+            deletedAt: drift.Value(DateTime.now().millisecondsSinceEpoch)));
+
+    await syncNow();
+    return const DeviceRemoval.done();
+  }
+
+  /// A device id as a person sees it. Never assumes the length: a real id is
+  /// a UUID, but nothing enforces that and a crash here would be raised as
+  /// "removing a device does nothing".
+  static String _shortId(String id) =>
+      id.length <= 8 ? id : '${id.substring(0, 8)}…';
+
+  /// Live peers that have not read [peerId]'s journal to its end.
+  ///
+  /// The same question compaction asks before dropping an op, answered from
+  /// the same place: every device publishes its cursors in `device.json`. A
+  /// phone silent past [kPeerLiveness] does not hold up a removal, exactly as
+  /// it does not hold up compaction.
+  Future<List<String>> _peersStillReading(
+      RemoteStore store, String peerId) async {
+    final journal = await store.readJournal(peerId);
+    if (journal == null) return const [];
+    final ops = decodeJournal(journal).ops;
+    if (ops.isEmpty) return const [];
+    final lastSeq = ops.map((o) => o.seq).reduce((a, b) => a > b ? a : b);
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final behind = <String>[];
+    for (final other in await store.listDevices()) {
+      if (other == peerId || other == deviceId) continue;
+      final text = await store.readDeviceMeta(other);
+      if (text == null) continue;
+      final meta = jsonDecode(text) as Map<String, Object?>;
+      final seen = (meta['last_seen_at'] as num?)?.toInt() ?? 0;
+      if (!isLivePeer(lastSeenAtMs: seen, nowMs: now)) continue;
+      final cursors = (meta['cursors'] as Map?) ?? const {};
+      final at = (cursors[peerId] as num?)?.toInt() ?? 0;
+      if (at < lastSeq) behind.add(_shortId(other));
+    }
+    return behind;
   }
 
   /// Moves the backup job to this device.

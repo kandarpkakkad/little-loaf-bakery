@@ -42,6 +42,20 @@ a timeout cannot tell a flat battery from a sold phone, and a person can.
 reinstall is a new device with a new id and a fresh number sequence. The old journal stays
 readable and ages out of the live-peer set after 30 days.
 
+**Removal is the one deliberate exception, added 30 Sep 2026.** Discovery has no way to say
+"that phone is gone", so its folder sits in Drive for ever and holds back compaction for a
+month each time it is seen. The **backup owner** — one device, so no race — can remove
+another, and the order is the whole of the safety: sync, so what that phone wrote is here;
+snapshot, so it is in the backup and not only in this phone's memory; then check that every
+live peer has already read that journal to its end, which is the same question
+`compactThroughSeq` asks before dropping an op and is answered from the cursors every device
+publishes in `device.json`. Only then is the folder deleted.
+
+**Not by re-announcing.** Having the owner re-record those rows as its own ops would give
+old data fresh HLCs, so the re-announced copy would beat a concurrent edit on another phone
+that is genuinely newer. The snapshot is the copy meant to outlive a journal; the op log is
+not the place to make a second one.
+
 ### D7 · Two ids per entity
 **Chose:** UUID v7 primary key + a separate human-facing number.
 **Bought:** the human number can never break the data — a collision would still be two
