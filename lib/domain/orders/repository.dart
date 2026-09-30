@@ -1265,6 +1265,20 @@ class OrderRepository {
             deliveryTime == kUnchanged ? was.deliveryTime : deliveryTime as int?;
         final touchesTiming =
             toDate != was.deliveryDate || toTime != was.deliveryTime;
+
+        // How it travels is a different question from when. A van on the
+        // road can be redirected and charged for, but it cannot become a
+        // pickup while somebody is driving it.
+        final wasPickup = was.fulfilment == Fulfilment.pickup.name;
+        final toPickup = fulfilment == null ? wasPickup : fulfilment == Fulfilment.pickup;
+        final toType = deliveryType == kUnchanged
+            ? was.deliveryType
+            : (deliveryType as DeliveryType?)?.wire;
+        if (toPickup != wasPickup || toType != was.deliveryType) {
+          final no = travelRefusal(
+              line: status, journey: SubOrderStatus.parse(was.status));
+          if (no != null) throw StateError(no);
+        }
         if (touchesTiming) {
           final refusal = scheduleRefusal(
             line: status,
@@ -1622,6 +1636,11 @@ class OrderRepository {
   /// One op for the whole edit, not one per field: the fields changed together
   /// and a peer applying them together is what keeps a half-moved order from
   /// ever existing.
+  /// The order's own details.
+  ///
+  /// Guarded here and not only by hiding the button: a widget is not where a
+  /// rule lives, and the past-date check already says why — any future caller
+  /// reaches this without passing the screen.
   Future<void> updateDetails(
     String orderId, {
     Fulfilment? fulfilment,
@@ -1662,6 +1681,12 @@ class OrderRepository {
     if (fields.isEmpty) return;
 
     await db.transaction(() async {
+      final status = await _derivedStatus(orderId);
+      if (!canEditOrder(status)) {
+        throw StateError(
+            'This order is ${status.label.toLowerCase()}, so its details are '
+            'a record of what happened rather than a plan.');
+      }
       await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
         OrdersCompanion(
           fulfilment:
@@ -1708,6 +1733,19 @@ class OrderRepository {
             ..where((t) => t.id.equals(subOrderId)))
           .getSingleOrNull();
       if (row == null) return;
+
+      // The schema refuses a courier link on a pickup, and it refused it as a
+      // CHECK-constraint string in front of a baker. Nobody collects their
+      // own cake by courier, so this says so in words.
+      if (row.fulfilment == Fulfilment.pickup.name) {
+        throw StateError(
+            'This one is being collected, so there is no delivery to track.');
+      }
+      final journey = SubOrderStatus.parse(row.status);
+      if (journey == SubOrderStatus.delivered ||
+          journey == SubOrderStatus.cancelled) {
+        throw StateError('This journey is over — a link adds nothing now.');
+      }
 
       await (db.update(db.subOrders)..where((t) => t.id.equals(subOrderId)))
           .write(SubOrdersCompanion(

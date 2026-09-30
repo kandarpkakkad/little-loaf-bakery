@@ -727,6 +727,26 @@ int? deriveDueTime(Iterable<SubOrder> subs) {
 /// How far a handover may be pushed back once the baker has started.
 const Duration kMaySlip = Duration(hours: 6);
 
+/// Why the way this item travels may not change, or null when it may.
+///
+/// Separate from [scheduleRefusal] because the two are not the same question.
+/// A van can be redirected and charged for while it is on the road — the
+/// address and the delivery charge stay open — but it cannot become a pickup
+/// while somebody is driving it, and its arrival cannot be re-timed.
+String? travelRefusal({
+  required LineStatus line,
+  required SubOrderStatus journey,
+}) {
+  if (journey == SubOrderStatus.out) {
+    return 'This is already out for delivery, so how it travels cannot '
+        'change. Redirect it instead.';
+  }
+  if (line.isDone || journey == SubOrderStatus.delivered) {
+    return 'This has already been handed over.';
+  }
+  return null;
+}
+
 /// One schedule as a moment, for comparing two of them.
 ///
 /// An untimed item counts as midnight on its day. That is not a promise of

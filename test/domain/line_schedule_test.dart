@@ -597,6 +597,56 @@ void main() {
       );
     });
 
+    test('a van on the road cannot become a pickup', () async {
+      // The address and the charge stay open while it travels — a van can be
+      // redirected and charged for. How it travels cannot: nobody turns a
+      // delivery already on the road into a collection.
+      final id = await order([
+        draft('Cake',
+            date: dayAfter(1),
+            time: 600,
+            fulfilment: Fulfilment.delivery,
+            address: 'Home')
+      ]);
+      final lineId = await started(id);
+      final v = await view(id);
+      await f.services.orders.moveLine(lineId, LineStatus.ready);
+      await f.services.orders
+          .moveSubOrder(subOf(v, v.lines.single).id, SubOrderStatus.out);
+
+      await expectLater(
+        f.services.orders
+            .updateLine(lineId, fulfilment: Fulfilment.pickup),
+        throwsStateError,
+      );
+    });
+
+    test('a collection has no courier to track', () async {
+      // The schema refuses this with a CHECK, and refused it as a constraint
+      // string in front of a baker.
+      final id = await order(
+          [draft('Cake', date: dayAfter(1), fulfilment: Fulfilment.pickup)]);
+      final v = await view(id);
+      await expectLater(
+        f.services.orders
+            .setTrackingUrl(subOf(v, v.lines.single).id, 'https://t/1'),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('a finished order refuses its own details being rewritten', () async {
+      // The button is hidden, but a widget is not where a rule lives.
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      await f.services.orders.confirm(id);
+      final v = await view(id);
+      await advance(v.lines.single.id!, LineStatus.delivered);
+
+      await expectLater(
+        f.services.orders.updateDetails(id, notes: 'after the fact'),
+        throwsStateError,
+      );
+    });
+
     test('the delivery charge is still settable from the van', () async {
       // The timing is frozen once it is on the road; the charge is not. The
       // HLD has it editable "until Delivered, including from the delivery

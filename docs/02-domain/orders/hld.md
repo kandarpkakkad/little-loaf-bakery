@@ -60,6 +60,14 @@ should find it.
   **Cancelling a single line is not covered by this** and can still leave credit, which is
   the honest record of an item that was paid for and could not be made. Worth revisiting
   when refunds exist.
+- **How an item travels is fixed once it is travelling.** The address and the delivery
+  charge stay open while a van is on the road — it can be redirected and charged for — but
+  the fulfilment and the delivery type cannot change, and neither can the timing. A
+  collection has no courier, so a tracking link on a pickup is refused in words rather than
+  as the CHECK-constraint string it used to be.
+- **The order's own details are guarded in the domain, not only by hiding the button.**
+  `updateDetails` applies `canEditOrder` itself, so a caller that never passes the screen
+  cannot rewrite a delivered order's notes.
 - **A closed order takes no more items.** `completedAt` short-circuits the derivation, so
   an item added to a completed order left it reading Completed while holding unbaked work
   and an unpaid balance: on the kitchen board, absent from open orders, and with money that
