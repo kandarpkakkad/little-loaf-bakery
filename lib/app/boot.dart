@@ -15,6 +15,8 @@ import '../ui/shell/tabs.dart';
 import '../ui/shell/update_gate.dart';
 import '../ui/shell/shell.dart';
 import '../ui/theme/theme.dart';
+import '../ui/theme/tokens.dart';
+import '../ui/widgets/primitives.dart';
 import 'scope.dart';
 
 /// First frame to first usable screen.
@@ -125,7 +127,24 @@ class _BootSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: context.colors.paper,
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandMark(size: 128),
+              const SizedBox(height: Space.xl),
+              // Small and quiet underneath. Opening the database reads a
+              // Keystore key and may run a migration, so this is a real wait
+              // — the mark says starting, the spinner says still going.
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: context.colors.ink3),
+              ),
+            ],
+          ),
+        ),
       );
 }
 

@@ -182,6 +182,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (orders.isEmpty) {
             return Pullable(child: EmptyState(
               icon: Icons.receipt_long_outlined,
+              // Nothing anywhere, not merely nothing under this filter.
+              branded: all.isEmpty && _query.isEmpty,
               message: _query.isNotEmpty
                   ? 'Nothing matches "$_query".'
                   : switch (_filter) {

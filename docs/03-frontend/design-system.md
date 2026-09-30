@@ -9,6 +9,18 @@ licence to invent.
 ## 1. Colour
 
 Sampled from the logo: **slate `hue 202° / 29% / 44%`** and **cream `hue 45° / 70% / 91%`**.
+
+**Where the mark itself appears.** Three places, and only where somebody is
+waiting or has nothing to look at: the boot screen while the database opens,
+above **Connect Google Drive** on the sync screen, and on Orders when the
+bakery has no orders *at all* — `all.isEmpty`, not merely nothing under the
+current filter, because "no open orders" happens most evenings and a logo
+every time the day's work finished would stop meaning anything.
+
+Deliberately **not** in the app bar. Every screen already says what it is, the
+bar is slate already, and the mark there costs height the Kanban columns need.
+It is `BrandMark` in `widgets/primitives.dart`; the asset survived a year in
+the bundle without a single reference to it.
 Everything else is those two hues at other lightnesses. The semantic trio is pitched at the
 slate's own saturation and lightness so it belongs to the same set rather than looking
 bolted on.

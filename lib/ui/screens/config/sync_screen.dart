@@ -244,12 +244,20 @@ class _SyncScreenState extends State<SyncScreen> {
                 _StatusCard(status: s),
                 const SizedBox(height: Space.lg),
 
-                if (!s.connected)
+                if (!s.connected) ...[
+                  // Signing in is the one moment the app asks for the keys to
+                  // the bakery's Google account, so it says whose bakery is
+                  // asking rather than leaving that to the launcher icon.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.lg),
+                    child: Center(child: BrandMark(size: 88)),
+                  ),
                   FilledButton.icon(
                     onPressed: s.busy ? null : _connect,
                     icon: const Icon(Icons.cloud_outlined, size: 18),
                     label: const Text('Connect Google Drive'),
-                  )
+                  ),
+                ]
                 else ...[
                   if (s.blocker == SyncBlocker.needsReconnect)
                     Padding(

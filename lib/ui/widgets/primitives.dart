@@ -104,12 +104,26 @@ class LoafAlert extends StatelessWidget {
 /// Icon, one line of what goes here, and the action that fills it.
 /// Never a blank list. docs/03-frontend/design-system.md §7.
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.message, this.action, this.onAction});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.message,
+    this.action,
+    this.onAction,
+    this.branded = false,
+  });
 
   final IconData icon;
   final String message;
   final String? action;
   final VoidCallback? onAction;
+
+  /// Show the bakery's mark instead of the icon.
+  ///
+  /// For a bakery with no orders at all, which happens once. "No open
+  /// orders" happens most evenings and gets the plain icon — a logo every
+  /// time the day's work is finished would stop meaning anything.
+  final bool branded;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -118,7 +132,10 @@ class EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: context.colors.ink3),
+              if (branded)
+                const BrandMark(size: 112)
+              else
+                Icon(icon, size: 40, color: context.colors.ink3),
               const SizedBox(height: Space.md),
               Text(message,
                   textAlign: TextAlign.center, style: context.text.bodyMedium),
@@ -195,4 +212,30 @@ class StockBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The bakery's own mark.
+///
+/// Shipped since the first release and drawn nowhere until now: the app wore
+/// the logo's slate and cream as its palette while never showing the thing
+/// they came from.
+///
+/// Used sparingly, and only where a person is waiting or has nothing to look
+/// at — starting up, signing in, an empty bakery. Not in the app bar: every
+/// screen already says what it is, and the mark there would be the app
+/// looking at itself.
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, this.size = 96});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        'assets/brand/logo.png',
+        width: size,
+        height: size,
+        // A missing asset should not be a red screen in a bakery. The mark is
+        // never the only thing on any of these screens.
+        errorBuilder: (_, __, ___) => SizedBox(height: size),
+      );
 }

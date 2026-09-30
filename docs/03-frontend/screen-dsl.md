@@ -103,7 +103,7 @@ screen Orders
         Row  caption "@o.timeOrAnyTime · @o.status" | Money @o.balanceDue
         when @o.unshared: Chip bad "✕ not sent"
     when @orders.isEmpty
-      Empty "No orders yet." action="New order"
+      Empty "No orders yet." action="New order" branded=@all.isEmpty
 ```
 
 ### S04 · New / edit order
