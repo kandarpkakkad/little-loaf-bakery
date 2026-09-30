@@ -50,6 +50,16 @@ should find it.
 - **Delivery charge stays editable until Delivered**, including from the delivery run —
   so the timing guard below applies to the date and time only, not to every field that
   moves with a journey.
+- **An order is settled before it closes, either way.** Completing already required
+  nothing owed and nothing owed back; cancelling now requires that no money has been taken.
+  The credit a cancellation would leave has nothing able to clear it — refunds do not exist
+  and a payment is removed rather than reversed — so the cash goes back, the payment comes
+  off, and only then is the order called off. An unpaid order cancels freely, which is the
+  ordinary case.
+
+  **Cancelling a single line is not covered by this** and can still leave credit, which is
+  the honest record of an item that was paid for and could not be made. Worth revisiting
+  when refunds exist.
 - **A closed order takes no more items.** `completedAt` short-circuits the derivation, so
   an item added to a completed order left it reading Completed while holding unbaked work
   and an unpaid balance: on the kitchen board, absent from open orders, and with money that

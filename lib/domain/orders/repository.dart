@@ -771,6 +771,18 @@ class OrderRepository {
     final hlc = mutations.lastHlc.toString();
 
     await db.transaction(() async {
+      // Money taken against an order that is about to be called off is money
+      // owed back, and there is no refund to record — the credit would sit
+      // there with nothing able to clear it. Hand the cash back and remove
+      // the payment, then cancel: the record then says what actually
+      // happened, which is that nothing was sold and nothing was kept.
+      final paid = await _paidOf(orderId);
+      if (paid.paise > 0) {
+        throw StateError(
+            '₹${(paid.paise / 100).toStringAsFixed(2)} has been taken for this '
+            'order. Return it and remove the payment before cancelling.');
+      }
+
       final from = await _derivedStatus(orderId);
       for (final l in await _linesOf(orderId)) {
         if (l.status.isLive) {

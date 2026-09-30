@@ -215,6 +215,31 @@ void main() {
     expect(v.liveLines, hasLength(1));
   });
 
+  test('an order that has taken money cannot be cancelled', () async {
+    // The credit it would leave has nothing able to clear it: refunds do not
+    // exist, and a payment is removed rather than reversed. So the cash goes
+    // back and the payment comes off, and only then is the order called off.
+    final id = await order([draft('Cake', date: dayAfter(1))]);
+    await f.services.orders.addPayment(
+        orderId: id, amount: Money.rupees(400), kind: 'advance', mode: 'upi');
+
+    await expectLater(
+      f.services.orders
+          .moveTo(id, OrderStatus.cancelled, reason: 'customer called off'),
+      throwsStateError,
+    );
+
+    // Hand the cash back, take the payment off, and it cancels.
+    final paid = (await f.services.orders.watchPayments(id).first).single;
+    await f.services.orders.removePayment(paid.id);
+    await f.services.orders
+        .moveTo(id, OrderStatus.cancelled, reason: 'customer called off');
+
+    final v = await view(id);
+    expect(v.status, OrderStatus.cancelled);
+    expect(v.totals.paid, Money.zero, reason: 'and nothing is left owed back');
+  });
+
   test('cancelling after payment leaves the order in credit', () async {
     final id = await order([draft('Cake', date: dayAfter(1)), draft('Buns', date: dayAfter(1))]);
     await f.services.orders.addPayment(

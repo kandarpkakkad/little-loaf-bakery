@@ -153,6 +153,14 @@ void main() {
       }
     });
 
+    test('completing needs the money settled, in both directions', () {
+      // Already enforced by complete(); stated here so the pair of rules sits
+      // in one place — nothing owed, and nothing owed back.
+      expect(allowedNext(OrderStatus.delivered), contains(OrderStatus.completed));
+      expect(allowedNext(OrderStatus.paymentPending), isEmpty,
+          reason: 'an order still owing money offers no way to finish it');
+    });
+
     SubOrder journey(SubOrderStatus st) => SubOrder(
           id: 'j-${st.name}',
           seq: 1,
