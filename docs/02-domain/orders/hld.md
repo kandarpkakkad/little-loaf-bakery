@@ -47,7 +47,13 @@ should find it.
 - **Advance is optional** (D9). Confirming with nothing collected is normal.
 - **Zero never shows** (D10) — one rule, applied to discount, delivery and advance alike.
 - **The address belongs to the order** (D20), starts empty, with *Same as last order*.
-- **Delivery charge stays editable until Delivered**, including from the delivery run.
+- **Delivery charge stays editable until Delivered**, including from the delivery run —
+  so the timing guard below applies to the date and time only, not to every field that
+  moves with a journey.
+- **A closed order takes no more items.** `completedAt` short-circuits the derivation, so
+  an item added to a completed order left it reading Completed while holding unbaked work
+  and an unpaid balance: on the kitchen board, absent from open orders, and with money that
+  could never surface as payment pending. Anything more is a new order.
 - **How far along an item is decides how far its handover may move**
   (`scheduleRefusal`). Nothing started: any date and time, it is still a
   conversation. In production or ready: **later only, and by at most six

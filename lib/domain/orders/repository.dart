@@ -1225,22 +1225,33 @@ class OrderRepository {
               ..where((t) => t.id.equals(i.subOrderId)))
             .getSingle();
 
+        // Only when the timing actually moves. The charge, the address and
+        // the way it travels are a different question: the HLD has the
+        // delivery charge editable "until Delivered, including from the
+        // delivery run", and guarding every schedule-adjacent field at once
+        // silently broke that — with an error about a time nobody had
+        // touched.
+        //
         // How far along this item is decides how far its handover may move.
         // The journey is consulted as well as the item: an item riding in a
         // van is still `ready` on its own row, so the line status alone would
         // happily let somebody re-time a delivery already on the road.
-        final refusal = scheduleRefusal(
-          line: status,
-          journey: SubOrderStatus.parse(was.status),
-          from: scheduleAt(was.deliveryDate, was.deliveryTime),
-          to: scheduleAt(
-            deliveryDate ?? was.deliveryDate,
-            deliveryTime == kUnchanged
-                ? was.deliveryTime
-                : deliveryTime as int?,
-          ),
-        );
-        if (refusal != null) throw StateError(refusal);
+        final touchesTiming =
+            deliveryDate != null || deliveryTime != kUnchanged;
+        if (touchesTiming) {
+          final refusal = scheduleRefusal(
+            line: status,
+            journey: SubOrderStatus.parse(was.status),
+            from: scheduleAt(was.deliveryDate, was.deliveryTime),
+            to: scheduleAt(
+              deliveryDate ?? was.deliveryDate,
+              deliveryTime == kUnchanged
+                  ? was.deliveryTime
+                  : deliveryTime as int?,
+            ),
+          );
+          if (refusal != null) throw StateError(refusal);
+        }
 
         final moved = DraftLine(
           menuItemId: i.menuItemId,
@@ -1367,6 +1378,17 @@ class OrderRepository {
     final hlc = mutations.lastHlc.toString();
     late String id;
     await db.transaction(() async {
+      // A closed order stays closed. `completedAt` short-circuits the
+      // derivation, so an item added here left the order reading Completed
+      // while holding unbaked work and an unpaid balance: it would appear on
+      // the kitchen board, never in open orders, and the money could never
+      // surface as payment pending. Anything more is a new order.
+      final open = await _derivedStatus(orderId);
+      if (open == OrderStatus.completed || open == OrderStatus.cancelled) {
+        throw StateError(
+            'This order is ${open.label.toLowerCase()}. Take a new order for '
+            'anything more.');
+      }
       final existing = await (db.select(db.orderItems)
             ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull()))
           .get();

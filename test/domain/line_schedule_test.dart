@@ -417,6 +417,33 @@ void main() {
       expect(v.status, OrderStatus.created);
     });
 
+    test('a closed order takes no more items', () async {
+      // `completedAt` short-circuits the derivation, so an item added after
+      // completion left the order reading Completed while holding unbaked
+      // work and an unpaid balance — on the kitchen board, absent from open
+      // orders, and with money that could never surface as payment pending.
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      await f.services.orders.confirm(id);
+      final v = await view(id);
+      await advance(v.lines.single.id!, LineStatus.delivered);
+      await f.services.orders.addPayment(
+          orderId: id,
+          amount: v.totals.total,
+          kind: 'balance',
+          mode: 'upi');
+      await f.services.orders.complete(id);
+
+      expect(
+        () => f.services.orders.addLine(id, draft('Bread', date: dayAfter(2))),
+        throwsStateError,
+      );
+
+      final after = await view(id);
+      expect(after.lines, hasLength(1), reason: 'and nothing was written');
+      expect(after.totals.balanceDue, Money.zero,
+          reason: 'a completed order stays settled');
+    });
+
     test('an item added while the order is in production is still confirmed',
         () async {
       final id = await order([draft('Cake', date: dayAfter(1))]);
@@ -519,6 +546,30 @@ void main() {
         throwsStateError,
         reason: 'and an hour later is inside the six it could otherwise slip',
       );
+    });
+
+    test('the delivery charge is still settable from the van', () async {
+      // The timing is frozen once it is on the road; the charge is not. The
+      // HLD has it editable "until Delivered, including from the delivery
+      // run", and a guard on every schedule-adjacent field silently broke
+      // that — with an error about a time nobody had touched.
+      final id = await order([
+        draft('Cake',
+            date: dayAfter(1),
+            time: 600,
+            fulfilment: Fulfilment.delivery,
+            address: 'Home')
+      ]);
+      final lineId = await started(id);
+      var v = await view(id);
+      await f.services.orders.moveLine(lineId, LineStatus.ready);
+      await f.services.orders
+          .moveSubOrder(subOf(v, v.lines.single).id, SubOrderStatus.out);
+
+      await f.services.orders
+          .updateLine(lineId, deliveryCharge: Money.rupees(60));
+      v = await view(id);
+      expect(subOf(v, v.lines.single).deliveryCharge, Money.rupees(60));
     });
 
     test('a started item cannot be brought forward', () async {
