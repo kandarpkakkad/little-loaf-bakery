@@ -1225,6 +1225,23 @@ class OrderRepository {
               ..where((t) => t.id.equals(i.subOrderId)))
             .getSingle();
 
+        // How far along this item is decides how far its handover may move.
+        // The journey is consulted as well as the item: an item riding in a
+        // van is still `ready` on its own row, so the line status alone would
+        // happily let somebody re-time a delivery already on the road.
+        final refusal = scheduleRefusal(
+          line: status,
+          journey: SubOrderStatus.parse(was.status),
+          from: scheduleAt(was.deliveryDate, was.deliveryTime),
+          to: scheduleAt(
+            deliveryDate ?? was.deliveryDate,
+            deliveryTime == kUnchanged
+                ? was.deliveryTime
+                : deliveryTime as int?,
+          ),
+        );
+        if (refusal != null) throw StateError(refusal);
+
         final moved = DraftLine(
           menuItemId: i.menuItemId,
           itemName: i.itemNameSnapshot,

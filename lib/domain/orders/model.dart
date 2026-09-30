@@ -708,6 +708,61 @@ int? deriveDueTime(Iterable<SubOrder> subs) {
 ///
 /// The comparison is to the minute, not the second: a phone whose clock is a
 /// few seconds behind should not refuse an order for the time being typed.
+/// How far a handover may be pushed back once the baker has started.
+const Duration kMaySlip = Duration(hours: 6);
+
+/// One schedule as a moment, for comparing two of them.
+///
+/// An untimed item counts as midnight on its day. That is not a promise of
+/// midnight — it is the earliest the day can mean, and it makes "any time on
+/// Friday" compare sensibly against a real Friday time.
+DateTime scheduleAt(int date, int? time) {
+  final d = DateTime.fromMillisecondsSinceEpoch(date);
+  return DateTime(d.year, d.month, d.day, (time ?? 0) ~/ 60, (time ?? 0) % 60);
+}
+
+/// Why this item's handover may not be moved from [from] to [to], or null
+/// when it may.
+///
+/// Three rules, and which applies depends on how far along the item is.
+///
+/// **Not started** — anything. The order is agreed but nothing has been made,
+/// so the date and time are still a conversation with the customer.
+///
+/// **In production or ready** — later only, and by no more than [kMaySlip].
+/// A cake in the oven cannot be handed over sooner than it exists, and an
+/// order that slips by more than six hours is a different promise that wants
+/// a conversation rather than an edit.
+///
+/// **Gone** — nothing. Out with a courier, collected, delivered or finished:
+/// the schedule now describes something that already happened, and editing it
+/// would rewrite the record rather than change a plan.
+String? scheduleRefusal({
+  required LineStatus line,
+  required SubOrderStatus journey,
+  required DateTime from,
+  required DateTime to,
+}) {
+  if (journey == SubOrderStatus.out) {
+    return 'This is already out for delivery, so its time cannot change.';
+  }
+  if (line.isDone || journey == SubOrderStatus.delivered) {
+    return 'This has already been handed over, so its time cannot change.';
+  }
+  if (!line.hasStarted) return null;
+
+  if (to.isBefore(from)) {
+    return 'The baker has started this one, so it can be put back but not '
+        'brought forward.';
+  }
+  if (to.difference(from) > kMaySlip) {
+    return 'A started item can be put back by up to '
+        '${kMaySlip.inHours} hours. Cancel and re-take the order if it has to '
+        'move further.';
+  }
+  return null;
+}
+
 bool isPastSchedule(int date, int? time, {DateTime? now}) {
   final at = now ?? DateTime.now();
   final today = DateTime(at.year, at.month, at.day).millisecondsSinceEpoch;

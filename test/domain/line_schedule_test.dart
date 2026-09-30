@@ -460,24 +460,76 @@ void main() {
       }
     });
 
-    test('when and where it goes still change — a van can be redirected',
-        () async {
+    test('where it goes still changes — a van can be redirected', () async {
       final id = await order([draft('Cake', date: dayAfter(1))]);
       final lineId = await started(id);
 
+      // An untimed item counts as midnight on its day, so five in the
+      // morning is five hours later: inside the six a started item may slip.
       await f.services.orders.updateLine(
         lineId,
-        deliveryDate: dayAfter(6),
-        deliveryTime: 1020,
+        deliveryTime: 300,
         addressText: 'The office',
       );
 
       final v = await view(id);
       final journey = subOf(v, v.lines.single);
-      expect(journey.deliveryDate, dayAfter(6));
-      expect(journey.deliveryTime, 1020);
+      expect(journey.deliveryTime, 300);
       expect(journey.addressText, 'The office');
-      expect(v.dueDate, dayAfter(6), reason: 'and the order follows it');
+    });
+
+    test('a started item may be put back six hours, and no further', () async {
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      final lineId = await started(id);
+
+      expect(
+        () => f.services.orders
+            .updateLine(lineId, deliveryDate: dayAfter(6), deliveryTime: 1020),
+        throwsStateError,
+        reason: 'five days later is a different promise, not an edit',
+      );
+      expect(
+        () => f.services.orders.updateLine(lineId, deliveryTime: 420),
+        throwsStateError,
+        reason: 'seven hours is past the six it may slip',
+      );
+      // And the address alone is untouched by any of it.
+      await f.services.orders.updateLine(lineId, addressText: 'The office');
+      final v = await view(id);
+      expect(subOf(v, v.lines.single).addressText, 'The office');
+    });
+
+    test('an item already in the van cannot be re-timed', () async {
+      // The trap this rule exists for: an item riding in a van is still
+      // `ready` on its own row, so the line status alone would happily let
+      // somebody re-time a delivery that is already on the road. The journey
+      // has to be consulted too.
+      final id = await order([draft('Cake', date: dayAfter(1), time: 600)]);
+      final lineId = await started(id);
+      var v = await view(id);
+      await f.services.orders.moveLine(lineId, LineStatus.ready);
+      await f.services.orders
+          .moveSubOrder(subOf(v, v.lines.single).id, SubOrderStatus.out);
+
+      v = await view(id);
+      expect(v.lines.single.status, LineStatus.ready,
+          reason: 'the item itself has not moved on — only its journey has');
+      expect(
+        () => f.services.orders.updateLine(lineId, deliveryTime: 660),
+        throwsStateError,
+        reason: 'and an hour later is inside the six it could otherwise slip',
+      );
+    });
+
+    test('a started item cannot be brought forward', () async {
+      final id = await order([draft('Cake', date: dayAfter(1), time: 600)]);
+      final lineId = await started(id);
+
+      expect(
+        () => f.services.orders.updateLine(lineId, deliveryTime: 540),
+        throwsStateError,
+        reason: 'it cannot be handed over sooner than it exists',
+      );
     });
 
     test('an item nobody has started is still fully editable', () async {

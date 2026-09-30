@@ -48,6 +48,22 @@ should find it.
 - **Zero never shows** (D10) — one rule, applied to discount, delivery and advance alike.
 - **The address belongs to the order** (D20), starts empty, with *Same as last order*.
 - **Delivery charge stays editable until Delivered**, including from the delivery run.
+- **How far along an item is decides how far its handover may move**
+  (`scheduleRefusal`). Nothing started: any date and time, it is still a
+  conversation. In production or ready: **later only, and by at most six
+  hours** — a cake cannot be handed over sooner than it exists, and a bigger
+  move is a different promise that wants a conversation rather than an edit.
+  Out with a courier, collected or delivered: nothing, because the schedule
+  now describes something that already happened.
+
+  Measured between the schedule as it stands and the one being asked for, at
+  the moment of the edit. Two edits can therefore push it further than six
+  hours in total; that is accepted deliberately, as the alternative is a
+  column to freeze the original promise in.
+
+  **The journey is consulted as well as the item.** An item riding in a van is
+  still `ready` on its own row, so the line status alone would let somebody
+  re-time a delivery already on the road.
 
 ## Failure modes
 | Case | Behaviour |
