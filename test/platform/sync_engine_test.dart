@@ -156,11 +156,47 @@ void main() {
       ],
     );
 
+    // and the items that belong to it, which are refused by the foreign key
+    // until the order exists — so they only work if the sweep retries them
+    // inside the same pass
+    store.journals['oldphone'] = encodeJournal(
+      const JournalHeader(
+          deviceId: 'oldphone', minReaderVersion: 1, compactedThroughSeq: -1),
+      [
+        op(1, {
+          'order_no': 'LLB-0031',
+          'customer_id': cid,
+          'status': 'created',
+          'delivery_date': null,
+          'delivery_time': null,
+        }),
+        Op(
+          opId: 'old-2', seq: 2, hlc: const Hlc(1790000000002, 0, 'oldphone'),
+          entity: 'sub_orders', entityId: 's-old', kind: OpKind.upsert,
+          fields: const {
+            'order_id': 'o-old', 'seq': 1,
+            'delivery_date': 1790400000000, 'fulfilment': 'pickup',
+          },
+          schemaV: 16,
+        ),
+        op(3, {
+          'status': 'created',
+          'fulfilment': 'pickup',
+          'delivery_date': 1790400000000,
+          'delivery_time': 600,
+          'discount_amount': 0,
+          'delivery_charge': 0,
+        }),
+      ],
+    );
+
     final report = await bob.engine.sync();
     expect(report.peerErrors, isEmpty);
 
     final rows = await bob.fixture.rows('orders');
     expect(rows, hasLength(1), reason: 'the order arrived after all');
+    expect(await bob.fixture.rows('sub_orders'), hasLength(1),
+        reason: 'and its journey, in the SAME sync, not the next one');
     expect(rows.first['order_no'], 'LLB-0031', reason: 'from the create op');
     expect(rows.first['fulfilment'], 'pickup', reason: 'from the refresh op');
     expect(rows.first['delivery_date'], 1790400000000,

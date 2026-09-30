@@ -427,6 +427,48 @@ class SyncEngine {
       if (contiguous) advanceTo = op.seq;
     }
 
+    // Sweep the leftovers until nothing more will go in.
+    //
+    // A child read before its parent exists is refused by the foreign key,
+    // and the parent is routinely later in the same journal — an order's own
+    // op is written before its items, but the op that *completes* the order
+    // comes after them. Without this sweep the order landed on one sync and
+    // its items on the next, which read as "sync brought the orders but not
+    // the details".
+    var progress = true;
+    while (progress && orphans.isNotEmpty) {
+      progress = false;
+      for (final key in orphans.keys.toList()) {
+        final group = orphans[key]!;
+        for (final op in [...group]) {
+          if (await applier.apply(op)) {
+            applied++;
+            group.remove(op);
+            progress = true;
+          }
+        }
+        if (group.isEmpty) {
+          orphans.remove(key);
+          continue;
+        }
+        if (await applier.applyMerged(group)) {
+          applied += group.length;
+          orphans.remove(key);
+          progress = true;
+        }
+      }
+    }
+
+    // Recomputed after the sweep, or the cursor would sit behind ops that
+    // have since gone in and the journal would be re-read for ever.
+    if (orphans.isNotEmpty || !contiguous) {
+      advanceTo = cursor;
+      for (final op in fresh) {
+        if (!await _isApplied(op.opId)) break;
+        advanceTo = op.seq;
+      }
+    }
+
     if (advanceTo != cursor) await _writeCursor(peer, advanceTo);
     return (applied: applied, tooNew: false, missedHistory: missedHistory);
   }
