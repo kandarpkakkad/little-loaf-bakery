@@ -401,16 +401,27 @@ class _StatusRow extends StatelessWidget {
 
   final OrderView view;
 
-  /// An order has no "ready" and no "out" — items do, and the order follows
-  /// the last of them. Showing steps nothing can ever reach reads as a stalled
-  /// order rather than a finished one.
+  /// The order follows the last of its journeys, capped by anything earlier
+  /// that has not caught up — so it does reach Ready and Out, and the steps
+  /// are here for it.
+  ///
+  /// **Out is dropped for a pickup**, which never travels. Showing a step
+  /// nothing can ever reach reads as a stalled order rather than a finished
+  /// one, which is the rule that kept Ready and Out off this row entirely
+  /// until the order could reach them.
   static const _flow = [
     OrderStatus.created,
     OrderStatus.confirmed,
     OrderStatus.inProduction,
+    OrderStatus.ready,
+    OrderStatus.out,
     OrderStatus.delivered,
     OrderStatus.completed,
   ];
+
+  List<OrderStatus> get _steps => view.isPickup
+      ? [for (final s in _flow) if (s != OrderStatus.out) s]
+      : _flow;
 
   @override
   Widget build(BuildContext context) {
@@ -425,12 +436,13 @@ class _StatusRow extends StatelessWidget {
     // `stored`, because paymentPending is not a step on this path — it is a
     // reading of the money taken at the Delivered step. Adding it to the flow
     // would show every order a step it usually walks straight past.
-    final at = _flow.indexOf(view.status.stored);
+    final steps = _steps;
+    final at = steps.indexOf(view.status.stored);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (var i = 0; i < _flow.length; i++) ...[
+          for (var i = 0; i < steps.length; i++) ...[
             if (i > 0)
               Container(
                 width: 14,
@@ -448,7 +460,7 @@ class _StatusRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
               child: Text(
-                _flow[i].label,
+                steps[i].label,
                 style: context.text.labelSmall!.copyWith(
                   color: i == at
                       ? Colors.white

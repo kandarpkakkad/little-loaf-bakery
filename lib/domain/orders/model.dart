@@ -626,17 +626,33 @@ OrderStatus deriveOrderStatus(
   if (confirmedAt == null) return OrderStatus.created;
   if (completedAt != null) return OrderStatus.completed;
 
-  if (live.isNotEmpty &&
-      live.every((s) => s.status == SubOrderStatus.delivered)) {
-    // Everything has been handed over, so the only thing left is the money.
-    // `complete()` already refuses while a balance stands; this is what says
-    // so before somebody tries.
+  if (live.isEmpty) return OrderStatus.confirmed;
+
+  // The order is wherever its last journey has got to — capped by anything
+  // earlier that has not caught up, so it can never claim more progress than
+  // the furthest-behind part of it has actually made. Sunday's bread being
+  // ready does not make an order ready while Friday's cake is unbaked.
+  //
+  // Which is the same thing as taking the least advanced live journey, and
+  // the reason this reads as a minimum rather than as a search for the last
+  // one. `SubOrderStatus` is declared in order, so its index is that
+  // ordering; cancelled sits at the end and is filtered out above.
+  final lowest = live
+      .map((s) => s.status)
+      .reduce((a, b) => a.index <= b.index ? a : b);
+
+  // Everything handed over, so the only thing left is the money.
+  // `complete()` already refuses while a balance stands; this is what says so
+  // before somebody tries.
+  if (lowest == SubOrderStatus.delivered) {
     return owes ? OrderStatus.paymentPending : OrderStatus.delivered;
   }
-  if (live.any((s) => s.status.index >= SubOrderStatus.inProduction.index)) {
-    return OrderStatus.inProduction;
-  }
-  return OrderStatus.confirmed;
+  return switch (lowest) {
+    SubOrderStatus.out => OrderStatus.out,
+    SubOrderStatus.ready => OrderStatus.ready,
+    SubOrderStatus.inProduction => OrderStatus.inProduction,
+    _ => OrderStatus.confirmed,
+  };
 }
 
 /// The dietary flags set on an item, in words.

@@ -159,23 +159,49 @@ void main() {
           OrderStatus.created);
     });
 
-    test('the first journey to start puts the order in production', () {
+    test('an order is only as far along as its furthest-behind journey', () {
+      // Sunday's bread being started does not make the order started while
+      // Friday's cake has not been touched: the last journey governs, capped
+      // by anything earlier that has not caught up.
       expect(
         deriveOrderStatus(
           [sub(SubOrderStatus.confirmed), sub(SubOrderStatus.inProduction)],
+          confirmedAt: 1,
+        ),
+        OrderStatus.confirmed,
+      );
+      expect(
+        deriveOrderStatus(
+          [sub(SubOrderStatus.inProduction), sub(SubOrderStatus.inProduction)],
           confirmedAt: 1,
         ),
         OrderStatus.inProduction,
       );
     });
 
-    test('the order never reads ready or out', () {
-      // Half a ready order is not a thing, and an order does not travel.
+    test('the order reads ready, and out, once every journey has', () {
+      // It used to stop at In production however far the journeys got, so an
+      // order sitting baked on the shelf read the same as one in the oven.
+      expect(
+        deriveOrderStatus([sub(SubOrderStatus.ready)], confirmedAt: 1),
+        OrderStatus.ready,
+      );
+      expect(
+        deriveOrderStatus([sub(SubOrderStatus.out)], confirmedAt: 1),
+        OrderStatus.out,
+      );
+      expect(
+        deriveOrderStatus([sub(SubOrderStatus.ready), sub(SubOrderStatus.out)],
+            confirmedAt: 1),
+        OrderStatus.ready,
+        reason: 'one still on the shelf, so the order is not out yet',
+      );
+      // Half a ready order is still not a ready order.
       for (final st in [SubOrderStatus.ready, SubOrderStatus.out]) {
         expect(
           deriveOrderStatus([sub(SubOrderStatus.confirmed), sub(st)],
               confirmedAt: 1),
-          OrderStatus.inProduction,
+          OrderStatus.confirmed,
         );
       }
     });
@@ -185,8 +211,8 @@ void main() {
         deriveOrderStatus(
             [sub(SubOrderStatus.delivered), sub(SubOrderStatus.out)],
             confirmedAt: 1),
-        OrderStatus.inProduction,
-        reason: 'one van still out — the order is not delivered',
+        OrderStatus.out,
+        reason: 'one van still out — the order is not delivered, it is out',
       );
       expect(
         deriveOrderStatus(

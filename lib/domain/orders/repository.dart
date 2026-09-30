@@ -1161,10 +1161,19 @@ class OrderRepository {
       // the flavour has been read and the tin weighed, so changing them now
       // changes something already half-made. When and where it goes stays
       // editable — a van can be redirected, a cake cannot be un-baked.
-      final changesWhatItIs = flavour != kUnchanged ||
-          weight != kUnchanged ||
-          qty != null ||
-          basePrice != null;
+      // Compared against what is stored, not merely passed. The edit sheet
+      // submits every field it renders whether or not the person touched it,
+      // so a guard on presence refused *any* edit of a started item — moving
+      // its time included, with a message about flavour and weight that
+      // named nothing the person had changed.
+      final was = Weight.maybe(i.weightValue, i.weightUnit);
+      final asked = weight == kUnchanged ? was : weight as Weight?;
+      final changesWhatItIs =
+          (flavour != kUnchanged && (flavour as String?) != i.flavour) ||
+              asked?.value != was?.value ||
+              asked?.unit != was?.unit ||
+              (qty != null && qty != i.qty) ||
+              (basePrice != null && basePrice.paise != i.basePrice);
       if (status.hasStarted && changesWhatItIs) {
         throw StateError(
           'This item is ${status.label.toLowerCase()} — its date, time '
@@ -1248,19 +1257,20 @@ class OrderRepository {
         // The journey is consulted as well as the item: an item riding in a
         // van is still `ready` on its own row, so the line status alone would
         // happily let somebody re-time a delivery already on the road.
+        // Same again: compared, not merely passed. Otherwise an item out
+        // with a courier could not have its address corrected, because the
+        // sheet always sends the date alongside it.
+        final toDate = deliveryDate ?? was.deliveryDate;
+        final toTime =
+            deliveryTime == kUnchanged ? was.deliveryTime : deliveryTime as int?;
         final touchesTiming =
-            deliveryDate != null || deliveryTime != kUnchanged;
+            toDate != was.deliveryDate || toTime != was.deliveryTime;
         if (touchesTiming) {
           final refusal = scheduleRefusal(
             line: status,
             journey: SubOrderStatus.parse(was.status),
             from: scheduleAt(was.deliveryDate, was.deliveryTime),
-            to: scheduleAt(
-              deliveryDate ?? was.deliveryDate,
-              deliveryTime == kUnchanged
-                  ? was.deliveryTime
-                  : deliveryTime as int?,
-            ),
+            to: scheduleAt(toDate, toTime),
           );
           if (refusal != null) throw StateError(refusal);
         }

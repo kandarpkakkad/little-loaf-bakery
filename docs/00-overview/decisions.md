@@ -217,6 +217,20 @@ invisible until someone reads an order marked delivered while a cake is still in
 **Kept manual:** `confirmed` (a conversation with the customer, not a fact about lines) and
 `completed` (deliberate, and still requires a zero balance).
 
+**Corrected 30 Sep 2026 — the order reaches Ready and Out.** The derivation used to collapse
+everything from `in_production` upward into In production, so an order baked and sitting on
+the shelf read the same as one still in the oven, and `OrderStatus.ready` / `.out` were
+values nothing ever returned.
+
+The order is now **wherever its last journey has got to, capped by anything earlier that has
+not caught up** — which is the same as taking the least advanced live journey. Sunday's bread
+being ready does not make an order ready while Friday's cake is untouched, and an order with
+one van still out reads Out rather than Delivered.
+
+The cap is deliberate and it understates rather than overstates: an order whose earliest
+journey has not started reads Confirmed even if a later one is already baked. Overstating
+readiness is the error that costs a customer a cake.
+
 **Extended 30 Sep 2026 — `payment_pending`.** Once every live journey is delivered and a
 balance still stands, the order derives as **Payment pending** rather than Delivered. It is
 the state `complete()` already refused to leave, now visible before somebody tries.

@@ -56,6 +56,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             OrderStatus.created,
             OrderStatus.confirmed,
             OrderStatus.inProduction,
+            OrderStatus.ready,
+            OrderStatus.out,
           ],
         'done' => const [
             OrderStatus.delivered,
@@ -67,6 +69,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             OrderStatus.created,
             OrderStatus.confirmed,
             OrderStatus.inProduction,
+            OrderStatus.ready,
+            OrderStatus.out,
             OrderStatus.delivered,
             OrderStatus.paymentPending,
             OrderStatus.completed,
