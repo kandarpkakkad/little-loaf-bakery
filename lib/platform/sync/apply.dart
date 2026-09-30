@@ -92,6 +92,51 @@ class OpApplier {
   Future<bool> _hasFieldHlc(String entity) async =>
       (await _columnsOf(entity)).contains('field_hlc_json');
 
+  /// Creates a row from several ops that could not manage it alone.
+  ///
+  /// An op is a set of field changes, not a row, so a **creating** op has to
+  /// carry every NOT NULL column or the insert is refused. When a writer got
+  /// that wrong the row could never arrive — v0.8.0 recorded an order create
+  /// without `fulfilment` and a cache refresh without `order_no` and
+  /// `customer_id`, and neither could build the row on its own.
+  ///
+  /// But together they can. The schema is the contract: any set of ops whose
+  /// union satisfies it should produce the row, whatever build wrote them.
+  /// Merged in sequence order, later values winning, which is exactly the
+  /// state sequential application would have left had the row existed.
+  ///
+  /// Returns false when the union is still short, when the row has appeared
+  /// in the meantime — the ops will apply normally then — or when nothing is
+  /// pending but a single op, which [apply] has already tried.
+  ///
+  /// The row is stamped with the last op's HLC, as a single-op insert is.
+  /// Fields from the earlier ops are therefore dated a few milliseconds late;
+  /// they were written in one transaction on the origin, so the window is not
+  /// one a third device can realistically land inside.
+  Future<bool> applyMerged(List<Op> ops) async {
+    if (ops.length < 2) return false;
+    final entity = ops.first.entity;
+    final columns = await _columnsOf(entity);
+    if (columns.isEmpty) return false;
+    if (await _load(entity, ops.first.entityId) != null) return false;
+
+    final merged = <String, Object?>{};
+    for (final op in ops) {
+      if (op.kind != OpKind.upsert) return false;
+      for (final e in op.fields.entries) {
+        if (columns.contains(e.key) && _peerMaySet(entity, e.key)) {
+          merged[e.key] = e.value;
+        }
+      }
+    }
+
+    if (!await _insert(ops.last, merged, columns)) return false;
+    for (final op in ops) {
+      await _markApplied(op);
+    }
+    return true;
+  }
+
   /// Applies one op. Idempotent: an op already in `applied_ops` is a no-op, so
   /// re-reading a peer's journal after a partial sync cannot double-apply.
   ///

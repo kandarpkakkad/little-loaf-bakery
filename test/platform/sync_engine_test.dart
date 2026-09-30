@@ -113,6 +113,60 @@ void main() {
         reason: 'what is still in the journal arrives as normal');
   });
 
+  test('an order written by an older build still arrives', () async {
+    // The real thing, not a contrivance: v0.8.0 recorded a create without
+    // `fulfilment` and a cache refresh without `order_no` and `customer_id`.
+    // Both columns are NOT NULL, so neither op can build the row alone and
+    // the order could never reach another phone. Together they are complete,
+    // and the schema — not the writer's version — is what decides that.
+    final cid = await bob.services.customers
+        .findOrCreate(name: 'Asha Rao', phoneE164: '+919876543210');
+    await bob.engine.sync();
+
+    Op op(int seq, Map<String, Object?> fields) => Op(
+          opId: 'old-$seq',
+          seq: seq,
+          hlc: Hlc(1790000000000 + seq, 0, 'oldphone'),
+          entity: 'orders',
+          entityId: 'o-old',
+          kind: OpKind.upsert,
+          fields: fields,
+          schemaV: 16,
+        );
+
+    store.journals['oldphone'] = encodeJournal(
+      const JournalHeader(
+          deviceId: 'oldphone', minReaderVersion: 1, compactedThroughSeq: -1),
+      [
+        op(1, {
+          'order_no': 'LLB-0031',
+          'customer_id': cid,
+          'status': 'created',
+          'delivery_date': null,
+          'delivery_time': null,
+        }),
+        op(2, {
+          'status': 'created',
+          'fulfilment': 'pickup',
+          'delivery_date': 1790400000000,
+          'delivery_time': 600,
+          'discount_amount': 0,
+          'delivery_charge': 0,
+        }),
+      ],
+    );
+
+    final report = await bob.engine.sync();
+    expect(report.peerErrors, isEmpty);
+
+    final rows = await bob.fixture.rows('orders');
+    expect(rows, hasLength(1), reason: 'the order arrived after all');
+    expect(rows.first['order_no'], 'LLB-0031', reason: 'from the create op');
+    expect(rows.first['fulfilment'], 'pickup', reason: 'from the refresh op');
+    expect(rows.first['delivery_date'], 1790400000000,
+        reason: 'the later op won the field, as it would have in sequence');
+  });
+
   test('one op that cannot apply does not stop the rest of the journal',
       () async {
     // Reading used to stop dead at the first op that would not apply, which

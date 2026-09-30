@@ -276,6 +276,24 @@ stays open.
 The same trap waits for anything else given its own connection: a second
 `openAppDatabase()` is a second world.
 
+### The schema is the contract, not the writer's version
+
+An op is a set of field changes, so a **creating** op must carry every NOT NULL
+column — and when a writer gets that wrong, the row can never be built on any
+other device, however new that device is. Fixing the writer does not fix a
+journal already on Drive: the journal is rebuilt from the outbox, and the old
+rows keep their old payload.
+
+So the reader accumulates. Upserts for a row that does not exist are held by
+row and their union tried as one insert (`OpApplier.applyMerged`), merged in
+sequence order with later values winning — exactly the state sequential
+application would have left had the row existed. v0.8.0 wrote an order create
+without `fulfilment` and a cache refresh without `order_no` and `customer_id`;
+neither could build the row, together they can.
+
+Any set of ops whose union satisfies the schema should produce the row. If
+that is ever untrue, the bug is here and not in the build that wrote them.
+
 ### Skipped is not done
 
 `applied_ops` means "this op has been carried out". Writing an op there because

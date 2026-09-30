@@ -382,9 +382,31 @@ class SyncEngine {
     // first gap it stops, while the reading carries on.
     var contiguous = true;
 
+    // Upserts for a row that does not exist yet, kept by row so their union
+    // can be tried as one insert. A creating op that left out a NOT NULL
+    // column cannot build the row alone, but the ops around it usually carry
+    // what it is missing — and the schema, not the writer's version, is what
+    // decides whether a row can be made.
+    final orphans = <String, List<Op>>{};
+
     for (final op in fresh) {
-      final ok = await applier.apply(op);
+      var ok = await applier.apply(op);
       if (ok) applied++;
+
+      if (!ok && op.kind == OpKind.upsert && !await _isApplied(op.opId)) {
+        final key = '${op.entity}\u0000${op.entityId}';
+        final group = orphans.putIfAbsent(key, () => <Op>[])..add(op);
+        if (await applier.applyMerged(group)) {
+          // The whole group landed as one row, this op included.
+          applied += group.length;
+          orphans.remove(key);
+          // They are all recorded applied now. The cursor has already stopped
+          // behind the first of them, so the next pull reads them again and
+          // short-circuits on `applied_ops` — one extra pass, and no special
+          // case here to get wrong.
+          ok = true;
+        }
+      }
 
       final settled = ok || await _isApplied(op.opId);
       if (!settled) {
