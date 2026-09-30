@@ -1,7 +1,7 @@
 name: little_loaf
 description: "Little Loaf Bakery — orders, stock and invoicing"
 publish_to: 'none'
-version: 0.9.3+73
+version: 0.9.4+74
 
 environment:
   sdk: ^3.10.0
