@@ -106,9 +106,9 @@ Future<void> refund(Order o, Money amount, String reason) {
 | Case | Handling |
 |---|---|
 | Duplicate cash entry from two devices | Both stand. Deleting one is a human decision — two genuine ₹500 payments are ordinary |
-| Payment then the order total changes | Balance recomputes. If it goes negative, *Refund due* is shown |
+| Payment then the order total changes | Balance recomputes. If it goes negative the order is in credit, which is reported — there is no refund to record against it |
 | Payment on a device with a stale order | Fine — payments are inserts and never depend on the order's current total |
-| Order completed, then a payment is deleted | Balance becomes non-zero. The order **stays** Completed; nothing auto-reverses (D15). Surfaced in the outstanding report |
+| Order completed, then a payment is deleted | Balance becomes non-zero. The order **stays** Completed; nothing auto-reverses (D15). Surfaced in the outstanding report — and no further payment can be recorded against it, so the fix is to reinstate the payment that was removed |
 | Advance recorded after Delivered | Stored as `balance` — the kind reflects when, not what it was called |
 
 ## 8. What to test

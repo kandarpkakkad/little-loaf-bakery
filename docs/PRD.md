@@ -379,7 +379,14 @@ sibling, so the second item joins the first one's journey. It is a copy, not a l
 the first afterwards leaves the second alone.
 
 **What an item *is* stays editable until a baker starts on it.** Once it is in production the
-tin has been weighed. When and where it goes stays editable until it has gone.
+tin has been weighed.
+
+**Where it goes stays editable until it has gone; when it goes is bounded once work starts.**
+Nothing started: any date and time. In production or ready: later only, and by at most six
+hours — a cake cannot be handed over sooner than it exists, and a bigger move is a different
+promise that wants a conversation. Out with a courier, collected or delivered: neither, because
+the schedule has stopped being a plan and become a record. The address and the delivery charge
+are not bounded by this; a van can still be redirected.
 
 **The address is remembered.** A new address typed while taking an order is saved against the
 customer when the order is written — so the next order offers it, and it shows on their page.
@@ -507,8 +514,11 @@ message opens with "Little Loaf Bakery".
 
 - Amount, date, mode (UPI / cash / transfer), reference, which device recorded it.
 - Multiple partial payments. Advance and balance are just payments with a type.
-- Status is derived, never typed: **Unpaid / Advance paid / Paid / Refunded.** Unpaid is a
-  legitimate confirmed state — nothing should treat it as a warning.
+- Status is derived, never typed: **Unpaid / Advance paid / Paid.** Unpaid is a legitimate
+  confirmed state — nothing should treat it as a warning.
+- **Money only ever comes in.** A payment cannot be negative and cannot be recorded against
+  a completed or cancelled order; one typed by mistake is removed rather than reversed.
+  Refunding is its own feature and does not exist yet — see payments/hld.md.
 - **A ledger on the order**, collapsed by default, oldest first, each row carrying the day the
   money arrived. The Paid line answers the question most of the time; this is what you open
   when that number looks wrong.

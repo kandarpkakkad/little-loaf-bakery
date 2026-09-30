@@ -43,7 +43,7 @@ cancelling an item after it was paid for.
 
 ### Not stored
 
-Payment status — Unpaid / Advance paid / Paid / Refunded — is **derived** from the sum of
+Payment status — Unpaid / Advance paid / Paid — is **derived** from the sum of
 payments against the order total. Never a column, so it can never drift.
 
 **Unpaid is a legitimate confirmed state** (D9). Nothing in the UI treats it as a warning.
