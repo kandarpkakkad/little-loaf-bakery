@@ -153,10 +153,52 @@ void main() {
       }
     });
 
+    SubOrder journey(SubOrderStatus st) => SubOrder(
+          id: 'j-${st.name}',
+          seq: 1,
+          status: st,
+          deliveryDate: 1790400000000,
+          fulfilment: Fulfilment.delivery,
+        );
+
+    test('handed over and owing reads as payment pending', () {
+      final subs = [journey(SubOrderStatus.delivered)];
+      expect(
+        deriveOrderStatus(subs, confirmedAt: 1, owes: true),
+        OrderStatus.paymentPending,
+      );
+      expect(
+        deriveOrderStatus(subs, confirmedAt: 1, owes: false),
+        OrderStatus.delivered,
+        reason: 'settled, so there is nothing pending',
+      );
+    });
+
+    test('owing changes nothing before everything is handed over', () {
+      // A balance before the handover is an advance still to come.
+      expect(
+        deriveOrderStatus([journey(SubOrderStatus.inProduction)],
+            confirmedAt: 1, owes: true),
+        OrderStatus.inProduction,
+      );
+    });
+
+    test('payment pending offers no move a person can make', () {
+      // Recording the payment is the way out, not a status button.
+      expect(allowedNext(OrderStatus.paymentPending), isEmpty);
+      expect(allowedNext(OrderStatus.delivered), contains(OrderStatus.completed));
+    });
+
     test('wire values round-trip', () {
       for (final s in OrderStatus.values) {
-        expect(OrderStatus.parse(s.wire), s);
+        // paymentPending is derived, never stored and never sent: the column
+        // has a CHECK listing the other eight, so a peer on an older build
+        // would refuse a ninth. It deliberately goes down the wire as the
+        // handover it really is.
+        expect(OrderStatus.parse(s.wire), s.stored);
       }
+      expect(OrderStatus.paymentPending.wire, 'delivered');
+      expect(OrderStatus.paymentPending.stored, OrderStatus.delivered);
     });
   });
 

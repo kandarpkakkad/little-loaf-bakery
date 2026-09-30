@@ -96,6 +96,23 @@ void main() {
           reason: 'the months before it are present and empty');
     });
 
+    test('an over-paid order cannot cancel out somebody else\'s debt', () async {
+      // `billed - collected` netted the two, so one customer paying too much
+      // quietly hid another owing money. Only orders that actually owe count.
+      final owing = await order([draft('Cake', price: 1000)]);
+      await f.services.orders.addPayment(
+          orderId: owing, amount: Money.rupees(400), kind: 'advance', mode: 'upi');
+      await deliverAll(owing);
+
+      final overpaid = await order([draft('Bread', price: 500)]);
+      await f.services.orders.addPayment(
+          orderId: overpaid, amount: Money.rupees(900), kind: 'advance', mode: 'upi');
+      await deliverAll(overpaid);
+
+      expect(await f.services.reports.outstanding(), Money.rupees(600),
+          reason: "the \u20b9400 overpaid is a refund, not a discount on the debt");
+    });
+
     test('an order cancelled before it goes out is never a sale', () async {
       // This used to be "a voided invoice removes the sale". Voiding was the
       // only way to un-count something already delivered, and it went with

@@ -44,9 +44,11 @@ MessageContext _ctx({
   String? phone = '+91 98… 1102',
   Money? lastPayment,
   bool isUpdate = false,
+  bool handedOver = false,
 }) =>
     MessageContext(
       customerFirstName: 'Meera',
+      handedOver: handedOver,
       orderNo: 'LLB-0148-K7QP',
       businessName: 'Little Loaf Bakery',
       lines: _linesWith(discount, discountValue),
@@ -75,6 +77,28 @@ void main() {
     test('on-its-way only when a tracking link exists', () {
       expect(isOffered(MessageKind.outForDelivery, _ctx()), isFalse);
       expect(isOffered(MessageKind.outForDelivery, _ctx(tracking: 'https://t.co/x')), isTrue);
+    });
+
+    test('a payment reminder waits for the handover, then for the money', () {
+      // Before anything changes hands a balance is an advance not yet due,
+      // and chasing it would be both rude and wrong.
+      expect(
+        isOffered(MessageKind.paymentReminder,
+            _ctx(paid: Money.rupees(200), handedOver: false)),
+        isFalse,
+        reason: 'nothing has been handed over yet',
+      );
+      expect(
+        isOffered(MessageKind.paymentReminder,
+            _ctx(paid: Money.rupees(200), handedOver: true)),
+        isTrue,
+      );
+      expect(
+        isOffered(MessageKind.paymentReminder,
+            _ctx(paid: _ctx().totals.total, handedOver: true)),
+        isFalse,
+        reason: 'paid in full, so there is nothing to ask for',
+      );
     });
 
     test('payment received is offered after every payment', () {

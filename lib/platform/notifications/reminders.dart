@@ -174,6 +174,28 @@ class ReminderService {
         await _schedule(id++, r);
       }
 
+      // Handed over and still unpaid, every twelve hours until it is
+      // settled. Anchored to the handover rather than to now, so it keeps
+      // landing at the same two times of day instead of drifting forward
+      // each time this runs.
+      for (final r in batched(paymentReminders(
+        [
+          for (final v in views)
+            if (v.status == OrderStatus.paymentPending)
+              (
+                orderId: v.order.id,
+                orderNo: v.order.orderNo,
+                who: v.customer.name.split(' ').first,
+                handedOverAt: v.handedOverAt,
+                owes: true,
+                amount: '₹${v.totals.balanceDue.paise ~/ 100}',
+              ),
+        ],
+        now: DateTime.now(),
+      ))) {
+        await _schedule(id++, r);
+      }
+
       // One per morning that has work on it, across every order — plus what
       // needs buying, on the next morning only.
       for (final r in morningDigests(journeys,

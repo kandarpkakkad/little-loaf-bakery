@@ -161,7 +161,9 @@ void main() {
     // it over delivers both at once (D29).
     await advance(v.lines.first.id!, LineStatus.delivered);
     v = await view(id);
-    expect(v.status, OrderStatus.delivered);
+    // `stored`: this is about the items carrying the order along, and an
+    // unpaid order reads as paymentPending on top of the same handover.
+    expect(v.status.stored, OrderStatus.delivered);
     expect(v.lines.every((l) => l.status == LineStatus.delivered), isTrue,
         reason: 'they travelled together, so they arrived together');
   });

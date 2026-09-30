@@ -422,7 +422,10 @@ class _StatusRow extends StatelessWidget {
         tone: AlertTone.bad,
       );
     }
-    final at = _flow.indexOf(view.status);
+    // `stored`, because paymentPending is not a step on this path — it is a
+    // reading of the money taken at the Delivered step. Adding it to the flow
+    // would show every order a step it usually walks straight past.
+    final at = _flow.indexOf(view.status.stored);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -518,7 +521,7 @@ Future<void> _move(BuildContext context, OrderView view, OrderStatus to) async {
   // before the move.
   final fresh = await app.orders.watchOrder(view.order.id).first;
   if (fresh == null || !context.mounted) return;
-  await _offerMessage(context, fresh, MessageKind.confirmation);
+  await offerMessage(context, fresh, MessageKind.confirmation);
 }
 
 /// The one step this **item** can take next, as a button.
@@ -658,7 +661,7 @@ class SubOrderNextStep extends StatelessWidget {
     // never told "your order has been delivered" while a box is outstanding.
     final fresh = await orders.watchOrder(view.order.id).first;
     if (fresh == null || !context.mounted) return;
-    await _offerMessage(context, fresh, kind,
+    await offerMessage(context, fresh, kind,
         dropLines: moving,
         isPickup: sub.isPickup,
         trackingUrl: sub.trackingUrl);
@@ -741,7 +744,7 @@ Future<void> _addItem(BuildContext context, OrderView view) async {
   if (view.order.confirmedAt == null) return;
   final fresh = await orders.watchOrder(view.order.id).first;
   if (fresh == null || !context.mounted) return;
-  await _offerMessage(context, fresh, MessageKind.confirmation, isUpdate: true);
+  await offerMessage(context, fresh, MessageKind.confirmation, isUpdate: true);
 }
 
 /// An item as the editor wants it: what it is, plus when and where its
@@ -956,7 +959,7 @@ Future<void> _recordPayment(BuildContext context, OrderView view) async {
       // ₹1,600" and then asked for ₹1,600.
       final fresh = await orders.watchOrder(view.order.id).first;
       if (fresh != null && context.mounted) {
-        await _offerMessage(context, fresh, MessageKind.paymentReceived,
+        await offerMessage(context, fresh, MessageKind.paymentReceived,
             justPaid: value);
       }
     }
@@ -992,6 +995,10 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
     // The moving journey's link when there is one; the order's cache — which
     // is the finishing journey's — only as a fallback.
     trackingUrl: trackingUrl ?? o.trackingUrl,
+    // Exactly the payment-pending state: everything handed over, money
+    // still owed. Before the handover a balance is an advance yet to fall
+    // due, and chasing it would be both rude and wrong.
+    handedOver: view.status == OrderStatus.paymentPending,
     upiId: s.upiId,
     paymentPhone: s.paymentPhone,
     lastPayment: justPaid,
@@ -1007,7 +1014,12 @@ Future<MessageContext> _messageContext(BuildContext context, OrderView view,
 /// that customer's chat. A `wa.me` link can pre-select the chat but cannot
 /// carry an attachment — which is exactly why the invoice is text.
 /// docs/00-overview/decisions.md D13.
-Future<void> _offerMessage(
+/// Compose a message for an order and offer to send it.
+///
+/// Public because the unpaid list on More sends the payment reminder too, and
+/// a second copy of this would be a second set of rules about what may be
+/// sent.
+Future<void> offerMessage(
     BuildContext context, OrderView view, MessageKind kind,
     {Money? justPaid,
     List<OrderLine> dropLines = const [],
@@ -1137,7 +1149,7 @@ Future<void> _messageSheet(BuildContext context, OrderView view) async {
               title: Text(_kindLabel(k)),
               onTap: () {
                 Navigator.pop(sheetContext);
-                _offerMessage(context, view, k);
+                offerMessage(context, view, k);
               },
             ),
         ],
@@ -1363,6 +1375,7 @@ String _kindLabel(MessageKind k) => switch (k) {
       MessageKind.outForDelivery => 'On its way',
       MessageKind.delivery => 'Delivered',
       MessageKind.paymentReceived => 'Payment received',
+      MessageKind.paymentReminder => 'Payment reminder',
     };
 
 String _kindWire(MessageKind k) => switch (k) {
@@ -1370,6 +1383,7 @@ String _kindWire(MessageKind k) => switch (k) {
       MessageKind.outForDelivery => 'out_for_delivery',
       MessageKind.delivery => 'delivery',
       MessageKind.paymentReceived => 'payment_received',
+      MessageKind.paymentReminder => 'payment_reminder',
     };
 
 Future<void> _dial(String phone) async {

@@ -47,6 +47,7 @@ class OrderView {
         subOrders,
         confirmedAt: order.confirmedAt,
         completedAt: order.completedAt,
+        owes: totals.hasBalance,
       );
 
   bool get isCancelled => status == OrderStatus.cancelled;
@@ -95,14 +96,20 @@ class OrderView {
   /// Reporting files an order under this, so anything showing a date next to a
   /// reported order must show this one — not `order.deliveryDate`, which is
   /// the promise and can be a different month.
-  int get soldOn {
+  int get soldOn => handedOverAt ?? order.deliveryDate;
+
+  /// When the last item actually changed hands, or null if none has.
+  ///
+  /// Unlike [soldOn] this never falls back to the promised date: a payment
+  /// cannot be chased from a handover that has not happened.
+  int? get handedOverAt {
     int? latest;
     for (final l in lines) {
       final at = l.deliveredAt;
       if (at == null) continue;
       if (latest == null || at > latest) latest = at;
     }
-    return latest ?? order.deliveryDate;
+    return latest;
   }
   int? get nextTime => deriveNextTime(subOrders);
 
@@ -741,10 +748,16 @@ class OrderRepository {
   Future<OrderStatus> _derivedStatus(String orderId) async {
     final o = await (db.select(db.orders)..where((t) => t.id.equals(orderId)))
         .getSingle();
+    final subs = await _subOrdersOf(orderId, confirmed: o.confirmedAt != null);
     return deriveOrderStatus(
-      await _subOrdersOf(orderId, confirmed: o.confirmedAt != null),
+      subs,
       confirmedAt: o.confirmedAt,
       completedAt: o.completedAt,
+      owes: OrderTotals(
+        lines: await _linesOf(orderId),
+        deliveryCharge: deliveryTotal(subs),
+        paid: await _paidOf(orderId),
+      ).hasBalance,
     );
   }
 
@@ -1004,9 +1017,17 @@ class OrderRepository {
         .getSingle();
     final subs = await _subOrdersOf(orderId, confirmed: o.confirmedAt != null);
 
-    final status = deriveOrderStatus(subs,
-        confirmedAt: o.confirmedAt, completedAt: o.completedAt);
     final delivery = deliveryTotal(subs);
+    final status = deriveOrderStatus(
+      subs,
+      confirmedAt: o.confirmedAt,
+      completedAt: o.completedAt,
+      owes: OrderTotals(
+        lines: [for (final sub in subs) ...sub.lines],
+        deliveryCharge: delivery,
+        paid: await _paidOf(orderId),
+      ).hasBalance,
+    );
 
     // The order's fulfilment is whichever way the *last* journey goes, which
     // decides the wording of the message that closes the order.
@@ -1030,7 +1051,7 @@ class OrderRepository {
 
     await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(
       OrdersCompanion(
-        status: Value(status.wire),
+        status: Value(status.stored.wire),
         discountType: Value(discount.isZero ? null : DiscountType.amount.name),
         discountValue: Value(discount.isZero ? null : discount.paise),
         discountAmount: Value(discount.paise),
@@ -1059,7 +1080,8 @@ class OrderRepository {
       // correction behind it.
       'order_no': o.orderNo,
       'customer_id': o.customerId,
-      'status': status.wire,
+      // `stored`, so the ninth status never reaches the column or a peer.
+      'status': status.stored.wire,
       'discount_type': discount.isZero ? null : DiscountType.amount.name,
       'discount_value': discount.isZero ? null : discount.paise,
       'discount_amount': discount.paise,

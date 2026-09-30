@@ -124,6 +124,8 @@ class OrderCard extends StatelessWidget {
       OrderStatus.created => (c.warn, c.warnSoft),
       OrderStatus.cancelled => (c.bad, c.badSoft),
       OrderStatus.completed || OrderStatus.delivered => (c.good, c.goodSoft),
+      // Not done, however finished the baking is.
+      OrderStatus.paymentPending => (c.warn, c.warnSoft),
       _ => (c.accent2, c.accentSoft),
     };
   }

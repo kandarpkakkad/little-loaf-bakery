@@ -44,6 +44,8 @@ CREATE TABLE orders (
   cancel_reason           TEXT,
   delivered_at            INTEGER,
   -- common columns
+  -- No 'payment_pending': it is derived at read time and deliberately never
+  -- written here, so an older peer can still read every value this column holds.
   CHECK (status IN ('created','confirmed','in_production','delivered','completed','cancelled'))
   -- D26: 'ready' and 'out' live on the line now. The column is still written
   -- because a v9 peer reads it; nothing in this build treats it as truth,

@@ -15,6 +15,8 @@ import 'config/business_config_screen.dart';
 import 'config/materials_config_screen.dart';
 import 'config/menu_config_screen.dart';
 import 'customers_screen.dart';
+import '../../domain/messaging/compose.dart';
+import 'orders/order_detail_screen.dart';
 
 /// Everything that is not a daily action: the lists behind the app, and the
 /// month's numbers.
@@ -144,7 +146,17 @@ class _MonthSummary extends StatelessWidget {
             Money.zero, (Money a, o) => a + o.totals.total);
         final collected =
             month.fold(Money.zero, (Money a, o) => a + o.totals.paid);
-        final outstanding = billed - collected;
+        // Owed across EVERY month, and summed only over the orders that
+        // actually owe. `billed - collected` for the month was wrong twice
+        // over: August's debt vanished in September, and one over-paid order
+        // quietly cancelled out another customer's unpaid balance.
+        // Same definition as ReportRepository.outstanding().
+        final unpaid = [
+          for (final o in all)
+            if (!o.isCancelled && o.totals.hasBalance) o,
+        ]..sort((a, b) => a.soldOn.compareTo(b.soldOn));
+        final outstanding = unpaid.fold(
+            Money.zero, (Money a, o) => a + o.totals.balanceDue);
 
         return LoafCard(
           child: Column(
@@ -176,7 +188,25 @@ class _MonthSummary extends StatelessWidget {
               const SizedBox(height: Space.md),
               MoneyRow('Collected', collected),
               if (outstanding.paise > 0)
-                MoneyRow('Outstanding', outstanding, strong: true),
+                // Deliberately not inside the month: the two figures above
+                // are this month's trading, this one is everything still
+                // owed. The label says so, and the list behind it names who.
+                Row(
+                  children: [
+                    Expanded(
+                      child: MoneyRow('Owed to you · all months', outstanding,
+                          strong: true),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, size: 20),
+                      tooltip: 'Who owes',
+                      onPressed: () => loafSheet(
+                        context,
+                        builder: (_) => _UnpaidSheet(orders: unpaid),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );
@@ -184,4 +214,85 @@ class _MonthSummary extends StatelessWidget {
     );
   }
 }
-            
+
+/// Everyone who still owes, oldest first.
+///
+/// Oldest first because this is a collection list, not a history: the debt
+/// that has been waiting longest is the one worth a message this morning.
+class _UnpaidSheet extends StatelessWidget {
+  const _UnpaidSheet({required this.orders});
+
+  final List<OrderView> orders;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = orders.fold(
+        Money.zero, (Money a, o) => a + o.totals.balanceDue);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Unpaid orders', style: context.text.titleMedium),
+              ),
+              Text(money(total, showZero: true)!,
+                  style: context.text.titleMedium),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.sm),
+        Flexible(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(bottom: Space.lg),
+            itemCount: orders.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final o = orders[i];
+              final days = DateTime.now()
+                  .difference(DateTime.fromMillisecondsSinceEpoch(o.soldOn))
+                  .inDays;
+              return ListTile(
+                title: Text(o.customer.name),
+                subtitle: Text(
+                  '${o.order.orderNo} · ${days == 0 ? 'today' : '$days days'}',
+                  style: context.text.bodySmall!
+                      .copyWith(color: context.colors.ink3),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      money(o.totals.balanceDue)!,
+                      style: context.text.titleSmall!
+                          .copyWith(color: context.colors.warn),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat_outlined, size: 18),
+                      tooltip: 'Send a reminder',
+                      // The same path the order screen uses, so there is one
+                      // set of rules about what may be sent and when.
+                      onPressed: () => offerMessage(
+                          context, o, MessageKind.paymentReminder),
+                    ),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) =>
+                          OrderDetailScreen(orderId: o.order.id)));
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -147,6 +147,16 @@ enum OrderStatus {
   ready,
   out,
   delivered,
+
+  /// Handed over, and still owing money.
+  ///
+  /// **Derived only. Never stored and never sent.** `orders.status` carries a
+  /// CHECK listing the eight wire values, so a peer on an older build would
+  /// refuse a ninth — an op that can never apply, which is the trap fixed in
+  /// bda56b2. [stored] maps it back to [delivered] wherever it would be
+  /// written, and [wire] resolves through [stored] so it cannot escape even
+  /// if something new starts serialising a status.
+  paymentPending,
   completed,
   cancelled;
 
@@ -161,7 +171,14 @@ enum OrderStatus {
     OrderStatus.cancelled: 'cancelled',
   };
 
-  String get wire => _wire[this]!;
+  /// What this status is worth writing down. Everything except
+  /// [paymentPending] is itself; that one is a reading of the money rather
+  /// than a state anybody moved the order into, so the column keeps saying
+  /// `delivered` and a peer on an older build keeps understanding it.
+  OrderStatus get stored =>
+      this == OrderStatus.paymentPending ? OrderStatus.delivered : this;
+
+  String get wire => _wire[stored]!;
   static OrderStatus parse(String s) =>
       _wire.entries.firstWhere((e) => e.value == s).key;
 
@@ -172,6 +189,7 @@ enum OrderStatus {
         OrderStatus.ready => 'Ready',
         OrderStatus.out => 'Out for delivery',
         OrderStatus.delivered => 'Delivered',
+        OrderStatus.paymentPending => 'Payment pending',
         OrderStatus.completed => 'Completed',
         OrderStatus.cancelled => 'Cancelled',
       };
@@ -212,6 +230,11 @@ const Map<OrderStatus, Set<OrderStatus>> kAllowedTransitions = {
   OrderStatus.ready: {OrderStatus.cancelled},
   OrderStatus.out: {OrderStatus.cancelled},
   OrderStatus.delivered: {OrderStatus.completed},
+  // Nothing a person can do from here. Recording the payment drops the
+  // derived status back to `delivered`, and Complete reappears by itself —
+  // so the status explains the missing button instead of the button having
+  // to explain the status.
+  OrderStatus.paymentPending: {},
   OrderStatus.completed: {},
   OrderStatus.cancelled: {},
 };
@@ -590,6 +613,10 @@ OrderStatus deriveOrderStatus(
   Iterable<SubOrder> subs, {
   int? confirmedAt,
   int? completedAt,
+
+  /// Whether the order still owes money. Only consulted once everything has
+  /// been handed over — before that the balance is expected and says nothing.
+  bool owes = false,
 }) {
   final all = subs.toList();
   final live = [for (final s in all) if (s.isLive) s];
@@ -601,7 +628,10 @@ OrderStatus deriveOrderStatus(
 
   if (live.isNotEmpty &&
       live.every((s) => s.status == SubOrderStatus.delivered)) {
-    return OrderStatus.delivered;
+    // Everything has been handed over, so the only thing left is the money.
+    // `complete()` already refuses while a balance stands; this is what says
+    // so before somebody tries.
+    return owes ? OrderStatus.paymentPending : OrderStatus.delivered;
   }
   if (live.any((s) => s.status.index >= SubOrderStatus.inProduction.index)) {
     return OrderStatus.inProduction;

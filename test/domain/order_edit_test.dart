@@ -239,7 +239,10 @@ void main() {
           v!.subOrders.single.id, SubOrderStatus.delivered);
 
       v = await orders.watchOrder(orderId).first;
-      expect(v!.status, OrderStatus.delivered);
+      // Handed over, and nobody has paid, so it reads as payment pending —
+      // `stored` is the handover underneath that reading.
+      expect(v!.status, OrderStatus.paymentPending);
+      expect(v.status.stored, OrderStatus.delivered);
       expect((await order())['status'], 'delivered',
           reason: 'the column is a cache of the derived value');
     });

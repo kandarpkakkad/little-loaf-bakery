@@ -18,6 +18,12 @@ enum ReminderSlot {
   /// An hour past, and nobody has moved it.
   overdue,
 
+  /// Handed over, still unpaid, and nobody has chased it.
+  ///
+  /// Twelve-hourly rather than daily: a morning-only nudge that lands during
+  /// the bake is a morning-only nudge that gets swiped away.
+  paymentDue,
+
   /// Six in the morning, once for the whole day. Replaced the per-journey
   /// version: an untimed journey used to get its own 6 am ping, which meant
   /// two notifications at the same instant saying overlapping things.
@@ -196,6 +202,7 @@ List<Reminder> batched(List<Reminder> reminders) {
             ReminderSlot.halfHour => '${group.length} handovers coming up',
             ReminderSlot.overdue =>
               '${group.length} still not handed over',
+            ReminderSlot.paymentDue => '${group.length} orders still unpaid',
             _ => group.first.title,
           },
           body: [for (final r in group) '${r.who} — ${r.what}'].join(' · '),
@@ -381,4 +388,55 @@ String _clock(DateTime d) {
   final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
   final m = d.minute.toString().padLeft(2, '0');
   return '$h:$m ${d.hour < 12 ? 'am' : 'pm'}';
+}
+
+/// How often an unpaid order asks again once it has been handed over.
+const Duration kPaymentNudge = Duration(hours: 12);
+
+/// The next moment to mention an order that was handed over and not paid for.
+///
+/// Counted from the handover rather than from now, so the reminder lands at
+/// the same two times of day for a given order instead of drifting forward
+/// every time the app recalculates.
+///
+/// Returns null when there is nothing to chase — not handed over, or settled.
+DateTime? nextPaymentNudge({
+  required int? handedOverAt,
+  required bool owes,
+  required DateTime now,
+}) {
+  if (!owes || handedOverAt == null) return null;
+  final from = DateTime.fromMillisecondsSinceEpoch(handedOverAt);
+  var due = from.add(kPaymentNudge);
+  while (!due.isAfter(now)) {
+    due = due.add(kPaymentNudge);
+  }
+  return due;
+}
+
+/// One reminder per unpaid order, at its next nudge.
+///
+/// Only the next one: the service cancels and rewrites the whole schedule
+/// whenever the orders change, so a queue of future nudges would be thrown
+/// away and rebuilt anyway — and the one that matters is the next.
+List<Reminder> paymentReminders(
+  Iterable<({String orderId, String orderNo, String who, int? handedOverAt, bool owes, String amount})> orders, {
+  required DateTime now,
+}) {
+  final out = <Reminder>[];
+  for (final o in orders) {
+    final at = nextPaymentNudge(
+        handedOverAt: o.handedOverAt, owes: o.owes, now: now);
+    if (at == null) continue;
+    out.add(Reminder(
+      subOrderId: o.orderId,
+      slot: ReminderSlot.paymentDue,
+      at: at,
+      title: '${o.who} still owes ${o.amount}',
+      body: '${o.orderNo} was handed over and has not been paid for.',
+      who: o.who,
+      what: o.amount,
+    ));
+  }
+  return out;
 }

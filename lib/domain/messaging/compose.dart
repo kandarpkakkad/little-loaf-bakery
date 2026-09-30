@@ -2,7 +2,15 @@ import '../../common/money.dart';
 import '../../ui/theme/format.dart';
 import '../orders/model.dart';
 
-enum MessageKind { confirmation, outForDelivery, delivery, paymentReceived }
+enum MessageKind {
+  confirmation,
+  outForDelivery,
+  delivery,
+  paymentReceived,
+
+  /// Asking, after the cake has gone and the money has not arrived.
+  paymentReminder,
+}
 
 /// What the app needs to write a message. Deliberately a plain value object —
 /// composition is pure, so every variant is testable without a database.
@@ -18,6 +26,7 @@ class MessageContext {
     this.addressText,
     this.trackingUrl,
     this.upiId,
+    this.handedOver = false,
     this.paymentPhone,
     this.lastPayment,
     this.dropLines = const [],
@@ -34,6 +43,10 @@ class MessageContext {
   final String? deliveryDateLabel, deliveryTimeLabel, addressText;
   final String? trackingUrl;
   final String? upiId, paymentPhone;
+
+  /// Whether everything on this order has actually changed hands. A balance
+  /// before that is an advance still to come, not a debt to chase.
+  final bool handedOver;
 
   /// What was just handed over, when this message follows a payment.
   final Money? lastPayment;
@@ -101,6 +114,11 @@ bool isOffered(MessageKind kind, MessageContext c) => switch (kind) {
       // only when a balance existed — never fired for a part payment at
       // all, because the order sits at the same status before and after.
       MessageKind.paymentReceived => true,
+      // Nothing to ask for if nothing is owed. Also refused before the
+      // handover: an advance that has not fallen due yet is not a debt, and
+      // chasing it would be rude and wrong.
+      MessageKind.paymentReminder =>
+        c.totals.balanceDue.paise > 0 && c.handedOver,
     };
 
 String compose(MessageKind kind, MessageContext c) => switch (kind) {
@@ -108,6 +126,7 @@ String compose(MessageKind kind, MessageContext c) => switch (kind) {
       MessageKind.outForDelivery => _onItsWay(c),
       MessageKind.delivery => _delivery(c),
       MessageKind.paymentReceived => _paymentReceived(c),
+      MessageKind.paymentReminder => _paymentReminder(c),
     };
 
 /// What is on this message: the lines being dropped, or all of them —
@@ -318,6 +337,22 @@ String _delivery(MessageContext c) {
 /// is still owed. A receipt that omits the balance invites the question it was
 /// meant to prevent — and a part payment is exactly when the customer is least
 /// sure where they stand.
+/// A nudge, not a demand.
+///
+/// Says what is owed and for what, and stops. No lateness, no tone — this
+/// goes to someone the bakery wants to sell to again next month, and the
+/// commonest reason a balance is unpaid is that nobody mentioned it.
+String _paymentReminder(MessageContext c) => [
+      'Hi ${c.customerFirstName}, hope you enjoyed everything!',
+      '',
+      'Order: ${c.orderNo}',
+      'Still to pay: ${money(c.totals.balanceDue, showZero: true)}',
+      if (c.upiId != null && c.upiId!.isNotEmpty) 'UPI: ${c.upiId}',
+      '',
+      'Thank you!',
+      '— ${c.businessName}',
+    ].join('\n');
+
 String _paymentReceived(MessageContext c) {
   final owed = c.totals.balanceDue;
   return [

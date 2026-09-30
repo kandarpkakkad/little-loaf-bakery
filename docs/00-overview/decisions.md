@@ -202,6 +202,22 @@ production, `delivered` only when every live line is delivered.
 invisible until someone reads an order marked delivered while a cake is still in the oven.
 **Kept manual:** `confirmed` (a conversation with the customer, not a fact about lines) and
 `completed` (deliberate, and still requires a zero balance).
+
+**Extended 30 Sep 2026 — `payment_pending`.** Once every live journey is delivered and a
+balance still stands, the order derives as **Payment pending** rather than Delivered. It is
+the state `complete()` already refused to leave, now visible before somebody tries.
+
+It is **derived only: never stored and never sent.** The `status` column carries a CHECK
+listing the other values, so a peer on an older build would refuse a ninth — an op that can
+never apply, which is the trap fixed in `bda56b2`. `OrderStatus.stored` maps it back to
+`delivered` wherever it is written, and `wire` resolves through `stored`, so it cannot escape
+even if something new starts serialising a status. Anything that counts a sale reads
+`status.stored`: the cake was handed over, and whether the money has arrived is the
+difference between billed and collected, not between sold and not.
+
+**No transition out of it.** Recording the payment drops the derived status back to
+`delivered` and Complete reappears by itself, so the status explains the missing button
+rather than the button having to explain the status.
 **Cost:** you can no longer drag the whole order forward in one tap when every line moves
 together. §4.3 keeps a bulk action for exactly that.
 

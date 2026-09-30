@@ -230,8 +230,11 @@ class ReportRepository {
     final all = await orders.watchOrders().first;
     return [
       for (final v in all)
+        // `stored` folds paymentPending back into delivered: the cake was
+        // handed over, so it is a sale. Whether the money has arrived is the
+        // difference between billed and collected, not between sold and not.
         if (!v.isCancelled &&
-            (v.status == OrderStatus.delivered ||
+            (v.status.stored == OrderStatus.delivered ||
                 v.status == OrderStatus.completed))
           v,
     ];
