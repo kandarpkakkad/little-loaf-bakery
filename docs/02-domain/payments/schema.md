@@ -28,6 +28,19 @@ devices recording money at the same moment safe — the amounts simply add.
 
 The last `CHECK` ties sign to kind, so a refund can never be stored as a positive.
 
+**No refund can be created, as of 30 Sep 2026.** The columns and the CHECK stay — they
+describe a shape the schema still allows and an older peer may still send — but the app
+refuses to write one. `addPayment` takes an amount coming in and nothing else, and
+`editPayment` no longer turns a payment into a refund by making it negative, which was the
+only route to one.
+
+Refunding is its own feature, not a payment with a minus sign. It changes what the balance
+means, what the outstanding total counts and what the payment message says, and none of that
+has been designed. A payment typed by mistake is **removed**, not reversed.
+
+Credit — `paid > total` — is unaffected and still reachable honestly: by overpaying, or by
+cancelling an item after it was paid for.
+
 ### Not stored
 
 Payment status — Unpaid / Advance paid / Paid / Refunded — is **derived** from the sum of

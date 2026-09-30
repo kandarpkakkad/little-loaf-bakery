@@ -1734,8 +1734,9 @@ class OrderRepository {
     required String mode,
     String? reference,
   }) async {
-    if (amount.isZero) {
-      throw StateError('A payment of nothing is not a payment — remove it');
+    if (amount.paise <= 0) {
+      throw StateError(
+          'A payment has to be an amount coming in. Remove it instead.');
     }
     final hlc = mutations.lastHlc.toString();
     await db.transaction(() async {
@@ -1744,9 +1745,11 @@ class OrderRepository {
           .getSingleOrNull();
       if (row == null) return;
 
-      final kind = amount.paise < 0
-          ? 'refund'
-          : (row.kind == 'refund' ? 'balance' : row.kind);
+      // Editing no longer turns a payment into a refund by making it
+      // negative: that was the only way a refund could come into existence,
+      // and it did so without any of the balance, outstanding and messaging
+      // rules a refund actually needs.
+      final kind = row.kind == 'refund' ? 'balance' : row.kind;
 
       await (db.update(db.payments)..where((t) => t.id.equals(paymentId)))
           .write(PaymentsCompanion(
@@ -1797,8 +1800,25 @@ class OrderRepository {
     required String mode,
     String? reference,
   }) async {
+    // Money coming in, and only that. A refund is its own thing — a negative
+    // payment would quietly change what the balance means, what the
+    // outstanding total counts and what the WhatsApp message says, none of
+    // which have been thought through. Until they are, it cannot be typed.
+    if (amount.paise <= 0) {
+      throw StateError('A payment has to be an amount coming in.');
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     await db.transaction(() async {
+      // Nothing more is owed on a finished order and nothing is owed at all
+      // on a cancelled one, so a payment against either is a mistake — and
+      // with no refund to undo it, the credit it creates could not be
+      // cleared. A payment typed by mistake is removed, not reversed.
+      final status = await _derivedStatus(orderId);
+      if (status == OrderStatus.completed || status == OrderStatus.cancelled) {
+        throw StateError(
+            'This order is ${status.label.toLowerCase()}, so no more money '
+            'can be recorded against it.');
+      }
       await _insertPayment(
           orderId, amount, kind, mode, now, mutations.lastHlc.toString(),
           reference: reference);

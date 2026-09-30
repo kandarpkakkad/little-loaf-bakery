@@ -142,6 +142,39 @@ void main() {
         reason: 'one op, so a peer can never see half the edit');
   });
 
+  test('money only ever comes in', () async {
+    // A refund is a separate thing that does not exist yet. Recording one as
+    // a negative payment would quietly change what the balance means, what
+    // the outstanding total counts and what the WhatsApp message says — so
+    // it cannot be typed at all until those are worked out.
+    final orders = f.services.orders;
+    expect(
+      () => orders.addPayment(
+          orderId: orderId,
+          amount: Money.rupees(-100),
+          kind: 'refund',
+          mode: 'upi'),
+      throwsStateError,
+    );
+    expect(
+      () => orders.addPayment(
+          orderId: orderId, amount: Money.zero, kind: 'balance', mode: 'upi'),
+      throwsStateError,
+    );
+
+    // And an edit cannot turn a payment into one either — that was the only
+    // way a refund could come into existence.
+    await orders.addPayment(
+        orderId: orderId, amount: Money.rupees(400), kind: 'advance', mode: 'upi');
+    final paid = (await orders.watchPayments(orderId).first).single;
+    expect(
+      () => orders.editPayment(paid.id, amount: Money.rupees(-400), mode: 'upi'),
+      throwsStateError,
+    );
+    final after = await orders.watchOrder(orderId).first;
+    expect(after!.totals.paid, Money.rupees(400), reason: 'nothing changed');
+  });
+
   test('payment can arrive in instalments', () async {
     final orders = f.services.orders;
     // ₹1000 + ₹50 delivery

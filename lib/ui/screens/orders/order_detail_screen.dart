@@ -1233,11 +1233,12 @@ Future<void> _editPayment(BuildContext context, Payment p) async {
   }
   if (action != 'save') return;
 
-  // A refund keeps its sign; everything else is money coming in.
+  // Everything is money coming in. Refunds are a separate thing that does
+  // not exist yet, and signing an edit negative was the only way to create
+  // one — without any of the balance and messaging rules one would need.
   final typed = moneyFromField(amount.text);
-  final signed = p.kind == 'refund' ? Money(-typed.paise) : typed;
   try {
-    await orders.editPayment(p.id, amount: signed, mode: mode,
+    await orders.editPayment(p.id, amount: typed, mode: mode,
         reference: reference.text.trim().isEmpty ? null : reference.text.trim());
   } on StateError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));

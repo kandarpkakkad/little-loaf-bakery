@@ -417,6 +417,30 @@ void main() {
       expect(v.status, OrderStatus.created);
     });
 
+    test('a closed order takes no more money either', () async {
+      // Nothing more is owed on a finished order, and with no refund to undo
+      // it the credit a stray payment creates could never be cleared.
+      final id = await order([draft('Cake', date: dayAfter(1))]);
+      await f.services.orders.confirm(id);
+      final v = await view(id);
+      await advance(v.lines.single.id!, LineStatus.delivered);
+      await f.services.orders.addPayment(
+          orderId: id, amount: v.totals.total, kind: 'balance', mode: 'upi');
+      await f.services.orders.complete(id);
+
+      expect(
+        () => f.services.orders.addPayment(
+            orderId: id,
+            amount: Money.rupees(50),
+            kind: 'balance',
+            mode: 'upi'),
+        throwsStateError,
+      );
+      final after = await view(id);
+      expect(after.totals.inCredit, isFalse,
+          reason: 'a completed order stays settled');
+    });
+
     test('a closed order takes no more items', () async {
       // `completedAt` short-circuits the derivation, so an item added after
       // completion left the order reading Completed while holding unbaked
