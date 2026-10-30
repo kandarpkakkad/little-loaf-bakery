@@ -1,0 +1,51 @@
+# `flutter analyze` and `flutter test` in a throwaway container, so the suite
+# runs on a machine with nothing but Docker. Drive it with
+# tool/test_in_docker.sh, or directly:
+#
+#   docker compose -f docker-compose.test.yml run --rm test
+#
+# The logic and data tests only: test/ui pumps whole screens, and is left to a
+# run with Flutter installed. A new folder of plain tests has to be added to
+# the `flutter test` line below, or it is silently not run here.
+#
+# The steps live inline rather than in a script beside them: with
+# core.autocrlf on, a Windows checkout hands the container a script with CRLF
+# endings, and bash inside it dies on the first `\r`. YAML is read on the host,
+# where line endings do not matter.
+name: little-loaf-test
+
+services:
+  test:
+    # The same Flutter as the pipeline (debug.yml, release.yml). Move all
+    # three together, or the container tests a different toolchain from the
+    # one that builds the APK. Docker Hub rather than ghcr.io: ghcr.io's
+    # download host can crawl at a few KB/s, Docker Hub's does not.
+    image: instrumentisto/flutter:3.38.10
+    environment:
+      PUB_CACHE: /pub-cache
+      FLUTTER_SUPPRESS_ANALYTICS: "true"
+    volumes:
+      # Read-only, and copied in before anything runs. Running in the
+      # checkout would write a .dart_tool full of Linux paths over the host's
+      # and break the next `flutter test` run outside Docker.
+      - .:/src:ro
+      # Kept between runs, so packages are downloaded once, not every time.
+      - pub-cache:/pub-cache
+    working_dir: /app
+    command:
+      - bash
+      - -euo
+      - pipefail
+      - -c
+      - |
+        tar -C /src \
+          --exclude=./.dart_tool --exclude=./build --exclude=./.git \
+          --exclude=./android/.gradle \
+          -cf - . | tar -C /app -xf -
+        flutter --disable-analytics > /dev/null
+        flutter pub get --enforce-lockfile
+        flutter analyze
+        flutter test test/common test/domain test/platform
+
+volumes:
+  pub-cache:

@@ -3,9 +3,14 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../../domain/menu/repository.dart';
+import '../../domain/orders/repository.dart';
+import '../../domain/stock/repository.dart';
 import '../backup/snapshot.dart';
 import '../device/device_id.dart';
+import '../notifications/reminders.dart';
 import '../storage/connection.dart';
+import '../storage/database.dart';
 import 'drive_auth.dart';
 import 'drive_store.dart';
 import 'mutations.dart';
@@ -67,6 +72,13 @@ Future<bool> runBackgroundSync() async {
         deviceId: deviceId,
       );
       final report = await engine.sync();
+      // The running app rebuilds the reminder schedule from its own streams,
+      // and those never hear about a write made on this connection. Without
+      // this, an order the other phone took while this one was shut is
+      // missing from tomorrow's prep until somebody opens the app here.
+      if (report.applied > 0) {
+        await _rescheduleReminders(db, mutations);
+      }
       return report.ok;
     } finally {
       // The foreground isolate may hold the same file open. WAL plus the
@@ -77,6 +89,26 @@ Future<bool> runBackgroundSync() async {
   } catch (e) {
     debugPrint('background sync failed: $e');
     return false;
+  }
+}
+
+/// Lays the whole reminder schedule out again from this isolate's database.
+///
+/// Its own catch: a sync that worked is a sync that worked, and a reminder
+/// that could not be rewritten is not worth the WorkManager backoff a false
+/// would earn. Repositories built here rather than `AppServices`, for the same
+/// reason the rest of this file does (see the top).
+Future<void> _rescheduleReminders(AppDatabase db, Mutations mutations) async {
+  try {
+    final reminders = ReminderService();
+    await reminders.init(interactive: false);
+    await reminders.rebuildFrom(
+      OrderRepository(db, mutations),
+      StockRepository(db, mutations),
+      MenuRepository(db, mutations),
+    );
+  } catch (e) {
+    debugPrint('could not reschedule reminders after sync: $e');
   }
 }
 

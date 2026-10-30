@@ -54,7 +54,11 @@ class ReminderService {
   ///
   /// Failure is quiet on purpose: a phone that refuses notifications is still
   /// a working till, and an exception here would take the app down at launch.
-  Future<void> init() async {
+  ///
+  /// [interactive] is false from the background sync, which has no activity:
+  /// asking for permission there throws, which would leave the service
+  /// unready and the schedule unwritten, and there is no launch tap to read.
+  Future<void> init({bool interactive = true}) async {
     if (_ready) return;
     try {
       tzdata.initializeTimeZones();
@@ -73,10 +77,12 @@ class ReminderService {
       // The app may have been *launched* by the tap, in which case the
       // callback above has already been and gone before anything was
       // listening.
-      final launch = await _plugin.getNotificationAppLaunchDetails();
-      final p = launch?.notificationResponse?.payload;
-      if (launch?.didNotificationLaunchApp == true && p != null) {
-        onOpen?.call(p);
+      if (interactive) {
+        final launch = await _plugin.getNotificationAppLaunchDetails();
+        final p = launch?.notificationResponse?.payload;
+        if (launch?.didNotificationLaunchApp == true && p != null) {
+          onOpen?.call(p);
+        }
       }
 
       final android = _plugin.resolvePlatformSpecificImplementation<
@@ -88,7 +94,7 @@ class ReminderService {
         importance: Importance.high,
       ));
       // Android 13+. Declining is a normal answer and changes nothing else.
-      await android?.requestNotificationsPermission();
+      if (interactive) await android?.requestNotificationsPermission();
       _ready = true;
     } catch (_) {
       _ready = false;
@@ -114,20 +120,39 @@ class ReminderService {
     // Notice needed decides which morning a thing has to be started on, so
     // editing a menu item's lead time moves a reminder.
     _watchingMenu = menu.watchAll().listen((items) {
-      _leads = {for (final m in items) m.id: m.leadDays};
+      _leads = _leadsOf(items);
       _rebuildSoon();
     });
 
     // Stock moves the morning line, so it has to rebuild the schedule too —
     // butter that ran out at four o'clock should be on tomorrow's list.
     _watchingStock = stock.watchLevels().listen((levels) {
-      _low = [
-        for (final l in levels)
-          if (l.material.active && l.state == StockState.below) l.material.name,
-      ];
+      _low = _lowOf(levels);
       _rebuildSoon();
     });
   }
+
+  /// One rebuild from the database as it stands, for a caller with no app
+  /// running to [follow] — the background sync, after it has applied a
+  /// peer's ops. Drift's streams do not cross isolates, so without this an
+  /// order the other phone took at seven is missing from tonight's prep
+  /// reminder until somebody opens the app here.
+  Future<void> rebuildFrom(
+      OrderRepository orders, StockRepository stock, MenuRepository menu) async {
+    _leads = _leadsOf(await menu.watchAll().first);
+    _low = _lowOf(await stock.watchLevels().first);
+    await refresh(await orders.watchOrders().first);
+  }
+
+  // Shared by [follow] and [rebuildFrom], so the two cannot read the menu or
+  // the stock differently.
+  static Map<String, int> _leadsOf(List<MenuItem> items) =>
+      {for (final m in items) m.id: m.leadDays};
+
+  static List<String> _lowOf(List<StockLevel> levels) => [
+        for (final l in levels)
+          if (l.material.active && l.state == StockState.below) l.material.name,
+      ];
 
   /// A burst of writes — confirming an order touches every item — should
   /// rebuild the schedule once, not once per row. Both streams share the
@@ -165,11 +190,18 @@ class ReminderService {
           journeys.add(j);
           perJourney.addAll(remindersFor(j,
               customerFirstName: who, orderNo: v.order.orderNo));
+          // A day out, so tomorrow's bake can start today — or half an hour
+          // after confirming, when there was never a day to give.
+          perJourney.addAll(prepRemindersFor(j,
+              customerFirstName: who,
+              orderNo: v.order.orderNo,
+              confirmedAt: v.order.confirmedAt));
         }
       }
 
       // Collected first, then merged: two cakes leaving at four produced two
-      // identical buzzes at half past three.
+      // identical buzzes at half past three. Merging is per slot, so a prep
+      // reminder never swallows a half-hour warning on the same minute.
       for (final r in batched(perJourney)) {
         await _schedule(id++, r);
       }

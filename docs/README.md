@@ -49,7 +49,7 @@ unbuilt is marked **Not built** where it is described, and summarised here:
 | orders grouped by the day they are next needed; Today removed | built — Kitchen is the day's view; the alerts moved to Orders |
 | kitchen board starts at **confirmed** | built — confirming an order is what hands its items to the kitchen |
 | orders hold **sub-orders** hold items (D28, D29) | built — schema v12; the kitchen works to journeys, and each is delivered once |
-| reminders — 30m before, 1h after, a 6am digest carrying the day's work, what to start and what is low; batched so two handovers at one hour are one notification | built — local notifications, no push server. **Delivery itself is unverified off-device** |
+| reminders — a prep reminder 24h before each confirmed journey, 30m before, 1h after, a 6am digest carrying the day's work, what to start and what is low; batched so two handovers at one hour are one notification; rebuilt by the background sync as well as the running app | built — local notifications, no push server. **Delivery itself is unverified off-device** |
 | reporting | built — sales by month and product, money owed, stock value. Computed over `OrderTotals`, not a SQL view |
 | Kitchen reading journey dates | built — the board is a board of journeys, each delivered once |
 | invoicing, in any form | **removed** in schema v13 — the bakery does not raise bills (D30). GST goes with it |

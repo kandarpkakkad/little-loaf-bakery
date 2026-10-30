@@ -509,6 +509,16 @@ class OrderLine {
 
   bool get isLive => status.isLive;
 
+  /// What the kitchen makes, told apart by everything that changes the bake:
+  /// two sizes of one cake are two things to weigh out, not one. Shared by the
+  /// Bake sheet and the prep reminder so the two never name a thing
+  /// differently.
+  String get bakeLabel => [
+        itemName,
+        if (flavour != null) flavour!,
+        if (weight != null) weight!.label,
+      ].join(' · ');
+
   /// The kitchen's moves. Going out and arriving belong to the sub-order.
   Set<LineStatus> get nextStatuses => status.next;
 
