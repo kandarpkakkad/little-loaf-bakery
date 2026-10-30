@@ -496,6 +496,13 @@ dart run build_runner build --delete-conflicting-outputs --force-jit
 Run `flutter test` and `flutter analyze` before saying anything is done. Both
 must be clean.
 
+No Flutter on the machine? `tool/test_in_docker.sh` runs `flutter analyze` and
+every test outside `test/ui` in a throwaway container on the pipeline's
+Flutter version, and removes it afterwards. The screen tests are not run
+there, so a change to a screen still needs them run somewhere that has Flutter.
+Move the image tag in `docker-compose.test.yml` whenever the workflows move
+theirs.
+
 **There are no end-to-end tests, by project decision** — the owner tests on a
 device. That makes one failure mode very cheap to hit, and it has been hit:
 
