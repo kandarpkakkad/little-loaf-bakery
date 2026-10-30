@@ -8,6 +8,13 @@ library;
 import '../orders/model.dart';
 
 enum ReminderSlot {
+  /// A day out — start making it.
+  ///
+  /// The six o'clock digest lands on the morning a journey goes out, which is
+  /// too late for anything baked the day before, and its "start X" line only
+  /// speaks for items with a lead time set. This is the one that does.
+  prep,
+
   /// Thirty minutes out — leave now.
   ///
   /// There was a two-hour one as well. It was dropped: two hours before a
@@ -39,6 +46,7 @@ class Reminder {
     required this.body,
     this.who = '',
     this.what = '',
+    this.handover,
   });
 
   final String subOrderId;
@@ -52,6 +60,12 @@ class Reminder {
   /// notification without parsing the text back out of it.
   final String who;
   final String what;
+
+  /// When the journey a prep reminder is about is due — midnight of its day
+  /// when it has no hour. Kept for the same reason as [who]: a merged prep
+  /// reminder has to say "today" or "tomorrow", and reading that back out of
+  /// a title is exactly what these fields exist to avoid.
+  final DateTime? handover;
 
   @override
   String toString() => '${slot.name} @ $at — $title / $body';
@@ -169,6 +183,108 @@ List<Reminder> remindersFor(
   ];
 }
 
+/// How far ahead of a handover the kitchen is told what to make.
+const Duration kPrepAhead = Duration(hours: 24);
+
+/// How long after confirming a short-notice order its prep reminder comes.
+const Duration kPrepAfterConfirm = Duration(minutes: 30);
+
+/// A day's notice of what to make for one journey, or nothing.
+///
+/// Separate from [remindersFor] because the filter is different: this is the
+/// kitchen's work, so it speaks only for what the Kitchen board shows — a
+/// journey still `created` belongs to an order nobody has confirmed, and
+/// telling the kitchen to start it would be telling them to bake on spec.
+///
+/// [confirmedAt] is the order's `confirmed_at`. A journey due less than a day
+/// after it can never get a day's notice, so it gets its reminder half an hour
+/// after confirming instead.
+///
+/// docs/02-domain/reminders/lld.md §2a.
+List<Reminder> prepRemindersFor(
+  SubOrder j, {
+  required String customerFirstName,
+  required String orderNo,
+  int? confirmedAt,
+  DateTime? now,
+}) {
+  if (j.status.isDone || j.status == SubOrderStatus.created) return const [];
+  if (j.liveLines.isEmpty) return const [];
+  final at = now ?? DateTime.now();
+  final who = customerFirstName;
+  final what = _what(j, (l) => l.bakeLabel);
+  final ref = j.reference(orderNo);
+
+  final d = DateTime.fromMillisecondsSinceEpoch(j.deliveryDate);
+  final due = scheduledAt(j);
+  final handover = due ?? DateTime(d.year, d.month, d.day);
+
+  // An untimed journey has no hour to count back from, so it gets the whole
+  // day before — and every untimed journey for one day lands on one minute,
+  // which batches them into one notification.
+  final mark = due == null
+      ? DateTime(d.year, d.month, d.day - 1, kMorningHour)
+      : due.subtract(kPrepAhead);
+
+  // Confirmed with less than a day to go — an order taken tonight for tomorrow
+  // morning — so the mark was gone before the kitchen had the work. Half an
+  // hour after confirming instead.
+  //
+  // Anchored to the confirmation, never to now. The schedule is rebuilt on
+  // every edit and every sync, and "a minute from now" was tried first: each
+  // rebuild after the mark would have raised the same reminder again. A fixed
+  // moment that has passed is one that already fired, and is dropped below.
+  final confirmed = confirmedAt == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(confirmedAt);
+  final fireAt = confirmed != null && mark.isBefore(confirmed)
+      ? confirmed.add(kPrepAfterConfirm)
+      : mark;
+  if (!fireAt.isAfter(at)) return const [];
+
+  // Half an hour after confirming can be too close to the handover to say
+  // anything the half-hour warning will not. An untimed journey has no such
+  // warning, so it speaks until its day is over.
+  final covering = due == null
+      ? DateTime(d.year, d.month, d.day + 1)
+      : due.subtract(const Duration(minutes: 30));
+  if (!fireAt.isBefore(covering)) return const [];
+
+  // Counted from when it fires, not from now: a short-notice order confirmed
+  // on the day itself says "Today", and "Tomorrow" then would send somebody
+  // to bed.
+  final day = _sameDay(handover, fireAt) ? 'Today' : 'Tomorrow';
+  final verb = j.isPickup ? 'collects' : 'delivery';
+
+  return [
+    Reminder(
+      // The Kitchen, single or batched: the Bake sheet is where the prep is
+      // read in full, and a one-journey payload has nowhere to go.
+      subOrderId: kDigestPayload,
+      slot: ReminderSlot.prep,
+      at: fireAt,
+      title: due == null ? '$day, any time: $who' : '$day ${_clock(due)}: $who',
+      body: due == null
+          ? '$what — ${j.isPickup ? 'pickup' : 'delivery'}, any time · $ref'
+          : '$what — $verb at ${_clock(due)} · $ref',
+      who: who,
+      what: what,
+      handover: handover,
+    ),
+  ];
+}
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+/// "for today", "for tomorrow", or nothing when a late batch mixes the two.
+String _prepFor(List<Reminder> group) {
+  bool today(Reminder r) => r.handover != null && _sameDay(r.handover!, r.at);
+  if (group.every(today)) return ' for today';
+  if (!group.any(today)) return ' for tomorrow';
+  return '';
+}
+
 /// One notification per moment, however many journeys share it.
 ///
 /// Two cakes leaving at four o'clock produced two identical buzzes half an
@@ -199,6 +315,8 @@ List<Reminder> batched(List<Reminder> reminders) {
           slot: group.first.slot,
           at: group.first.at,
           title: switch (group.first.slot) {
+            ReminderSlot.prep =>
+              '${group.length} orders to prep${_prepFor(group)}',
             ReminderSlot.halfHour => '${group.length} handovers coming up',
             ReminderSlot.overdue =>
               '${group.length} still not handed over',
@@ -372,12 +490,17 @@ DateTime _nextMorning(DateTime at) {
 const String kDigestPayload = 'kitchen';
 
 /// What is on the journey, short enough for a notification line.
-String _what(SubOrder j) {
+///
+/// By item name unless told otherwise: leaving the van, "Cake" is enough, but
+/// the prep reminder passes [OrderLine.bakeLabel], because the kitchen has to
+/// know which cake.
+String _what(SubOrder j, [String Function(OrderLine l)? label]) {
   final live = j.liveLines;
   if (live.isEmpty) return 'Nothing on it';
   final counts = <String, int>{};
   for (final l in live) {
-    counts[l.itemName] = (counts[l.itemName] ?? 0) + l.qty;
+    final name = label == null ? l.itemName : label(l);
+    counts[name] = (counts[name] ?? 0) + l.qty;
   }
   return counts.entries
       .map((e) => e.value > 1 ? '${e.key} ×${e.value}' : e.key)

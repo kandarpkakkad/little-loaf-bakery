@@ -378,11 +378,7 @@ class _BakeSheet extends StatelessWidget {
     // every order would put next month's cake on today's sheet.
     for (final w in work) {
       for (final l in w.sub.liveLines) {
-        final key = [
-          l.itemName,
-          if (l.flavour != null) l.flavour!,
-          if (l.weight != null) l.weight!.label,
-        ].join(' · ');
+        final key = l.bakeLabel;
         totals[key] = (totals[key] ?? 0) + l.qty;
         for (final d in dietaryLabels(l.dietaryFlags)) {
           notes.putIfAbsent(key, () => {}).add(d);

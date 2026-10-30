@@ -541,6 +541,7 @@ and survives the app being closed or the phone rebooting.
 
 | When | Covers | Why |
 |---|---|---|
+| **24 hours before** a confirmed journey's time — **6 am the day before** if it has none | one journey | Start making it. Names what to make with flavour, weight and count. An order confirmed with **less than 24 hours** to go gets it **30 minutes after confirmation** instead (saying **Today** when it is due the same day), unless the 30-minute warning would come first. Tapping it opens the **Kitchen** |
 | **6 am**, on any day with work, something to start, or shopping | the whole day | What today looks like, before the day starts. Tapping it opens the **Kitchen** |
 | **30 minutes before** a journey's time | one journey | Leave now. If that mark has already gone — a rush order, or one that arrived on a sync after it — **it fires at once and says how long is really left** |
 | **1 hour after**, if it has not been handed over | one journey | Nobody has moved it |
@@ -552,9 +553,17 @@ of **distinct handover times** in a day rather than the number of orders, so
 ten orders and thirty both cost about **seventeen** notifications where the
 unbatched set cost twenty and sixty.
 
-**Two moments per journey, not three.** A two-hour warning was built and
+**A day ahead, not two hours ahead.** A two-hour warning was built and
 removed: two hours out is not a moment anybody acts on, and it was a third of
-the day's notifications saying nothing the thirty-minute one would not.
+the day's notifications saying nothing the thirty-minute one would not. The
+prep reminder a day out is one somebody does act on — it is when the bake
+starts — and it is batched the same way, so it adds one notification per
+distinct handover time, not one per order. Only confirmed journeys get one:
+an order still merely created is not the kitchen's yet.
+
+A closed app keeps its schedule current too: the background sync rebuilds it
+whenever it applies the other phone's orders, so an order taken there this
+evening is in tomorrow's prep here.
 
 That total is the constraint every addition has to answer to — a phone that
 buzzes every ten minutes gets its notifications turned off, and then the one
